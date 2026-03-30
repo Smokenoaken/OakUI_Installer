@@ -63,3 +63,8 @@ Put one bullet per line in [NEXT_CHANGELOG.md](NEXT_CHANGELOG.md), then run the 
 
 Current repo version: `1.41.2`
 
+## Project Summary
+
+OakUI Installer is the flagship OakUI suite built around the QUI edition of the interface. It focuses on a lightweight, one-click installation experience for a polished 1440p setup, with profiles and layout tools tuned for Mythic+, raiding, and general play.
+
+The addon is designed to inject curated profiles into the core UI addons it works with, while adapting to role-specific needs like Healer and Tank/DPS layouts. Alongside the installer flow, it includes chat cleanup tools, raw import fallbacks, custom font guidance, and direct access to FAQ and changelog content inside the addon itself.
