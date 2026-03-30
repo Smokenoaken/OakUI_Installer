@@ -4,6 +4,7 @@
 ## Author: Oakensoul
 ## IconTexture: Interface\AddOns\OakUI_Installer\Media\Logo.png
 ## Version: 1.41.2
+## X-Wago-ID: QNlzj8Ke
 ## DefaultState: enabled
 ## SavedVariables: OakUI_DB
 Profiles.lua
