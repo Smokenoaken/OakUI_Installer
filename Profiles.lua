@@ -9,7 +9,7 @@ P.VERSION = "1.41.3-alpha1"
 
 -- UPDATE PATREON/KO-FI SUPPORTERS HERE!
 P.PATREONS = {
-    "Thomas ValhÃ¸j - Ko-Fi",
+    "Thomas Valhøj - Ko-Fi",
     "Justin Komosky",
     "psykotedy",
     "Brian Ehlers",
@@ -17,7 +17,7 @@ P.PATREONS = {
     "Vincent Murcia",
     "Shawn Snyder",
 	"Borja Santos",
-	"Emil SundstrÃ¶m",
+	"Emil Sundström",
 	"Tony",
 	"Mills Guild"
 }

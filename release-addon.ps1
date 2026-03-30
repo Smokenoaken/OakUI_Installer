@@ -25,6 +25,22 @@ function Invoke-Git {
     }
 }
 
+function Read-Utf8Text {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+    $reader = [System.IO.StreamReader]::new($Path, $utf8, $true)
+    try {
+        return $reader.ReadToEnd()
+    }
+    finally {
+        $reader.Dispose()
+    }
+}
+
 function Update-FileText {
     param(
         [Parameter(Mandatory = $true)]
@@ -37,7 +53,7 @@ function Update-FileText {
         [string]$Replacement
     )
 
-    $content = Get-Content -LiteralPath $Path -Raw
+    $content = Read-Utf8Text -Path $Path
     $updated = [regex]::Replace($content, $Pattern, $Replacement, 1)
     if ($updated -eq $content) {
         throw "Could not update expected pattern in '$Path'."
@@ -83,7 +99,7 @@ function Get-ReleaseNotes {
         return @()
     }
 
-    foreach ($line in Get-Content -LiteralPath $NextChangelogPath) {
+    foreach ($line in ((Read-Utf8Text -Path $NextChangelogPath) -split "`r?`n")) {
         $trimmed = $line.Trim()
         if ([string]::IsNullOrWhiteSpace($trimmed)) { continue }
         if ($trimmed.StartsWith("#")) { continue }
@@ -117,7 +133,7 @@ function Update-Changelog {
 
     $existing = ""
     if (Test-Path -LiteralPath $ChangelogPath) {
-        $existing = (Get-Content -LiteralPath $ChangelogPath -Raw).Trim()
+        $existing = (Read-Utf8Text -Path $ChangelogPath).Trim()
     }
 
     if ($existing -match "(?m)^## v$([regex]::Escape($Version))$") {
@@ -148,7 +164,7 @@ function Update-EmbeddedChangelog {
         [string[]]$ReleaseNotes
     )
 
-    $content = Get-Content -LiteralPath $ProfilesPath -Raw
+    $content = Read-Utf8Text -Path $ProfilesPath
     if ($content -match ('(?m)version = "v' + [regex]::Escape($Version) + '"')) {
         throw "Profiles.lua already contains an embedded changelog entry for v$Version."
     }

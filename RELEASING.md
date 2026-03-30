@@ -33,6 +33,23 @@ You still need to do these two steps once:
 
 3. Create a Wago API token and save it as a GitHub repository secret named `WAGO_API_TOKEN`.
 
+## One-Time Discord Setup
+
+This repo now includes [`.github/workflows/discord-release.yml`](.github/workflows/discord-release.yml), which posts a Discord announcement whenever you push a release tag like `v1.41.3`.
+
+You still need to do this once:
+
+1. In your Discord server, open the channel you want for release announcements.
+2. Create a channel webhook:
+   - Edit Channel -> Integrations -> Webhooks -> New Webhook
+   - Copy the webhook URL
+3. In GitHub, open [Smokenoaken/OakUI_Installer repository secrets](https://github.com/Smokenoaken/OakUI_Installer/settings/secrets/actions):
+   - Settings -> Secrets and variables -> Actions
+   - Create a new repository secret named `DISCORD_WEBHOOK_URL`
+   - Paste the Discord webhook URL
+
+After that, every pushed `v*` tag will post the matching `CHANGELOG.md` notes into Discord with a link back to the CurseForge project page.
+
 ## Recommended Release Flow
 
 Use the one-command helper:
@@ -62,7 +79,8 @@ Recommended release steps:
 4. Run `.\release-addon.ps1 -Version 1.41.3`
 5. Let CurseForge package the pushed tag as a Release using `CHANGELOG.md`
 6. Let the Wago GitHub Action publish that same tag to Wago, if `## X-Wago-ID` and `WAGO_API_TOKEN` are configured
-7. Optionally create a GitHub Release page for the same tag
+7. Let the Discord GitHub Action announce that same tag, if `DISCORD_WEBHOOK_URL` is configured
+8. Optionally create a GitHub Release page for the same tag
 
 Optional one-liner if you want to skip editing `NEXT_CHANGELOG.md`:
 
