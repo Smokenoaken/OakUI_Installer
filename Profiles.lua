@@ -5,8 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "1.41.3-alpha1"
-
+P.VERSION = "1.41.3-alpha2"
 -- UPDATE PATREON/KO-FI SUPPORTERS HERE!
 P.PATREONS = {
     "Thomas Valhøj - Ko-Fi",
@@ -87,6 +86,15 @@ P.FAQ = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v1.41.3-alpha2",
+        date = "March 30, 2026",
+        notes = {
+            "Refreshed the OakUI alpha while QUI stabilizes",
+            "Fixed UTF-8 supporter name handling in release files",
+            "Added Discord release announcements",
+        }
+    },
     {
         version = "v1.41.3-alpha1",
         date = "March 29, 2026",
