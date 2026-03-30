@@ -5,11 +5,11 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "1.41.2" 
+P.VERSION = "1.41.3-alpha1"
 
 -- UPDATE PATREON/KO-FI SUPPORTERS HERE!
 P.PATREONS = {
-    "Thomas Valhøj - Ko-Fi",
+    "Thomas ValhÃ¸j - Ko-Fi",
     "Justin Komosky",
     "psykotedy",
     "Brian Ehlers",
@@ -17,7 +17,7 @@ P.PATREONS = {
     "Vincent Murcia",
     "Shawn Snyder",
 	"Borja Santos",
-	"Emil Sundström",
+	"Emil SundstrÃ¶m",
 	"Tony",
 	"Mills Guild"
 }
@@ -87,6 +87,14 @@ P.FAQ = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v1.41.3-alpha1",
+        date = "March 29, 2026",
+        notes = {
+            "Pre-release build for the upcoming QUI stable release",
+            "Holding the full release until QUI moves from beta to release",
+        }
+    },
 	{
         version = "v1.41.2",
         date = "March 21, 2026",

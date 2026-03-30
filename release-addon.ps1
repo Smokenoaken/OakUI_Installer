@@ -67,6 +67,9 @@ function Get-ReleaseNotes {
     $resolvedNotes = @()
 
     if ($InlineNotes -and $InlineNotes.Count -gt 0) {
+        if ($InlineNotes.Count -eq 1 -and $InlineNotes[0].Contains(",")) {
+            $InlineNotes = $InlineNotes[0] -split '\s*,\s*'
+        }
         foreach ($note in $InlineNotes) {
             $trimmed = $note.Trim()
             if (-not [string]::IsNullOrWhiteSpace($trimmed)) {
@@ -221,7 +224,7 @@ if ($blockingStatus.Count -gt 0) {
 Update-Changelog -Version $normalizedVersion -ChangelogPath $changelogPath -ReleaseNotes $releaseNotes
 Update-EmbeddedChangelog -ProfilesPath $profilesPath -Version $normalizedVersion -ReleaseNotes $releaseNotes
 Update-FileText -Path $tocPath -Pattern '(?m)^## Version:\s*.+$' -Replacement "## Version: $normalizedVersion"
-Update-FileText -Path $profilesPath -Pattern '(?m)^P\.VERSION = ".*"$' -Replacement "P.VERSION = ""$normalizedVersion"""
+Update-FileText -Path $profilesPath -Pattern '(?m)^P\.VERSION\s*=\s*".*?"\s*$' -Replacement "P.VERSION = ""$normalizedVersion"""
 Update-FileText -Path $readmePath -Pattern '(?m)^Current repo version:\s*`[^`]+`$' -Replacement "Current repo version: ``$normalizedVersion``"
 Write-Utf8NoBom -Path $nextChangelogPath -Content "# Add one bullet per line for the next release.`r`n# Example:`r`n# Updated the installer flow for a smoother first-run experience`r`n# Refined a module import profile`r`n"
 
