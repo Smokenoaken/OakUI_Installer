@@ -1,0 +1,17 @@
+# Local helper artifacts
+.chrome-profile/
+.edge-profile/
+dist/
+
+# Generated documentation/export files
+*.pdf
+*.html
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.bak
+*.swp
+

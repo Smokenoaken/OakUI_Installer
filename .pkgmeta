@@ -1,0 +1,11 @@
+package-as: OakUI_Installer
+manual-changelog: CHANGELOG.md
+
+ignore:
+  - dist
+  - package-release.ps1
+  - release-addon.ps1
+  - RELEASING.md
+  - README.md
+  - NEXT_CHANGELOG.md
+

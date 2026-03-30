@@ -1,0 +1,21 @@
+## Interface: 120001
+## Title: |cff9482c9OakUI|r Standalone Installer
+## Notes: One-click profile importer for the OakUI suite.
+## Author: Oakensoul
+## IconTexture: Interface\AddOns\OakUI_Installer\Media\Logo.png
+## Version: 1.41.2
+## DefaultState: enabled
+## SavedVariables: OakUI_DB
+Profiles.lua
+InstallLogic.lua
+ChatLayout.lua
+ChatFilters.lua
+Widgets.lua
+InstallerTab.lua
+Visibility.lua
+SelectiveTab.lua
+RawImports.lua
+FontsTab.lua
+ChangelogTab.lua
+FAQTab.lua
+Core.lua
