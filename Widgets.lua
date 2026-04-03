@@ -65,7 +65,13 @@ function addonTable.MakeFlatCheckbox(parent, text, dbKey)
     btn.UpdateState = function(self)
         if OakUI_DB.chatFilters[dbKey] then inner:SetColorTexture(r, g, b, 1) else inner:SetColorTexture(0.137, 0.141, 0.172, 1) end
     end
-    btn:SetScript("OnClick", function(self) OakUI_DB.chatFilters[dbKey] = not OakUI_DB.chatFilters[dbKey]; self:UpdateState() end)
+    btn:SetScript("OnClick", function(self)
+        OakUI_DB.chatFilters[dbKey] = not OakUI_DB.chatFilters[dbKey]
+        self:UpdateState()
+        if dbKey == "hideTabs" and addonTable.RefreshChatTabVisibility then
+            addonTable.RefreshChatTabVisibility()
+        end
+    end)
     return btn
 end
 

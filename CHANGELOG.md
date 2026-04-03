@@ -1,3 +1,7 @@
+## v1.5.0
+
+- Updated for the newly released QUI 3.0 update (April 3, 2026)
+
 ## v1.41.3-alpha2
 
 - Refreshed the OakUI alpha while QUI stabilizes

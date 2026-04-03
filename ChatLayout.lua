@@ -73,6 +73,9 @@ function addonTable.SetupChatWindows(silent)
     end
     
     FCF_DockUpdate()
+    if addonTable.RefreshChatTabVisibility then
+        addonTable.RefreshChatTabVisibility()
+    end
     print("|cff17ee15[OakUI]|r OakUI Chat layout applied! General is governed by Edit Mode, Loot is dynamically tethered to it.")
 
     -- Skip the standalone popup if this was triggered by "Install All"
@@ -92,35 +95,124 @@ function addonTable.SetupChatWindows(silent)
 end
 
 -- ==========================================
--- BRUTE FORCE GHOST TABS (Globally Executed)
+-- CHAT TAB VISIBILITY CONTROL
 -- ==========================================
-local ghostFrame = CreateFrame("Frame")
-local ghostTimer = 0
-ghostFrame:SetScript("OnUpdate", function(self, elapsed)
-    ghostTimer = ghostTimer + elapsed
-    if ghostTimer > 0.1 then 
-        ghostTimer = 0
-        -- Read setting from UI toggle
-        local shouldHide = OakUI_DB and OakUI_DB.chatFilters and OakUI_DB.chatFilters.hideTabs
-        
-        for i = 1, NUM_CHAT_WINDOWS do
-            local frame = _G["ChatFrame"..i]
-            local tab = _G["ChatFrame"..i.."Tab"]
-            if frame and tab and tab:IsShown() then
-                if shouldHide then
-                    -- Force 0 unless hovered
-                    if frame:IsMouseOver() or tab:IsMouseOver() then
-                        tab:SetAlpha(1)
-                    else
-                        tab:SetAlpha(0)
-                    end
-                else
-                    -- If user turned toggle OFF, make sure tabs recover to 100%
-                    if tab:GetAlpha() < 1 then
-                        tab:SetAlpha(1)
-                    end
-                end
-            end
-        end
+local chatTabController = CreateFrame("Frame")
+local hookedTabs = {}
+local refreshQueued = false
+local refreshDelay = 0
+
+local function ShouldHideChatTabs()
+    return not (OakUI_DB and OakUI_DB.chatFilters and OakUI_DB.chatFilters.hideTabs == false)
+end
+
+local function GetChatTabTargetAlpha(frame, tab)
+    if not frame or not tab then
+        return 1
     end
+
+    if not ShouldHideChatTabs() then
+        return 1
+    end
+
+    if frame:IsMouseOver() or tab:IsMouseOver() then
+        return 1
+    end
+
+    return 0
+end
+
+local function ApplyChatTabVisibility(frame, tab)
+    if not frame or not tab or not tab:IsShown() then
+        return
+    end
+
+    local targetAlpha = GetChatTabTargetAlpha(frame, tab)
+    if tab:GetAlpha() ~= targetAlpha then
+        tab:SetAlpha(targetAlpha)
+    end
+end
+
+local function RefreshAllChatTabs()
+    for i = 1, NUM_CHAT_WINDOWS do
+        local frame = _G["ChatFrame"..i]
+        local tab = _G["ChatFrame"..i.."Tab"]
+        ApplyChatTabVisibility(frame, tab)
+    end
+end
+
+local function QueueChatTabRefresh(delay)
+    refreshQueued = true
+    refreshDelay = delay or 0
+    chatTabController:SetScript("OnUpdate", function(self, elapsed)
+        refreshDelay = refreshDelay - elapsed
+        if refreshDelay > 0 then
+            return
+        end
+
+        refreshQueued = false
+        self:SetScript("OnUpdate", nil)
+        RefreshAllChatTabs()
+    end)
+end
+
+local function HookChatTab(frame, tab)
+    if not frame or not tab or hookedTabs[tab] then
+        return
+    end
+
+    hookedTabs[tab] = true
+
+    tab:HookScript("OnShow", function()
+        QueueChatTabRefresh()
+    end)
+    tab:HookScript("OnEnter", function()
+        ApplyChatTabVisibility(frame, tab)
+    end)
+    tab:HookScript("OnLeave", function()
+        ApplyChatTabVisibility(frame, tab)
+    end)
+    frame:HookScript("OnEnter", function()
+        ApplyChatTabVisibility(frame, tab)
+    end)
+    frame:HookScript("OnLeave", function()
+        ApplyChatTabVisibility(frame, tab)
+    end)
+end
+
+local function HookAllChatTabs()
+    for i = 1, NUM_CHAT_WINDOWS do
+        local frame = _G["ChatFrame"..i]
+        local tab = _G["ChatFrame"..i.."Tab"]
+        HookChatTab(frame, tab)
+    end
+end
+
+addonTable.RefreshChatTabVisibility = function()
+    HookAllChatTabs()
+    QueueChatTabRefresh()
+end
+
+chatTabController:RegisterEvent("PLAYER_LOGIN")
+chatTabController:RegisterEvent("UPDATE_CHAT_WINDOWS")
+chatTabController:RegisterEvent("UPDATE_FLOATING_CHAT_WINDOWS")
+chatTabController:SetScript("OnEvent", function()
+    HookAllChatTabs()
+    QueueChatTabRefresh()
 end)
+
+if type(FCFTab_UpdateAlpha) == "function" then
+    hooksecurefunc("FCFTab_UpdateAlpha", function(chatFrame)
+        if chatFrame then
+            local tab = _G[chatFrame:GetName().."Tab"]
+            HookChatTab(chatFrame, tab)
+            ApplyChatTabVisibility(chatFrame, tab)
+        end
+    end)
+end
+
+if type(FCFDock_UpdateTabs) == "function" then
+    hooksecurefunc("FCFDock_UpdateTabs", function()
+        addonTable.RefreshChatTabVisibility()
+    end)
+end
