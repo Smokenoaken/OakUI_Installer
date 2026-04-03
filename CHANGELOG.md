@@ -1,3 +1,8 @@
+## v1.5.1
+
+- Fixed chat tabs so they fully disappear unless hovered
+- Refreshed the QUI export profile in `Profiles.lua`
+
 ## v1.5.0
 
 - Updated for the newly released QUI 3.0 update (April 3, 2026)

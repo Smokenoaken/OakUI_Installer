@@ -101,6 +101,15 @@ local chatTabController = CreateFrame("Frame")
 local hookedTabs = {}
 local refreshQueued = false
 local refreshDelay = 0
+local defaultChatTabAlpha = {
+    selectedMouseover = CHAT_FRAME_TAB_SELECTED_MOUSEOVER_ALPHA or 1,
+    selectedNoMouse = CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA or 0.4,
+    alertingMouseover = CHAT_FRAME_TAB_ALERTING_MOUSEOVER_ALPHA or 1,
+    alertingNoMouse = CHAT_FRAME_TAB_ALERTING_NOMOUSE_ALPHA or 1,
+    normalMouseover = CHAT_FRAME_TAB_NORMAL_MOUSEOVER_ALPHA or 0.6,
+    normalNoMouse = CHAT_FRAME_TAB_NORMAL_NOMOUSE_ALPHA or 0.2,
+    hideDelay = CHAT_TAB_HIDE_DELAY or 1,
+}
 
 local function ShouldHideChatTabs()
     return not (OakUI_DB and OakUI_DB.chatFilters and OakUI_DB.chatFilters.hideTabs == false)
@@ -122,8 +131,40 @@ local function GetChatTabTargetAlpha(frame, tab)
     return 0
 end
 
+local function ApplyChatTabAlphaGlobals()
+    if ShouldHideChatTabs() then
+        CHAT_FRAME_TAB_SELECTED_MOUSEOVER_ALPHA = 1
+        CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA = 0
+        CHAT_FRAME_TAB_ALERTING_MOUSEOVER_ALPHA = 1
+        CHAT_FRAME_TAB_ALERTING_NOMOUSE_ALPHA = 0
+        CHAT_FRAME_TAB_NORMAL_MOUSEOVER_ALPHA = 1
+        CHAT_FRAME_TAB_NORMAL_NOMOUSE_ALPHA = 0
+        CHAT_TAB_HIDE_DELAY = 0
+    else
+        CHAT_FRAME_TAB_SELECTED_MOUSEOVER_ALPHA = defaultChatTabAlpha.selectedMouseover
+        CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA = defaultChatTabAlpha.selectedNoMouse
+        CHAT_FRAME_TAB_ALERTING_MOUSEOVER_ALPHA = defaultChatTabAlpha.alertingMouseover
+        CHAT_FRAME_TAB_ALERTING_NOMOUSE_ALPHA = defaultChatTabAlpha.alertingNoMouse
+        CHAT_FRAME_TAB_NORMAL_MOUSEOVER_ALPHA = defaultChatTabAlpha.normalMouseover
+        CHAT_FRAME_TAB_NORMAL_NOMOUSE_ALPHA = defaultChatTabAlpha.normalNoMouse
+        CHAT_TAB_HIDE_DELAY = defaultChatTabAlpha.hideDelay
+    end
+end
+
 local function ApplyChatTabVisibility(frame, tab)
-    if not frame or not tab or not tab:IsShown() then
+    if not frame or not tab then
+        return
+    end
+
+    if ShouldHideChatTabs() then
+        tab.noMouseAlpha = 0
+        tab.mouseOverAlpha = 1
+    else
+        tab.noMouseAlpha = nil
+        tab.mouseOverAlpha = nil
+    end
+
+    if not tab:IsShown() then
         return
     end
 
@@ -134,9 +175,14 @@ local function ApplyChatTabVisibility(frame, tab)
 end
 
 local function RefreshAllChatTabs()
+    ApplyChatTabAlphaGlobals()
+
     for i = 1, NUM_CHAT_WINDOWS do
         local frame = _G["ChatFrame"..i]
         local tab = _G["ChatFrame"..i.."Tab"]
+        if frame and type(FCFTab_UpdateAlpha) == "function" then
+            FCFTab_UpdateAlpha(frame)
+        end
         ApplyChatTabVisibility(frame, tab)
     end
 end
