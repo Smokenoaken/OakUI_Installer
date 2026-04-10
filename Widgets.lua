@@ -127,6 +127,19 @@ local ReloadDesc = ReloadPromptFrame:CreateFontString(nil, "OVERLAY", "GameFontH
 local DoReloadBtn = addonTable.MakeFlatButton(ReloadPromptFrame, "Open Edit Mode", 140, 26); DoReloadBtn:SetPoint("BOTTOMRIGHT", ReloadPromptFrame, "BOTTOM", -5, 15)
 local LaterBtn = addonTable.MakeFlatButton(ReloadPromptFrame, "Later", 100, 26); LaterBtn:SetPoint("BOTTOMLEFT", ReloadPromptFrame, "BOTTOM", 5, 15); LaterBtn:SetScript("OnClick", function() ReloadPromptFrame:Hide() end)
 
+function addonTable.ShowReloadPrompt(message, buttonText, buttonFunc)
+    ReloadDesc:SetText(message or "A UI Reload is required to apply the changes.")
+    DoReloadBtn.Text:SetText(buttonText or "Reload UI")
+    DoReloadBtn:SetScript("OnClick", function()
+        if type(buttonFunc) == "function" then
+            buttonFunc()
+        else
+            ReloadUI()
+        end
+    end)
+    ReloadPromptFrame:Show()
+end
+
 local function ShowCompletionPrompt()
     ReloadDesc:SetText("Profile(s) injected successfully!\n\nTo finalize changes and clean up QUI visual taint,\nplease open Edit Mode, hit Save, then Reload UI.")
     DoReloadBtn.Text:SetText("Open Edit Mode")

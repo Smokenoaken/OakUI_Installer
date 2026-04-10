@@ -43,10 +43,13 @@ function addonTable.BuildFAQUI(parentFrame)
         item.aText:SetTextColor(0.8, 0.8, 0.8)
 
         if entry.quiTab then
-            item.btn = MakeFlatButton(ScrollChild, "Open QUI", 100, 24)
+            local opensSettings = entry.quiAction == "settings"
+            item.btn = MakeFlatButton(ScrollChild, opensSettings and "Open QUI" or "Open Layout", 110, 24)
             item.btn.Text:SetTextColor(addonTable.colors.r, addonTable.colors.g, addonTable.colors.b)
             item.btn:SetScript("OnClick", function()
-                if _G.QUI_CompartmentClick then
+                if not opensSettings and _G.QUI and _G.QUI.SlashCommandOpen then
+                    _G.QUI:SlashCommandOpen("layout")
+                elseif _G.QUI_CompartmentClick then
                     _G.QUI_CompartmentClick()
                 elseif _G.QUI and _G.QUI.SlashCommandOpen then
                     _G.QUI:SlashCommandOpen("")
@@ -58,7 +61,11 @@ function addonTable.BuildFAQUI(parentFrame)
             end)
 
             item.btnHelper = ScrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-            item.btnHelper:SetText("➔ Navigate to the |cffffffff" .. entry.quiTab .. "|r tab.")
+            if opensSettings then
+                item.btnHelper:SetText("Opens QUI settings. Navigate to the |cffffffff" .. entry.quiTab .. "|r tab.")
+            else
+                item.btnHelper:SetText("Opens QUI Layout Mode. Right click the relevant frame for |cffffffff" .. entry.quiTab .. "|r options.")
+            end
             item.btnHelper:SetTextColor(0.6, 0.6, 0.6)
         end
 

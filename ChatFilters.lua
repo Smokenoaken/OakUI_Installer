@@ -29,6 +29,51 @@ end})
 
 local pfx = "|cff888888+|r "
 
+local function SanitizeLootPlayerName(player)
+    if type(player) ~= "string" or player == "" then
+        return nil
+    end
+
+    player = player:gsub("^|c%x+%+|r%s*", "")
+    player = player:gsub("^%+%s*", "")
+    player = player:gsub("%-.+$", "")
+    player = player:match("^%s*(.-)%s*$")
+
+    if player == "" then
+        return nil
+    end
+
+    return player
+end
+
+local function MatchLootGlobal(msg, globalName)
+    local fmt = _G[globalName]
+    if type(fmt) ~= "string" then
+        return nil
+    end
+    return string.match(msg, P[fmt])
+end
+
+local function ExtractLootPlayer(msg, author)
+    local player = MatchLootGlobal(msg, "LOOT_ITEM_MULTIPLE")
+        or MatchLootGlobal(msg, "LOOT_ITEM")
+        or MatchLootGlobal(msg, "LOOT_ITEM_PUSHED_MULTIPLE")
+        or MatchLootGlobal(msg, "LOOT_ITEM_PUSHED")
+        or MatchLootGlobal(msg, "LOOT_ITEM_CREATED_SELF_MULTIPLE")
+        or MatchLootGlobal(msg, "LOOT_ITEM_CREATED_SELF")
+        or MatchLootGlobal(msg, "LOOT_ITEM_CREATED_BY_MULTIPLE")
+        or MatchLootGlobal(msg, "LOOT_ITEM_CREATED_BY")
+        or MatchLootGlobal(msg, "LOOT_ITEM_CREATED_MULTIPLE")
+        or MatchLootGlobal(msg, "LOOT_ITEM_CREATED")
+
+    player = SanitizeLootPlayerName(player)
+    if player then
+        return player
+    end
+
+    return SanitizeLootPlayerName(author)
+end
+
 -- ==========================================
 -- HELPER: MONEY FORMATTER
 -- ==========================================
@@ -164,17 +209,9 @@ local function FilterLoot(self, event, msg, author, ...)
     if event == "CHAT_MSG_LOOT" then
         local count = string.match(msg, "x(%d+)")
         local item = string.match(msg, "(|c.-|H.-|h.-|h|r)")
-        
-        -- Use the native global strings to accurately identify the player
-        local player = string.match(msg, P[LOOT_ITEM_MULTIPLE]) or string.match(msg, P[LOOT_ITEM])
+        local player = ExtractLootPlayer(msg, author)
         
         if item then
-            -- If QUI injected a colored + right in front of the player's name, strip it out
-            if player then
-                player = string.gsub(player, "^|c%x+%+|r%s*", "")
-                player = string.gsub(player, "^%+%s*", "")
-            end
-            
             local prefix = player and ("|cff888888" .. player .. "|r |cffaaaaaalooted:|r ") or "|cffaaaaaaLoot:|r "
             
             if count then return false, prefix .. item .. " |cff22ff22x" .. count .. "|r", author, ... end

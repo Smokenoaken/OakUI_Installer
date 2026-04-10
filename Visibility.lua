@@ -30,18 +30,11 @@ local function MakeVisibilityCheckbox(parent, text, updateFunc, getStateFunc)
         local newState = not getStateFunc()
         updateFunc(newState)
         self:UpdateState()
-        
-        -- Safely grab your existing Reload Prompt Frame from Core.lua
-        local prompt = _G["OakUI_ReloadPromptFrame"]
-        if prompt then
-            -- Find the description text and update it dynamically
-            for _, region in ipairs({prompt:GetRegions()}) do
-                if region:GetObjectType() == "FontString" and region:GetFontObject() == GameFontHighlight then
-                    region:SetText("QUI visibility settings updated!\nA UI Reload is required to finalize the changes.")
-                    break
-                end
-            end
-            prompt:Show()
+
+        if addonTable.ShowReloadPrompt then
+            addonTable.ShowReloadPrompt("QUI visibility settings updated!\nA UI Reload is required to finalize the changes.")
+        else
+            ReloadUI()
         end
     end)
 
@@ -85,6 +78,9 @@ local function SetMouseover(state)
         if not _G.QUI.db.profile.actionBars then _G.QUI.db.profile.actionBars = {} end
         if not _G.QUI.db.profile.actionBars.fade then _G.QUI.db.profile.actionBars.fade = {} end
         _G.QUI.db.profile.actionBars.fade.enabled = not state
+        if _G.QUI_RefreshActionBarFade then
+            _G.QUI_RefreshActionBarFade()
+        end
     end
 end
 

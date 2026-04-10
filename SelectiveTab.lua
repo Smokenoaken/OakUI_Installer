@@ -24,7 +24,7 @@ function addonTable.BuildSelectiveUI(parentFrame)
     Desc:SetPoint("TOPLEFT", Title, "BOTTOMLEFT", 0, -10)
     Desc:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, -10)
     Desc:SetJustifyH("LEFT")
-    Desc:SetText("Advanced: Choose exactly which modules of the OakUI profile you want to import. This is perfect for updating specific settings (like Chat or Fonts) without overwriting your custom Action Bars or Unit Frames!")
+    Desc:SetText("Advanced: Choose exactly which modules of the OakUI profile you want to import. The category list is generated from your installed QUI version, so it matches the selective import options QUI currently supports.")
 
     -- Added Instruction Label
     local RoleHint = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
