@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "1.5.1"
+P.VERSION = "1.5.2"
 -- UPDATE PATREON/KO-FI SUPPORTERS HERE!
 P.PATREONS = {
     "Thomas Valhøj - Ko-Fi",
@@ -93,6 +93,18 @@ P.FAQ = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v1.5.2",
+        date = "April 10, 2026",
+        notes = {
+            "Updated OakUI for the latest QUI overhaul and refreshed installer compatibility",
+            "Fixed QUI visibility prompts so they no longer send users to Edit Mode unnecessarily",
+            "Fixed the Disable Action Bar Fading toggle to refresh QUI's current action bar fade behavior correctly",
+            "Updated FAQ actions so most QUI help buttons open Layout Mode, while party-frame troubleshooting still opens QUI settings",
+            "Improved chat loot filtering so crafted item messages identify the player who received the item",
+            "Refreshed the OakUI logo assets and chat layout polish",
+        }
+    },
     {
         version = "v1.5.1",
         date = "April 3, 2026",

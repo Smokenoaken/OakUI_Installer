@@ -61,7 +61,7 @@ Put one bullet per line in [NEXT_CHANGELOG.md](NEXT_CHANGELOG.md), then run the 
 
 ## Version
 
-Current repo version: `1.5.1`
+Current repo version: `1.5.2`
 
 ## Project Summary
 

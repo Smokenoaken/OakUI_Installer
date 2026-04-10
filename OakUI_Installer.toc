@@ -3,7 +3,7 @@
 ## Notes: One-click profile importer for the OakUI suite.
 ## Author: Oakensoul
 ## IconTexture: Interface\AddOns\OakUI_Installer\Media\Logo.png
-## Version: 1.5.1
+## Version: 1.5.2
 ## X-Wago-ID: QNlzj8Ke
 ## DefaultState: enabled
 ## SavedVariables: OakUI_DB
