@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "1.5.2"
+P.VERSION = "1.5.3"
 -- UPDATE PATREON/KO-FI SUPPORTERS HERE!
 P.PATREONS = {
     "Thomas Valhøj - Ko-Fi",
@@ -93,6 +93,13 @@ P.FAQ = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v1.5.3",
+        date = "April 21, 2026",
+        notes = {
+            "Added WoW 12.0.5 interface compatibility so the installer loads when servers come up",
+        }
+    },
     {
         version = "v1.5.2",
         date = "April 10, 2026",

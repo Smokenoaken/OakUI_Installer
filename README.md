@@ -15,7 +15,7 @@ OakUI Installer is a World of Warcraft Retail addon that delivers the OakUI suit
 ## Requirements
 
 - World of Warcraft Retail
-- Interface version `120001`
+- Interface versions `120001`, `120005`
 
 ## Installation
 
@@ -61,7 +61,7 @@ Put one bullet per line in [NEXT_CHANGELOG.md](NEXT_CHANGELOG.md), then run the 
 
 ## Version
 
-Current repo version: `1.5.2`
+Current repo version: `1.5.3`
 
 ## Project Summary
 

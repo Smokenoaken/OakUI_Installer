@@ -1,3 +1,7 @@
+## v1.5.3
+
+- Added WoW 12.0.5 interface compatibility so the installer loads when servers come up
+
 ## v1.5.2
 
 - Updated OakUI for the latest QUI overhaul and refreshed installer compatibility
