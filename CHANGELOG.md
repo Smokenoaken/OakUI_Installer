@@ -1,3 +1,10 @@
+## v1.5.4
+
+- Refreshed embedded OakUI import strings
+- Fixed OakUI chat layout so whisper handling preserves Blizzard's temporary whisper behavior
+- Synced the OakUI action bar fading toggle with QUI 3.0 HUD visibility settings
+- Added a Top Supporters section and highlighted Mandos
+
 ## v1.5.3
 
 - Added WoW 12.0.5 interface compatibility so the installer loads when servers come up

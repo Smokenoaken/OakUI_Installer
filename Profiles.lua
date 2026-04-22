@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "1.5.3"
+P.VERSION = "1.5.4"
 -- UPDATE PATREON/KO-FI SUPPORTERS HERE!
 P.PATREONS = {
     "Mandos",
@@ -109,6 +109,16 @@ P.FAQ = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v1.5.4",
+        date = "April 21, 2026",
+        notes = {
+            "Refreshed embedded OakUI import strings",
+            "Fixed OakUI chat layout so whisper handling preserves Blizzard's temporary whisper behavior",
+            "Synced the OakUI action bar fading toggle with QUI 3.0 HUD visibility settings",
+            "Added a Top Supporters section and highlighted Mandos",
+        }
+    },
     {
         version = "v1.5.3",
         date = "April 21, 2026",
