@@ -78,15 +78,44 @@ local function SetMouseover(state)
         if not _G.QUI.db.profile.actionBars then _G.QUI.db.profile.actionBars = {} end
         if not _G.QUI.db.profile.actionBars.fade then _G.QUI.db.profile.actionBars.fade = {} end
         _G.QUI.db.profile.actionBars.fade.enabled = not state
+
+        if not _G.QUI.db.profile.actionBarsVisibility then
+            _G.QUI.db.profile.actionBarsVisibility = {}
+        end
+
+        -- QUI 3.0 adds a separate HUD visibility controller for action bars.
+        -- Keep it aligned with OakUI's "Disable Action Bar Fading" toggle so
+        -- bars remain visible instead of being hidden by HUD rules.
+        _G.QUI.db.profile.actionBarsVisibility.showAlways = state
+        if state then
+            _G.QUI.db.profile.actionBarsVisibility.showOnMouseover = false
+        end
+
         if _G.QUI_RefreshActionBarFade then
             _G.QUI_RefreshActionBarFade()
+        end
+        if _G.QUI_RefreshActionBarsMouseover then
+            _G.QUI_RefreshActionBarsMouseover()
+        end
+        if _G.QUI_RefreshActionBarsVisibility then
+            _G.QUI_RefreshActionBarsVisibility()
         end
     end
 end
 
 local function GetMouseover()
-    if _G.QUI and _G.QUI.db and _G.QUI.db.profile and _G.QUI.db.profile.actionBars and _G.QUI.db.profile.actionBars.fade then
-        return not _G.QUI.db.profile.actionBars.fade.enabled
+    if _G.QUI and _G.QUI.db and _G.QUI.db.profile then
+        local fadeDisabled = false
+        if _G.QUI.db.profile.actionBars and _G.QUI.db.profile.actionBars.fade then
+            fadeDisabled = not _G.QUI.db.profile.actionBars.fade.enabled
+        end
+
+        local visibilityAlwaysOn = false
+        if _G.QUI.db.profile.actionBarsVisibility then
+            visibilityAlwaysOn = _G.QUI.db.profile.actionBarsVisibility.showAlways == true
+        end
+
+        return fadeDisabled or visibilityAlwaysOn
     end
     return false
 end

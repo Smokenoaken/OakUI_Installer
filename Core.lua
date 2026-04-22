@@ -128,12 +128,52 @@ local SuppScrollFrame = CreateFrame("ScrollFrame", "OakUI_SupportersScroll", Sup
 SuppScrollFrame:SetScrollChild(SuppScrollChild); SuppScrollFrame:SetPoint("TOPLEFT", SupportersView, "TOPLEFT", 15, -100); SuppScrollFrame:SetPoint("BOTTOMRIGHT", SupportersView, "BOTTOMRIGHT", -30, 60)
 SuppScrollFrame:SetScript("OnSizeChanged", function(self, width, height) self:GetScrollChild():SetWidth(width) end); SuppScrollChild:SetWidth(SuppScrollFrame:GetWidth() or 470)
 SkinScrollbar(SuppScrollFrame) 
-local patreons = P.PATREONS or {}; local syOffset = 0
-for i, name in ipairs(patreons) do
+local patreons = P.PATREONS or {}
+local topSupporters = {}
+local supporters = {}
+for _, name in ipairs(patreons) do
+    if name == "Mandos" then
+        table.insert(topSupporters, name)
+    else
+        table.insert(supporters, name)
+    end
+end
+
+local syOffset = 0
+local rowIndex = 0
+
+local function AddSupporterSection(titleText)
+    local header = SuppScrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    header:SetPoint("TOPLEFT", SuppScrollChild, "TOPLEFT", 12, syOffset)
+    header:SetJustifyH("LEFT")
+    header:SetText(titleText)
+    syOffset = syOffset - 34
+end
+
+local function AddSupporterRow(name, special)
+    rowIndex = rowIndex + 1
     local row = CreateFrame("Frame", nil, SuppScrollChild); row:SetHeight(30); row:SetPoint("TOPLEFT", SuppScrollChild, "TOPLEFT", 0, syOffset); row:SetPoint("TOPRIGHT", SuppScrollChild, "TOPRIGHT", 0, syOffset)
-    local bg = row:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(); if i % 2 == 1 then bg:SetColorTexture(0.2, 0.22, 0.28, 0.4) else bg:SetColorTexture(0,0,0,0) end
-    local txt = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge"); txt:SetPoint("CENTER", row, "CENTER", 0, 0); txt:SetText(name)
+    local bg = row:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(); if rowIndex % 2 == 1 then bg:SetColorTexture(0.2, 0.22, 0.28, 0.4) else bg:SetColorTexture(0,0,0,0) end
+    local txt = row:CreateFontString(nil, "OVERLAY", special and "GameFontNormalLarge" or "GameFontHighlightLarge"); txt:SetPoint("CENTER", row, "CENTER", 0, 0)
+    if special then
+        txt:SetText("|cffF6D365Mandos|r")
+    else
+        txt:SetText(name)
+    end
     syOffset = syOffset - 30
+end
+
+if #topSupporters > 0 then
+    AddSupporterSection(cWrap .. "Top Supporters|r")
+    for _, name in ipairs(topSupporters) do
+        AddSupporterRow(name, true)
+    end
+    syOffset = syOffset - 14
+end
+
+AddSupporterSection(cWrap .. "Supporters|r")
+for _, name in ipairs(supporters) do
+    AddSupporterRow(name, false)
 end
 SuppScrollChild:SetHeight(math.abs(syOffset))
 local JoinPatreonBtn = MakeFlatButton(SupportersView, "Support on Patreon", 200, 30); JoinPatreonBtn:SetPoint("BOTTOM", SupportersView, "BOTTOM", 0, 15)

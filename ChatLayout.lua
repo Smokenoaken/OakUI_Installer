@@ -15,6 +15,24 @@ local function ForceTransparency(frame, numID)
     end
 end
 
+local function SyncChatFrameGroups(frame, groupsToAdd, groupsToRemove)
+    if not frame then
+        return
+    end
+
+    if groupsToRemove then
+        for _, group in ipairs(groupsToRemove) do
+            ChatFrame_RemoveMessageGroup(frame, group)
+        end
+    end
+
+    if groupsToAdd then
+        for _, group in ipairs(groupsToAdd) do
+            ChatFrame_AddMessageGroup(frame, group)
+        end
+    end
+end
+
 function addonTable.SetupChatWindows(silent)
     -- 1. Setup General Window (ChatFrame1)
     local cf1 = ChatFrame1
@@ -23,14 +41,20 @@ function addonTable.SetupChatWindows(silent)
     FCF_SetChatWindowFontSize(nil, cf1, 14)
     ForceTransparency(cf1, 1)
     
-    ChatFrame_RemoveAllMessageGroups(cf1)
     local generalGroups = { 
-        "SAY", "EMOTE", "YELL", "WHISPER", "BN_WHISPER", "PARTY", "PARTY_LEADER", "RAID", "RAID_LEADER", 
-        "RAID_WARNING", "INSTANCE_CHAT", "INSTANCE_CHAT_LEADER", "GUILD", "OFFICER", "IGNORED", "ERRORS", 
-        "CHANNEL", "BLIZZARD_SERVICE", "MONSTER_SAY", "MONSTER_EMOTE", "MONSTER_YELL", "MONSTER_WHISPER", 
-        "MONSTER_BOSS_EMOTE", "MONSTER_BOSS_WHISPER" 
+        "SAY", "EMOTE", "YELL", "WHISPER", "WHISPER_INFORM", "BN_WHISPER", "BN_WHISPER_INFORM",
+        "PARTY", "PARTY_LEADER", "RAID", "RAID_LEADER", "RAID_WARNING", "INSTANCE_CHAT",
+        "INSTANCE_CHAT_LEADER", "GUILD", "OFFICER", "IGNORED", "ERRORS", "CHANNEL",
+        "BLIZZARD_SERVICE", "MONSTER_SAY", "MONSTER_EMOTE", "MONSTER_YELL", "MONSTER_WHISPER",
+        "MONSTER_BOSS_EMOTE", "MONSTER_BOSS_WHISPER"
     }
-    for _, group in pairs(generalGroups) do ChatFrame_AddMessageGroup(cf1, group) end
+    local lootGroups = {
+        "COMBAT_XP_GAIN", "COMBAT_HONOR_GAIN", "COMBAT_FACTION_CHANGE", "SKILL",
+        "LOOT", "CURRENCY", "MONEY", "COMBAT_MISC_INFO", "SYSTEM", "PET_BATTLE_INFO",
+        "PING", "ACHIEVEMENT", "GUILD_ACHIEVEMENT"
+    }
+    -- Avoid wiping Blizzard's temporary whisper routing state from the primary frame.
+    SyncChatFrameGroups(cf1, generalGroups, lootGroups)
 
     -- 2. Find or Create Loot Window Safely
     local lootFrame = nil
@@ -63,13 +87,19 @@ function addonTable.SetupChatWindows(silent)
         FCF_SetChatWindowFontSize(nil, lootFrame, 14)
         ForceTransparency(lootFrame, lootID)
         
-        ChatFrame_RemoveAllMessageGroups(lootFrame)
-        local lootGroups = { 
-            "COMBAT_XP_GAIN", "COMBAT_HONOR_GAIN", "COMBAT_FACTION_CHANGE", "SKILL", 
-            "LOOT", "CURRENCY", "MONEY", "COMBAT_MISC_INFO", "SYSTEM", "CHANNEL", 
+        local groupsToRemoveFromLoot = {
+            "SAY", "EMOTE", "YELL", "WHISPER", "WHISPER_INFORM", "BN_WHISPER", "BN_WHISPER_INFORM",
+            "PARTY", "PARTY_LEADER", "RAID", "RAID_LEADER", "RAID_WARNING", "INSTANCE_CHAT",
+            "INSTANCE_CHAT_LEADER", "GUILD", "OFFICER", "IGNORED", "ERRORS",
+            "BLIZZARD_SERVICE", "MONSTER_SAY", "MONSTER_EMOTE", "MONSTER_YELL", "MONSTER_WHISPER",
+            "MONSTER_BOSS_EMOTE", "MONSTER_BOSS_WHISPER"
+        }
+        local lootWindowGroups = {
+            "COMBAT_XP_GAIN", "COMBAT_HONOR_GAIN", "COMBAT_FACTION_CHANGE", "SKILL",
+            "LOOT", "CURRENCY", "MONEY", "COMBAT_MISC_INFO", "SYSTEM", "CHANNEL",
             "PET_BATTLE_INFO", "PING", "ACHIEVEMENT", "GUILD_ACHIEVEMENT"
         }
-        for _, group in pairs(lootGroups) do ChatFrame_AddMessageGroup(lootFrame, group) end
+        SyncChatFrameGroups(lootFrame, lootWindowGroups, groupsToRemoveFromLoot)
     end
     
     FCF_DockUpdate()
