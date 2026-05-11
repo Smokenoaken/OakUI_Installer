@@ -5,11 +5,10 @@ OakUI Installer is a World of Warcraft Retail addon that delivers the OakUI suit
 ## Highlights
 
 - one-click installation flow for the OakUI flagship suite
-- selective import support for individual modules
 - built-in chat layout and chat filter tools
 - bundled raw import strings as a manual fallback
 - custom font setup guidance
-- in-game FAQ and changelog tabs
+- in-game changelog tab
 - resizable installer window with persistent module-driven layout
 
 ## Requirements
@@ -36,10 +35,9 @@ Open the OakUI installer in-game and follow the guided tabs to import the OakUI 
 ## Files
 
 - [OakUI_Installer.toc](OakUI_Installer.toc) loads the addon and declares metadata
-- [Profiles.lua](Profiles.lua) stores version info, profile strings, FAQ entries, and the in-addon changelog
+- [Profiles.lua](Profiles.lua) stores version info, profile strings, and the in-addon changelog
 - [Core.lua](Core.lua) builds the main installer frame and routes between tabs
 - [InstallerTab.lua](InstallerTab.lua) powers the primary one-click installation flow
-- [SelectiveTab.lua](SelectiveTab.lua) handles module-by-module import choices
 - [RawImports.lua](RawImports.lua) exposes fallback import strings
 - [ChatLayout.lua](ChatLayout.lua) and [ChatFilters.lua](ChatFilters.lua) manage chat setup helpers
 
@@ -65,6 +63,6 @@ Current repo version: `1.5.4`
 
 ## Project Summary
 
-OakUI Installer is the flagship OakUI suite built around the QUI edition of the interface. It focuses on a lightweight, one-click installation experience for a polished 1440p setup, with profiles and layout tools tuned for Mythic+, raiding, and general play.
+OakUI Installer is the flagship OakUI suite built around the selected base UI framework. It focuses on a lightweight, one-click installation experience for a polished 1440p setup, with profiles and layout tools tuned for Mythic+, raiding, and general play.
 
-The addon is designed to inject curated profiles into the core UI addons it works with, while adapting to role-specific needs like Healer and Tank/DPS layouts. Alongside the installer flow, it includes chat cleanup tools, raw import fallbacks, custom font guidance, and direct access to FAQ and changelog content inside the addon itself.
+The addon is designed to inject curated profiles into the core UI addons it works with, while adapting to role-specific needs like Healer and Tank/DPS layouts. Alongside the installer flow, it includes chat cleanup tools, raw import fallbacks, custom font guidance, and direct access to changelog content inside the addon itself.

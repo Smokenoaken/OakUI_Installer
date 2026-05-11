@@ -2,6 +2,7 @@ local addonName, addonTable = ...
 
 function addonTable.BuildInstallerUI(parentFrame)
     local Inj = addonTable.Injectors
+    local P = addonTable.Profiles
     local cWrap = addonTable.cWrap
     local r, g, b = addonTable.colors.r, addonTable.colors.g, addonTable.colors.b
     local MakeFlatButton = addonTable.MakeFlatButton
@@ -23,10 +24,9 @@ function addonTable.BuildInstallerUI(parentFrame)
     ListDesc:SetJustifyV("TOP")
     
     -- The new friendly warning
-    ListDesc:SetText("The definitive OAK experience built around the incredible Quazii UI framework.\n\n" ..
-                     cWrap .. "Heads up:|r Using this tab will overwrite your current settings! If you want to keep your personal tweaks (like custom Action Bars or Unit Frames), please use the |cffffffffSelective Import|r tab on the left instead.\n\n" ..
-                     "|cffff0000STEP 1:|r Click 'Copy Layout' on the Blizzard Edit Mode row and import it.\n" ..
-                     "|cffff0000STEP 2:|r Install individual profiles, or click 'Install All Profiles' at the bottom.")
+    ListDesc:SetText("The definitive OAK experience built around the selected base UI framework.\n\n" ..
+                     cWrap .. "Heads up:|r Using this tab will overwrite your current settings for supported addons.\n\n" ..
+                     "Install individual profiles, or click 'Install All Profiles' at the bottom. Reload when installation is complete.")
 
     local ScrollFrame = CreateFrame("ScrollFrame", "OakUI_InstallerScroll", ListView, "UIPanelScrollFrameTemplate")
     local ScrollChild = CreateFrame("Frame", nil, ScrollFrame)
@@ -43,19 +43,23 @@ function addonTable.BuildInstallerUI(parentFrame)
     InstallAllBtn:SetPoint("BOTTOMRIGHT", ListView, "BOTTOMRIGHT", -30, 10)
     InstallAllBtn.Text:SetTextColor(r, g, b) 
 
+    local baseFolder = (P.BASE_UI_PROVIDER == "Ellesmere") and "EllesmereUI" or "ElvUI"
+    local baseUrl = (P.BASE_UI_PROVIDER == "Ellesmere") and "https://www.curseforge.com/wow/addons/ellesmere-ui" or "https://tukui.org/elvui"
     local FlagshipAddons = {
-        { name = "QUI Community Edition", folder = "QUI", url = "https://www.curseforge.com/wow/addons/qui-community-edition", func = Inj.QUI, requiresReload = true, hasRoles = true },
+        { name = "Base UI Framework", folder = baseFolder, url = baseUrl, func = Inj.BaseUI, requiresReload = true },
         { name = "Blizzard Edit Mode (Layout)", folder = nil, buttonText = "Copy Layout", installedText = "Copied!", func = function() ShowCopyBox(Inj.GetEditMode(), cWrap .. "1.|r Press CTRL+C to copy the text below.\n" .. cWrap .. "2.|r Open ESC -> Edit Mode.\n" .. cWrap .. "3.|r Click the Layout Dropdown -> Import -> Paste.") end, manual = true },
         { name = "OakUI Chat Layout", folder = nil, buttonText = "Apply Layout", installedText = "Applied!", func = function() if addonTable.SetupChatWindows then addonTable.SetupChatWindows(true) end end, requiresReload = true, manual = true },
+        { name = "Ayije CDM", folder = "Ayije_CDM", url = "https://www.curseforge.com/wow/addons/ayije-cdm", func = Inj.AyijeCDM, requiresReload = true },
+        { name = "Chonky Character Sheet", folder = "ChonkyCharacterSheet", url = "https://www.curseforge.com/wow/addons/chonky-character-sheet", func = Inj.ChonkyCharacterSheet, requiresReload = true },
+        { name = "MPlusTimer", folder = "MPlusTimer", url = "https://www.curseforge.com/wow/addons/mplustimer", func = Inj.MPlusTimer, requiresReload = true },
         { name = "Platynator", folder = "Platynator", url = "https://www.curseforge.com/wow/addons/platynator", func = Inj.Platynator },
         { name = "Details! Damage Meter", folder = "Details", url = "https://www.curseforge.com/wow/addons/details", func = Inj.Details },
         { name = "XIV_Databar Continued", folder = "XIV_Databar_Continued", url = "https://www.curseforge.com/wow/addons/xiv-databar-continued", func = Inj.XIV },
         { name = "BigWigs (Optional)", folder = "BigWigs", url = "https://www.curseforge.com/wow/addons/big-wigs", func = Inj.BigWigs, requiresReload = false },
     }
+    addonTable.FlagshipAddons = FlagshipAddons
 
-    local DeprecatedAddons = {
-        { name = "Danders Frames", folder = "DandersFrames", url = "https://www.curseforge.com/wow/addons/danders-frames", func = Inj.Danders, requiresReload = true, hasRoles = true },
-    }
+    local DeprecatedAddons = {}
 
     local activeRows, deprecatedRows, isDeprecatedExpanded = {}, {}, false
     local DeprecatedHeader = CreateFrame("Button", nil, ScrollChild); DeprecatedHeader:SetHeight(26)

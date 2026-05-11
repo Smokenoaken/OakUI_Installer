@@ -6,17 +6,18 @@
 ## Version: 1.5.4
 ## X-Wago-ID: QNlzj8Ke
 ## DefaultState: enabled
+## OptionalDeps: ElvUI
 ## SavedVariables: OakUI_DB
 Profiles.lua
+ExternalProfiles.lua
 InstallLogic.lua
 ChatLayout.lua
 ChatFilters.lua
+ActionBarFader.lua
 Widgets.lua
 InstallerTab.lua
 Visibility.lua
-SelectiveTab.lua
 RawImports.lua
 FontsTab.lua
 ChangelogTab.lua
-FAQTab.lua
 Core.lua

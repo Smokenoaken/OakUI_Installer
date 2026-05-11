@@ -7,10 +7,8 @@ local function GetDB()
             achievements = true, auctions = true, channels = true, experience = true,
             followers = true, loot = true, names = true, quests = true, collections = true,
             reputation = true, spells = true, status = true, tradeskills = true, money = true,
-            hideTabs = true, 
         }
     end
-    if OakUI_DB.chatFilters.hideTabs == nil then OakUI_DB.chatFilters.hideTabs = true end
     return OakUI_DB.chatFilters
 end
 

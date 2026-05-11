@@ -25,10 +25,75 @@ function addonTable.Injectors.XIV(profileName, role)
     if XIVBar and type(XIVBar.ImportProfile) == "function" then XIVBar:ImportProfile(P.XIV_PROFILE) end
 end
 
-function addonTable.Injectors.QUI(profileName, role)
-    if not C_AddOns.IsAddOnLoaded("QUI") then return end
-    
-    -- BRUTE FORCE ACTION BARS
+local function DecodeChonkyProfile(encoded)
+    local LibDeflate = _G.LibStub and _G.LibStub("LibDeflate", true)
+    if not LibDeflate then return nil, "LibDeflate is unavailable." end
+
+    local decoded = LibDeflate:DecodeForPrint(encoded)
+    if not decoded then return nil, "Could not decode the profile string." end
+
+    local decompressed = LibDeflate:DecompressDeflate(decoded)
+    if not decompressed then return nil, "Could not decompress the profile string." end
+
+    local loader, err = loadstring("return " .. decompressed)
+    if not loader then return nil, err or "Could not parse the profile data." end
+
+    local ok, data = pcall(loader)
+    if not ok or type(data) ~= "table" then
+        return nil, data or "Profile data was not a table."
+    end
+    return data
+end
+
+local function GetChonkyProfileKey(profile)
+    local playerKey = (UnitName("player") or "Unknown") .. "-" .. (GetRealmName() or "Unknown")
+    local useGlobal = true
+    if ChonkyCharacterSheetDB and ChonkyCharacterSheetDB.profiles and ChonkyCharacterSheetDB.profiles[playerKey] then
+        useGlobal = ChonkyCharacterSheetDB.profiles[playerKey].globalprofile
+    end
+    if profile and profile.globalprofile == false then useGlobal = false end
+    return useGlobal == false and playerKey or "default"
+end
+
+function addonTable.Injectors.ChonkyCharacterSheet(profileName, role)
+    if not C_AddOns.IsAddOnLoaded("ChonkyCharacterSheet") then return end
+    local encoded = string.gsub(P.CHONKY_PROFILE or "", "^%s+", ""):gsub("%s+$", "")
+    if encoded == "" then
+        print("|cffff0000[OakUI Error]|r Chonky Character Sheet profile string is missing or empty.")
+        return
+    end
+
+    local profile, err = DecodeChonkyProfile(encoded)
+    if not profile then
+        print("|cffff0000[OakUI Error]|r Chonky Character Sheet import failed: " .. tostring(err))
+        return
+    end
+
+    ChonkyCharacterSheetDB = ChonkyCharacterSheetDB or { default = {}, profiles = {} }
+    ChonkyCharacterSheetDB.profiles = ChonkyCharacterSheetDB.profiles or {}
+    ChonkyCharacterSheetDB.profiles[GetChonkyProfileKey(profile)] = profile
+end
+
+function addonTable.Injectors.MPlusTimer(profileName, role)
+    if not C_AddOns.IsAddOnLoaded("MPlusTimer") then return end
+    local encoded = string.gsub(P.MPLUSTIMER_PROFILE or "", "^%s+", ""):gsub("%s+$", "")
+    if encoded == "" then
+        print("|cffff0000[OakUI Error]|r MPlusTimer profile string is missing or empty.")
+        return
+    end
+    if not _G.MPTAPI or type(_G.MPTAPI.ImportProfile) ~= "function" then
+        print("|cffff0000[OakUI Error]|r MPlusTimer import API is unavailable.")
+        return
+    end
+
+    if MPTSV and MPTSV.Profiles then MPTSV.Profiles[profileName] = nil end
+    local ok, result = pcall(_G.MPTAPI.ImportProfile, _G.MPTAPI, encoded, profileName, true)
+    if not ok or result ~= true then
+        print("|cffff0000[OakUI Error]|r MPlusTimer import failed: " .. tostring(result))
+    end
+end
+
+local function ApplyBaseActionBarCVars()
     if SetActionBarToggles then SetActionBarToggles(1, 1, 1, 1, 1) end
     SetCVar("MultiBarBottomLeft", 1)
     SetCVar("MultiBarBottomRight", 1)
@@ -45,104 +110,139 @@ function addonTable.Injectors.QUI(profileName, role)
         end)
     end
     if MultiActionBar_Update then MultiActionBar_Update() end
-    
-    -- EXPLICIT ROLE SELECTION
-    local profileString = P.QUI_PROFILE
-    if role == "heals" then
-        profileString = P.QUI_PROFILE_HEALS or P.QUI_PROFILE_Heals
+end
+
+local function GetElvUICore()
+    local E = _G.ElvUI and _G.ElvUI[1]
+    if not E and type(_G.ElvUI) == "table" then
+        local ok, core = pcall(function() return unpack(_G.ElvUI) end)
+        if ok then E = core end
     end
-    
-    local encoded = string.gsub(profileString or "", "^%s+", ""):gsub("%s+$", "")
-    if encoded == "" then 
-        print("|cffff0000[OakUI Error]|r QUI profile string is missing or empty for this role!")
-        return 
-    end
-    
-    local LibDeflate = _G.LibStub("LibDeflate", true)
-    local AceSerializer = _G.LibStub("AceSerializer-3.0", true)
-    if not LibDeflate or not AceSerializer then return end
-    local cleanEncoded = encoded
-    if string.find(cleanEncoded, ":") then cleanEncoded = string.match(cleanEncoded, ":(.*)$") or cleanEncoded
-    elseif string.find(cleanEncoded, "_") then cleanEncoded = string.match(cleanEncoded, "_(.*)$") or cleanEncoded end
-    
-    local decoded = LibDeflate:DecodeForPrint(cleanEncoded) or LibDeflate:DecodeForPrint(encoded)
-    if type(decoded) ~= "string" then return end 
-    
-    local decompressed = LibDeflate:DecompressDeflate(decoded)
-    local ok, payload = false, nil
-    if decompressed then ok, payload = AceSerializer:Deserialize(decompressed) end
-    if ok and type(payload) == "table" then
-        if not _G.QUIDB then _G.QUIDB = { profiles = {}, profileKeys = {} } end
-        _G.QUIDB.profiles = _G.QUIDB.profiles or {}
-        _G.QUIDB.profiles[profileName] = payload.profile or payload
-        
-        -- FORCE ACE3 TO SET AND BIND THE PROFILE IMMEDIATELY
-        if _G.QUI and _G.QUI.db and type(_G.QUI.db.SetProfile) == "function" then
-            _G.QUI.db:SetProfile(profileName)
-        else
-            -- Fallback if Ace3 hasn't fully initialized
-            _G.QUIDB.profileKeys = _G.QUIDB.profileKeys or {}
-            _G.QUIDB.profileKeys[UnitName("player") .. " - " .. GetRealmName()] = profileName
+    return E
+end
+
+local function HideElvUIInstaller(E)
+    if not E then return end
+    if E.private then E.private.install_complete = E.version or true end
+    if E.InstallFrame and E.InstallFrame.Hide then E.InstallFrame:Hide() end
+    if _G.ElvUIInstallFrame and _G.ElvUIInstallFrame.Hide then _G.ElvUIInstallFrame:Hide() end
+end
+
+local function DisablePlatynatorConflictWarning(E)
+    if not E then return end
+    local addons = E.INCOMPATIBLE_ADDONS and E.INCOMPATIBLE_ADDONS.NamePlates
+    if type(addons) == "table" then
+        for i = #addons, 1, -1 do
+            if addons[i] == "Platynator" then
+                table.remove(addons, i)
+            end
         end
+    end
+
+    if type(E.IncompatibleAddOn) == "function" and not E.OakUIIncompatibleHooked then
+        local original = E.IncompatibleAddOn
+        E.IncompatibleAddOn = function(self, addon, module, info)
+            if addon == "Platynator" then return end
+            return original(self, addon, module, info)
+        end
+        E.OakUIIncompatibleHooked = true
+    end
+
+    if E.StaticPopup_Hide then
+        pcall(E.StaticPopup_Hide, E, "INCOMPATIBLE_ADDON")
     end
 end
 
-function addonTable.Injectors.Danders(profileName, role)
-    -- EXPLICIT ROLE SELECTION
-    local profileString = P.DANDERS_PROFILE
+function addonTable.BypassElvUIInstaller()
+    if not C_AddOns.IsAddOnLoaded("ElvUI") then return end
+    local E = GetElvUICore()
+    HideElvUIInstaller(E)
+    DisablePlatynatorConflictWarning(E)
+end
+
+local function GetRoleString(defaultString, healerString, role)
     if role == "heals" then
-        profileString = P.DANDERS_PROFILE_HEALS or P.DANDERS_PROFILE_Heals
+        return healerString or defaultString
     end
-    
-    local encodedStr = string.gsub(profileString or "", "^%s+", ""):gsub("%s+$", "")
-    if not C_AddOns.IsAddOnLoaded("DandersFrames") or not encodedStr or encodedStr == "" then 
-        if encodedStr == "" then print("|cffff0000[OakUI Error]|r Danders profile string is missing or empty for this role!") end
-        return 
-    end
-    
-    local DF = _G.DandersFrames
+    return defaultString
+end
 
-    -- Helper function to force Danders to active the profile
-    local function ForceActivateDanders()
-        if not DF then return end
-        if type(DF.LoadProfile) == "function" then pcall(DF.LoadProfile, DF, profileName) end
-        if type(DF.ApplyProfile) == "function" then pcall(DF.ApplyProfile, DF, profileName) end
+function addonTable.Injectors.ElvUI(profileName, role)
+    if not C_AddOns.IsAddOnLoaded("ElvUI") then return end
+
+    ApplyBaseActionBarCVars()
+
+    local E = GetElvUICore()
+    if not E then
+        print("|cffff0000[OakUI Error]|r ElvUI is loaded, but its core API is unavailable.")
+        return
+    end
+    HideElvUIInstaller(E)
+    DisablePlatynatorConflictWarning(E)
+
+    if type(E.SetupCVars) == "function" then pcall(E.SetupCVars, E, true) end
+
+    local distributor = type(E.GetModule) == "function" and E:GetModule("Distributor", true)
+    if not distributor or type(distributor.Decode) ~= "function" or type(distributor.SetImportedProfile) ~= "function" then
+        print("|cffff0000[OakUI Error]|r ElvUI's profile import API is unavailable.")
+        return
     end
 
-    if DF and type(DF.ValidateImportString) == "function" and type(DF.ApplyImportedProfile) == "function" then
-        local data, err = DF:ValidateImportString(encodedStr)
-        if data then 
-            DF:ApplyImportedProfile(data, nil, nil, profileName, true, true)
-            ForceActivateDanders()
-            return 
+    local function ImportElvString(label, importString, required)
+        local encoded = string.gsub(importString or "", "^%s+", ""):gsub("%s+$", "")
+        if encoded == "" then
+            if required then
+                print("|cffff0000[OakUI Error]|r ElvUI " .. label .. " string is missing or empty for this role.")
+            end
+            return false
         end
+
+        local profileType, profileKey, profileData = distributor:Decode(encoded)
+        if type(profileData) ~= "table" then
+            print("|cffff0000[OakUI Error]|r ElvUI " .. label .. " import failed. Check the embedded string.")
+            return false
+        end
+
+        if profileType == "profile" then profileKey = profileName end
+        distributor:SetImportedProfile(profileType or "profile", profileKey or profileName, profileData, true)
+        return true
     end
-    
-    local LibDeflate = _G.LibStub("LibDeflate", true)
-    local LibSerialize = _G.LibStub("LibSerialize", true) 
-    if not LibDeflate or not LibSerialize then return end
-    if string.sub(encodedStr, 1, 6) == "!DFP1!" then
-        local payloadStr = string.sub(encodedStr, 7)
-        local decoded = LibDeflate:DecodeForPrint(payloadStr)
-        if type(decoded) ~= "string" then return end
-        local decompressed = LibDeflate:DecompressDeflate(decoded)
-        local ok, data = false, nil
-        if decompressed then ok, data = LibSerialize:Deserialize(decompressed) end
-        if ok and type(data) == "table" and (data.party or data.raid) then
-            if not _G.DandersFramesDB_v2 then _G.DandersFramesDB_v2 = { profiles = {}, currentProfile = "Default" } end
-            _G.DandersFramesDB_v2.profiles[profileName] = {
-                party = data.party, raid = data.raid, classColors = data.classColors or {},
-                powerColors = data.powerColors or {}, raidAutoProfiles = data.raidAutoProfiles or {}
-            }
-            _G.DandersFramesDB_v2.currentProfile = profileName
-            
-            -- Force character binding
-            if not _G.DandersFramesDB_v2.characterProfiles then _G.DandersFramesDB_v2.characterProfiles = {} end
-            _G.DandersFramesDB_v2.characterProfiles[UnitName("player") .. "-" .. GetRealmName()] = profileName
-            _G.DandersFramesDB_v2.characterProfiles[UnitName("player") .. "-" .. GetNormalizedRealmName()] = profileName
-            
-            ForceActivateDanders()
-        end
+
+    local importedProfile = ImportElvString("profile", GetRoleString(P.ELVUI_PROFILE, P.ELVUI_PROFILE_HEALS, role), true)
+    ImportElvString("private", GetRoleString(P.ELVUI_PRIVATE, P.ELVUI_PRIVATE_HEALS, role), true)
+
+    if not importedProfile then return end
+end
+
+function addonTable.Injectors.Ellesmere(profileName, role)
+    print("|cffff0000[OakUI Error]|r Ellesmere provider is not wired yet. Add its import API and profile string before enabling this base.")
+end
+
+function addonTable.Injectors.BaseUI(profileName, role)
+    local provider = P.BASE_UI_PROVIDER or "ElvUI"
+    if provider == "Ellesmere" then
+        return addonTable.Injectors.Ellesmere(profileName, role)
+    end
+    return addonTable.Injectors.ElvUI(profileName, role)
+end
+
+function addonTable.Injectors.AyijeCDM(profileName, role)
+    if not C_AddOns.IsAddOnLoaded("Ayije_CDM") then return end
+    local encoded = string.gsub(P.AYIJE_CDM_PROFILE or "", "^%s+", ""):gsub("%s+$", "")
+    if encoded == "" then
+        print("|cffff0000[OakUI Error]|r Ayije CDM profile string is missing or empty.")
+        return
+    end
+
+    local api = _G.Ayije_CDM_API or (_G.Ayije_CDM and _G.Ayije_CDM.API)
+    if api and type(api.ImportProfile) == "function" then
+        local ok, err = pcall(api.ImportProfile, api, encoded, profileName)
+        if ok then return end
+        print("|cffff0000[OakUI Error]|r Ayije CDM import failed: " .. tostring(err))
+    elseif _G.Ayije_CDM and type(_G.Ayije_CDM.ImportProfileData) == "function" then
+        print("|cffff0000[OakUI Error]|r Ayije CDM direct profile data import requires decoded profile data.")
+    else
+        print("|cffff0000[OakUI Error]|r Ayije CDM import API is unavailable.")
     end
 end
 

@@ -31,10 +31,13 @@ function addonTable.BuildRawImportsUI(parentFrame)
 
     local imports = {
         { name = "Blizzard Edit Mode", var = P.EDITMODE_PROFILE, desc = "Copy this string and import it in Blizzard Edit Mode (Escape > Edit Mode > Layout dropdown > Import)." },
-        { name = "QUI Community Edition (Tank/DPS)", var = P.QUI_PROFILE, desc = "Import this string into the Quazii UI Import & Export Strings tab." },
-        { name = "Danders Frames (Tank/DPS)", var = P.DANDERS_PROFILE, desc = "Import this string into the Danders Frames profile importer." },
-        { name = "QUI Community Edition (Healer)", var = P.QUI_PROFILE_HEALS, desc = "Healer layout string for Quazii UI." },
-        { name = "Danders Frames (Healer)", var = P.DANDERS_PROFILE_HEALS, desc = "Healer layout string for Danders Frames." },
+        { name = "Base UI Profile (Tank/DPS)", var = (P.BASE_UI_PROVIDER == "Ellesmere") and P.ELLESMERE_PROFILE or P.ELVUI_PROFILE, desc = "Manual fallback string for the selected base UI profile." },
+        { name = "ElvUI Private (Tank/DPS)", var = P.ELVUI_PRIVATE, desc = "Manual fallback string for ElvUI's private profile import." },
+        { name = "Base UI Profile (Healer)", var = (P.BASE_UI_PROVIDER == "Ellesmere") and P.ELLESMERE_PROFILE_HEALS or P.ELVUI_PROFILE_HEALS, desc = "Manual fallback string for the selected base UI healer profile." },
+        { name = "ElvUI Private (Healer)", var = P.ELVUI_PRIVATE_HEALS, desc = "Manual fallback string for ElvUI's healer private profile import." },
+        { name = "Ayije CDM", var = P.AYIJE_CDM_PROFILE, desc = "Import this into Ayije CDM's import/profile settings." },
+        { name = "Chonky Character Sheet", var = P.CHONKY_PROFILE, desc = "Import this into Chonky Character Sheet's profile import box." },
+        { name = "MPlusTimer", var = P.MPLUSTIMER_PROFILE, desc = "Import this into MPlusTimer's profile import field." },
         { name = "Details! Damage Meter", var = P.DETAILS_PROFILE, desc = "Import this into Details! Options > Profiles > Import Profile." },
         { name = "Platynator", var = P.PLATYNATOR_PROFILE, desc = "Import this into the Plater / Platynator profiles tab." },
         { name = "XIV_Databar Continued", var = P.XIV_PROFILE, desc = "Import this into the XIV_Databar profiles section." },

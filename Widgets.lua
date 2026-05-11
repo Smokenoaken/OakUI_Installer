@@ -68,9 +68,6 @@ function addonTable.MakeFlatCheckbox(parent, text, dbKey)
     btn:SetScript("OnClick", function(self)
         OakUI_DB.chatFilters[dbKey] = not OakUI_DB.chatFilters[dbKey]
         self:UpdateState()
-        if dbKey == "hideTabs" and addonTable.RefreshChatTabVisibility then
-            addonTable.RefreshChatTabVisibility()
-        end
     end)
     return btn
 end
@@ -103,18 +100,20 @@ local PendingRole = "dps"
 local RoleContainer = CreateFrame("Frame", nil, ProfilePromptFrame); RoleContainer:SetSize(260, 30); RoleContainer:SetPoint("TOP", PromptTitle, "BOTTOM", 0, -15)
 local RoleDPSBtn = addonTable.MakeFlatButton(RoleContainer, "Tank / DPS", 125, 30); RoleDPSBtn:SetPoint("LEFT", 0, 0)
 local RoleHealBtn = addonTable.MakeFlatButton(RoleContainer, "Healer", 125, 30); RoleHealBtn:SetPoint("RIGHT", 0, 0)
+RoleHealBtn:Hide()
 local PromptDesc = ProfilePromptFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); PromptDesc:SetPoint("TOP", RoleContainer, "BOTTOM", 0, -15); PromptDesc:SetText("Enter a profile name to safely inject this setup:")
 local PromptEditBox = CreateFrame("EditBox", nil, ProfilePromptFrame, "InputBoxTemplate"); PromptEditBox:SetSize(250, 30); PromptEditBox:SetPoint("TOP", PromptDesc, "BOTTOM", 0, -10); PromptEditBox:SetAutoFocus(true)
 PromptEditBox:SetScript("OnEscapePressed", function() ProfilePromptFrame:Hide() end)
 
 local function UpdateRoleVisuals()
-    if PendingRole == "dps" then
-        RoleDPSBtn.bg:SetColorTexture(r, g, b, 0.5); RoleDPSBtn.Text:SetTextColor(1, 1, 1); RoleHealBtn.bg:SetColorTexture(0.2, 0.22, 0.28, 1); RoleHealBtn.Text:SetTextColor(r, g, b); PromptEditBox:SetText("OakUI-Tank/DPS")
-    else
-        RoleHealBtn.bg:SetColorTexture(r, g, b, 0.5); RoleHealBtn.Text:SetTextColor(1, 1, 1); RoleDPSBtn.bg:SetColorTexture(0.2, 0.22, 0.28, 1); RoleDPSBtn.Text:SetTextColor(r, g, b); PromptEditBox:SetText("OakUI-Healer")
-    end
+    PendingRole = "dps"
+    RoleDPSBtn.bg:SetColorTexture(r, g, b, 0.5)
+    RoleDPSBtn.Text:SetTextColor(1, 1, 1)
+    RoleHealBtn.bg:SetColorTexture(0.2, 0.22, 0.28, 1)
+    RoleHealBtn.Text:SetTextColor(r, g, b)
+    PromptEditBox:SetText("OakUI-Tank/DPS")
 end
-RoleDPSBtn:SetScript("OnClick", function() PendingRole = "dps"; UpdateRoleVisuals() end); RoleHealBtn:SetScript("OnClick", function() PendingRole = "heals"; UpdateRoleVisuals() end)
+RoleDPSBtn:SetScript("OnClick", function() PendingRole = "dps"; UpdateRoleVisuals() end); RoleHealBtn:SetScript("OnClick", function() end)
 local InstallBtn = addonTable.MakeFlatButton(ProfilePromptFrame, "Install", 100, 26); InstallBtn:SetPoint("BOTTOMRIGHT", ProfilePromptFrame, "BOTTOM", -5, 15); InstallBtn.Text:SetTextColor(r, g, b)
 local CancelBtn = addonTable.MakeFlatButton(ProfilePromptFrame, "Cancel", 100, 26); CancelBtn:SetPoint("BOTTOMLEFT", ProfilePromptFrame, "BOTTOM", 5, 15); CancelBtn:SetScript("OnClick", function() ProfilePromptFrame:Hide() end)
 
@@ -124,7 +123,7 @@ ReloadPromptFrame:SetFrameStrata("TOOLTIP"); ReloadPromptFrame:Hide() -- TOOLTIP
 ReloadPromptFrame:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 }); ReloadPromptFrame:SetBackdropColor(0.137, 0.141, 0.172, 1); ReloadPromptFrame:SetBackdropBorderColor(r, g, b, 1)
 local ReloadTitle = ReloadPromptFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); ReloadTitle:SetPoint("TOP", 0, -15); ReloadTitle:SetText(cWrap .. "OAK UI|r")
 local ReloadDesc = ReloadPromptFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); ReloadDesc:SetPoint("TOP", ReloadTitle, "BOTTOM", 0, -15); ReloadDesc:SetJustifyH("CENTER")
-local DoReloadBtn = addonTable.MakeFlatButton(ReloadPromptFrame, "Open Edit Mode", 140, 26); DoReloadBtn:SetPoint("BOTTOMRIGHT", ReloadPromptFrame, "BOTTOM", -5, 15)
+local DoReloadBtn = addonTable.MakeFlatButton(ReloadPromptFrame, "Reload UI", 140, 26); DoReloadBtn:SetPoint("BOTTOMRIGHT", ReloadPromptFrame, "BOTTOM", -5, 15)
 local LaterBtn = addonTable.MakeFlatButton(ReloadPromptFrame, "Later", 100, 26); LaterBtn:SetPoint("BOTTOMLEFT", ReloadPromptFrame, "BOTTOM", 5, 15); LaterBtn:SetScript("OnClick", function() ReloadPromptFrame:Hide() end)
 
 function addonTable.ShowReloadPrompt(message, buttonText, buttonFunc)
@@ -141,14 +140,9 @@ function addonTable.ShowReloadPrompt(message, buttonText, buttonFunc)
 end
 
 local function ShowCompletionPrompt()
-    ReloadDesc:SetText("Profile(s) injected successfully!\n\nTo finalize changes and clean up QUI visual taint,\nplease open Edit Mode, hit Save, then Reload UI.")
-    DoReloadBtn.Text:SetText("Open Edit Mode")
-    DoReloadBtn:SetScript("OnClick", function()
-        if EditModeManagerFrame then ShowUIPanel(EditModeManagerFrame) end
-        ReloadDesc:SetText("Once you have saved your Edit Mode layout,\nclick below to finalize the installation.")
-        DoReloadBtn.Text:SetText("Reload UI")
-        DoReloadBtn:SetScript("OnClick", function() ReloadUI() end)
-    end)
+    ReloadDesc:SetText("Profile(s) injected successfully!\n\nReload your UI to finish applying OakUI.")
+    DoReloadBtn.Text:SetText("Reload UI")
+    DoReloadBtn:SetScript("OnClick", function() ReloadUI() end)
     ReloadPromptFrame:Show()
 end
 
@@ -157,6 +151,9 @@ end
 -- ==========================================
 local PendingInstallFunc, PendingInstallAddon, PendingAddonList, PendingIsAll = nil, nil, nil, false
 local function InstallCallback(requiresReload) if requiresReload or PendingIsAll then ShowCompletionPrompt() end end
+function addonTable.ShowInstallCompletionPrompt()
+    ShowCompletionPrompt()
+end
 
 local function DoInstallAction()
     ProfilePromptFrame:Hide()
@@ -164,7 +161,8 @@ local function DoInstallAction()
     if not profileName or profileName == "" then profileName = "OakUI" end
     
     if PendingIsAll then 
-        Inj.ExecuteInstallAll(PendingAddonList, profileName, PendingRole, InstallCallback) 
+        local installedCount = Inj.ExecuteInstallAll(PendingAddonList, profileName, PendingRole, InstallCallback)
+        if installedCount and installedCount > 0 and addonTable.MarkInstallerComplete then addonTable.MarkInstallerComplete() end
     else 
         local success, err = pcall(PendingInstallFunc, profileName, PendingRole)
         if not success then print("|cffff0000[OakUI] Error installing profile:|r " .. tostring(err)) end
@@ -205,13 +203,30 @@ function Inj.ExecuteInstallAll(addonList, profileName, role, callback)
         end
     end
     if callback then callback(anyReload) end
+    return installedCount
+end
+
+function addonTable.QuickInstallAll(profileName, role)
+    profileName = profileName or "OakUI-Tank/DPS"
+    role = role or "dps"
+
+    local installedCount = Inj.ExecuteInstallAll(addonTable.FlagshipAddons or {}, profileName, role, nil)
+    if addonTable.ApplyOakVisibilityDefaults then
+        addonTable.ApplyOakVisibilityDefaults()
+    end
+    if installedCount and installedCount > 0 and addonTable.MarkInstallerComplete then
+        addonTable.MarkInstallerComplete()
+    end
+    ShowCompletionPrompt()
+    return installedCount
 end
 
 function addonTable.ShowProfilePrompt(isAll, addonList, singleAddon, singleFunc, forcedRole)
     PendingIsAll = isAll; PendingAddonList = addonList; PendingInstallAddon = singleAddon; PendingInstallFunc = singleFunc
-    PendingRole = forcedRole or "dps"
+    PendingRole = "dps"
     UpdateRoleVisuals()
-    if isAll then RoleContainer:Show(); PromptDesc:SetPoint("TOP", RoleContainer, "BOTTOM", 0, -15); ProfilePromptFrame:SetHeight(220)
-    else RoleContainer:Hide(); PromptDesc:SetPoint("TOP", PromptTitle, "BOTTOM", 0, -15); ProfilePromptFrame:SetHeight(180) end
+    RoleContainer:Hide()
+    PromptDesc:SetPoint("TOP", PromptTitle, "BOTTOM", 0, -15)
+    ProfilePromptFrame:SetHeight(180)
     ProfilePromptFrame:Show(); PromptEditBox:HighlightText(); PromptEditBox:SetFocus()
 end

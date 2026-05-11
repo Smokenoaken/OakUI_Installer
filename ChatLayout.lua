@@ -142,7 +142,7 @@ local defaultChatTabAlpha = {
 }
 
 local function ShouldHideChatTabs()
-    return not (OakUI_DB and OakUI_DB.chatFilters and OakUI_DB.chatFilters.hideTabs == false)
+    return false
 end
 
 local function GetChatTabTargetAlpha(frame, tab)
