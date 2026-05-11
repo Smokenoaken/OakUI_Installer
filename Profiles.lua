@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "1.5.4"
+P.VERSION = "2.0.0-beta1"
 P.BASE_UI_PROVIDER = "ElvUI"
 
 -- ==========================================
@@ -85,6 +85,16 @@ P.BIGWIGS_PROFILE = [[BW2:1Vg9jCNJFXbP7B7SSocICDw3t7s+BAjpCNBCMHdCGmx3+2f80/5pz/
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.0.0-beta1",
+        date = "May 10, 2026",
+        notes = {
+            "Migrated OakUI to ElvUI as the base UI with profile and private string injection.",
+            "Added one-click Quick Install with ElvUI installer bypass and per-character first-run tracking.",
+            "Added OakUI action bar fading, visibility controls, chat cleaning updates, and minimap button support.",
+            "Added Ayije CDM, Chonky Character Sheet, MPlusTimer, Platynator, Details, XIV Databar, and BigWigs profile handling.",
+        }
+    },
     {
         version = "v1.5.4",
         date = "April 21, 2026",

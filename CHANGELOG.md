@@ -1,3 +1,10 @@
+## v2.0.0-beta1
+
+- Migrated OakUI to ElvUI as the base UI with profile and private string injection.
+- Added one-click Quick Install with ElvUI installer bypass and per-character first-run tracking.
+- Added OakUI action bar fading, visibility controls, chat cleaning updates, and minimap button support.
+- Added Ayije CDM, Chonky Character Sheet, MPlusTimer, Platynator, Details, XIV Databar, and BigWigs profile handling.
+
 ## v1.5.4
 
 - Refreshed embedded OakUI import strings
