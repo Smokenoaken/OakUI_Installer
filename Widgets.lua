@@ -202,6 +202,10 @@ function Inj.ExecuteInstallAll(addonList, profileName, role, callback)
             end
         end
     end
+    if addonTable.ApplyOakFontPreset then
+        addonTable.ApplyOakFontPreset()
+        anyReload = true
+    end
     if callback then callback(anyReload) end
     return installedCount
 end

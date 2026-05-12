@@ -48,7 +48,6 @@ function addonTable.BuildInstallerUI(parentFrame)
     local FlagshipAddons = {
         { name = "Base UI Framework", folder = baseFolder, url = baseUrl, func = Inj.BaseUI, requiresReload = true },
         { name = "Blizzard Edit Mode (Layout)", folder = nil, buttonText = "Copy Layout", installedText = "Copied!", func = function() ShowCopyBox(Inj.GetEditMode(), cWrap .. "1.|r Press CTRL+C to copy the text below.\n" .. cWrap .. "2.|r Open ESC -> Edit Mode.\n" .. cWrap .. "3.|r Click the Layout Dropdown -> Import -> Paste.") end, manual = true },
-        { name = "OakUI Chat Layout", folder = nil, buttonText = "Apply Layout", installedText = "Applied!", func = function() if addonTable.SetupChatWindows then addonTable.SetupChatWindows(true) end end, requiresReload = true, manual = true },
         { name = "Ayije CDM", folder = "Ayije_CDM", url = "https://www.curseforge.com/wow/addons/ayije-cdm", func = Inj.AyijeCDM, requiresReload = true },
         { name = "Chonky Character Sheet", folder = "ChonkyCharacterSheet", url = "https://www.curseforge.com/wow/addons/chonky-character-sheet", func = Inj.ChonkyCharacterSheet, requiresReload = true },
         { name = "MPlusTimer", folder = "MPlusTimer", url = "https://www.curseforge.com/wow/addons/mplustimer", func = Inj.MPlusTimer, requiresReload = true },

@@ -30,6 +30,7 @@ DB_Frame:SetScript("OnEvent", function(self, event, addon)
                 reputation = true, spells = true, status = true, tradeskills = true, money = true,
             }
         end
+        if addonTable.EnsureFontDB then addonTable.EnsureFontDB() end
         if addonTable.BypassElvUIInstaller then addonTable.BypassElvUIInstaller() end
         self:UnregisterEvent("ADDON_LOADED")
     end

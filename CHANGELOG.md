@@ -1,3 +1,10 @@
+## v2.0.0-beta2
+
+- Added LibSharedMedia-aware custom font replacement with broad Blizzard font override support.
+- Applied OakUI font replacement automatically during Quick Install and Install All.
+- Removed the standalone OakUI chat layout installer step from the ElvUI-backed install flow.
+- Added the initial EllesmereUI profile payload for the upcoming backbone migration.
+
 ## v2.0.0-beta1
 
 - Migrated OakUI to ElvUI as the base UI with profile and private string injection.
