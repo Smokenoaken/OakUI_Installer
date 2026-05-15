@@ -100,20 +100,20 @@ local PendingRole = "dps"
 local RoleContainer = CreateFrame("Frame", nil, ProfilePromptFrame); RoleContainer:SetSize(260, 30); RoleContainer:SetPoint("TOP", PromptTitle, "BOTTOM", 0, -15)
 local RoleDPSBtn = addonTable.MakeFlatButton(RoleContainer, "Tank / DPS", 125, 30); RoleDPSBtn:SetPoint("LEFT", 0, 0)
 local RoleHealBtn = addonTable.MakeFlatButton(RoleContainer, "Healer", 125, 30); RoleHealBtn:SetPoint("RIGHT", 0, 0)
-RoleHealBtn:Hide()
 local PromptDesc = ProfilePromptFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); PromptDesc:SetPoint("TOP", RoleContainer, "BOTTOM", 0, -15); PromptDesc:SetText("Enter a profile name to safely inject this setup:")
 local PromptEditBox = CreateFrame("EditBox", nil, ProfilePromptFrame, "InputBoxTemplate"); PromptEditBox:SetSize(250, 30); PromptEditBox:SetPoint("TOP", PromptDesc, "BOTTOM", 0, -10); PromptEditBox:SetAutoFocus(true)
 PromptEditBox:SetScript("OnEscapePressed", function() ProfilePromptFrame:Hide() end)
 
-local function UpdateRoleVisuals()
-    PendingRole = "dps"
-    RoleDPSBtn.bg:SetColorTexture(r, g, b, 0.5)
-    RoleDPSBtn.Text:SetTextColor(1, 1, 1)
-    RoleHealBtn.bg:SetColorTexture(0.2, 0.22, 0.28, 1)
-    RoleHealBtn.Text:SetTextColor(r, g, b)
-    PromptEditBox:SetText("OakUI-Tank/DPS")
+local function UpdateRoleVisuals(role)
+    PendingRole = role or PendingRole or "dps"
+    local isHealer = PendingRole == "heals"
+    RoleDPSBtn.bg:SetColorTexture(isHealer and 0.2 or r, isHealer and 0.22 or g, isHealer and 0.28 or b, isHealer and 1 or 0.5)
+    RoleDPSBtn.Text:SetTextColor(isHealer and r or 1, isHealer and g or 1, isHealer and b or 1)
+    RoleHealBtn.bg:SetColorTexture(isHealer and r or 0.2, isHealer and g or 0.22, isHealer and b or 0.28, isHealer and 0.5 or 1)
+    RoleHealBtn.Text:SetTextColor(isHealer and 1 or r, isHealer and 1 or g, isHealer and 1 or b)
+    PromptEditBox:SetText(isHealer and "OakUI-Healer" or "OakUI-Tank/DPS")
 end
-RoleDPSBtn:SetScript("OnClick", function() PendingRole = "dps"; UpdateRoleVisuals() end); RoleHealBtn:SetScript("OnClick", function() end)
+RoleDPSBtn:SetScript("OnClick", function() UpdateRoleVisuals("dps") end); RoleHealBtn:SetScript("OnClick", function() UpdateRoleVisuals("heals") end)
 local InstallBtn = addonTable.MakeFlatButton(ProfilePromptFrame, "Install", 100, 26); InstallBtn:SetPoint("BOTTOMRIGHT", ProfilePromptFrame, "BOTTOM", -5, 15); InstallBtn.Text:SetTextColor(r, g, b)
 local CancelBtn = addonTable.MakeFlatButton(ProfilePromptFrame, "Cancel", 100, 26); CancelBtn:SetPoint("BOTTOMLEFT", ProfilePromptFrame, "BOTTOM", 5, 15); CancelBtn:SetScript("OnClick", function() ProfilePromptFrame:Hide() end)
 
@@ -206,6 +206,10 @@ function Inj.ExecuteInstallAll(addonList, profileName, role, callback)
         addonTable.ApplyOakFontPreset()
         anyReload = true
     end
+    if addonTable.ApplyOakVisibilityDefaults then
+        addonTable.ApplyOakVisibilityDefaults()
+        anyReload = true
+    end
     if callback then callback(anyReload) end
     return installedCount
 end
@@ -215,9 +219,6 @@ function addonTable.QuickInstallAll(profileName, role)
     role = role or "dps"
 
     local installedCount = Inj.ExecuteInstallAll(addonTable.FlagshipAddons or {}, profileName, role, nil)
-    if addonTable.ApplyOakVisibilityDefaults then
-        addonTable.ApplyOakVisibilityDefaults()
-    end
     if installedCount and installedCount > 0 and addonTable.MarkInstallerComplete then
         addonTable.MarkInstallerComplete()
     end
@@ -227,10 +228,27 @@ end
 
 function addonTable.ShowProfilePrompt(isAll, addonList, singleAddon, singleFunc, forcedRole)
     PendingIsAll = isAll; PendingAddonList = addonList; PendingInstallAddon = singleAddon; PendingInstallFunc = singleFunc
-    PendingRole = "dps"
-    UpdateRoleVisuals()
-    RoleContainer:Hide()
-    PromptDesc:SetPoint("TOP", PromptTitle, "BOTTOM", 0, -15)
-    ProfilePromptFrame:SetHeight(180)
+    local showRoles = singleAddon and singleAddon.hasRoles
+    if isAll and addonList then
+        for _, addon in ipairs(addonList) do
+            if addon.hasRoles then
+                showRoles = true
+                break
+            end
+        end
+    end
+
+    UpdateRoleVisuals(forcedRole or "dps")
+    if showRoles then
+        RoleContainer:Show()
+        PromptDesc:ClearAllPoints()
+        PromptDesc:SetPoint("TOP", RoleContainer, "BOTTOM", 0, -15)
+        ProfilePromptFrame:SetHeight(220)
+    else
+        RoleContainer:Hide()
+        PromptDesc:ClearAllPoints()
+        PromptDesc:SetPoint("TOP", PromptTitle, "BOTTOM", 0, -15)
+        ProfilePromptFrame:SetHeight(180)
+    end
     ProfilePromptFrame:Show(); PromptEditBox:HighlightText(); PromptEditBox:SetFocus()
 end

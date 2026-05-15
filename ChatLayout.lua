@@ -131,6 +131,7 @@ local chatTabController = CreateFrame("Frame")
 local refreshQueued = false
 local refreshDelay = 0
 local pollingForHover = false
+local OnChatTabControllerUpdate
 local defaultChatTabAlpha = {
     selectedMouseover = CHAT_FRAME_TAB_SELECTED_MOUSEOVER_ALPHA or 1,
     selectedNoMouse = CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA or 0.4,
@@ -219,6 +220,7 @@ local function UpdateHoverPolling()
     end
 
     pollingForHover = shouldPoll
+    chatTabController:SetScript("OnUpdate", (refreshQueued or pollingForHover) and OnChatTabControllerUpdate or nil)
 end
 
 local function RefreshAllChatTabs()
@@ -239,9 +241,10 @@ end
 local function QueueChatTabRefresh(delay)
     refreshQueued = true
     refreshDelay = delay or 0
+    chatTabController:SetScript("OnUpdate", OnChatTabControllerUpdate)
 end
 
-local function OnChatTabControllerUpdate(self, elapsed)
+OnChatTabControllerUpdate = function(self, elapsed)
     if refreshQueued then
         refreshDelay = refreshDelay - elapsed
         if refreshDelay <= 0 then
@@ -252,6 +255,8 @@ local function OnChatTabControllerUpdate(self, elapsed)
 
     if pollingForHover then
         RefreshAllChatTabs()
+    elseif not refreshQueued then
+        self:SetScript("OnUpdate", nil)
     end
 end
 
@@ -266,7 +271,6 @@ chatTabController:RegisterEvent("PLAYER_REGEN_ENABLED")
 chatTabController:SetScript("OnEvent", function()
     QueueChatTabRefresh()
 end)
-chatTabController:SetScript("OnUpdate", OnChatTabControllerUpdate)
 
 if type(FCFTab_UpdateAlpha) == "function" then
     hooksecurefunc("FCFTab_UpdateAlpha", function(chatFrame)

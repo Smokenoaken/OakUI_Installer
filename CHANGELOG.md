@@ -1,3 +1,11 @@
+## v2.0.0-ellesmere-alpha1
+
+- Moved OakUI installer defaults to EllesmereUI as the active base UI provider.
+- Added Ellesmere profile injection and removed ElvUI-only companion profile installs that Ellesmere does not use.
+- Added DandersFrames profile injection for DPS/Tank and Healer setups.
+- Added Ellesmere Tweaks for player/pet visibility, action bar mouseover behavior, CDM visibility, chat fading, compact Utility CDM, and compact resource positioning.
+- Optimized installer runtime work so Ellesmere tweak refreshes are event-driven instead of permanently polling.
+
 ## v2.0.0-beta2
 
 - Added LibSharedMedia-aware custom font replacement with broad Blizzard font override support.

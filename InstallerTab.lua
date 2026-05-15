@@ -43,19 +43,33 @@ function addonTable.BuildInstallerUI(parentFrame)
     InstallAllBtn:SetPoint("BOTTOMRIGHT", ListView, "BOTTOMRIGHT", -30, 10)
     InstallAllBtn.Text:SetTextColor(r, g, b) 
 
-    local baseFolder = (P.BASE_UI_PROVIDER == "Ellesmere") and "EllesmereUI" or "ElvUI"
-    local baseUrl = (P.BASE_UI_PROVIDER == "Ellesmere") and "https://www.curseforge.com/wow/addons/ellesmere-ui" or "https://tukui.org/elvui"
-    local FlagshipAddons = {
-        { name = "Base UI Framework", folder = baseFolder, url = baseUrl, func = Inj.BaseUI, requiresReload = true },
-        { name = "Blizzard Edit Mode (Layout)", folder = nil, buttonText = "Copy Layout", installedText = "Copied!", func = function() ShowCopyBox(Inj.GetEditMode(), cWrap .. "1.|r Press CTRL+C to copy the text below.\n" .. cWrap .. "2.|r Open ESC -> Edit Mode.\n" .. cWrap .. "3.|r Click the Layout Dropdown -> Import -> Paste.") end, manual = true },
-        { name = "Ayije CDM", folder = "Ayije_CDM", url = "https://www.curseforge.com/wow/addons/ayije-cdm", func = Inj.AyijeCDM, requiresReload = true },
-        { name = "Chonky Character Sheet", folder = "ChonkyCharacterSheet", url = "https://www.curseforge.com/wow/addons/chonky-character-sheet", func = Inj.ChonkyCharacterSheet, requiresReload = true },
-        { name = "MPlusTimer", folder = "MPlusTimer", url = "https://www.curseforge.com/wow/addons/mplustimer", func = Inj.MPlusTimer, requiresReload = true },
-        { name = "Platynator", folder = "Platynator", url = "https://www.curseforge.com/wow/addons/platynator", func = Inj.Platynator },
-        { name = "Details! Damage Meter", folder = "Details", url = "https://www.curseforge.com/wow/addons/details", func = Inj.Details },
-        { name = "XIV_Databar Continued", folder = "XIV_Databar_Continued", url = "https://www.curseforge.com/wow/addons/xiv-databar-continued", func = Inj.XIV },
-        { name = "BigWigs (Optional)", folder = "BigWigs", url = "https://www.curseforge.com/wow/addons/big-wigs", func = Inj.BigWigs, requiresReload = false },
-    }
+    local isEllesmere = P.BASE_UI_PROVIDER == "Ellesmere"
+    local baseFolder = isEllesmere and "EllesmereUI" or "ElvUI"
+    local baseUrl = isEllesmere and "https://www.curseforge.com/wow/addons/ellesmere-ui" or "https://tukui.org/elvui"
+    local editModeAddon = { name = "Blizzard Edit Mode (Layout)", folder = nil, buttonText = "Copy Layout", installedText = "Copied!", func = function() ShowCopyBox(Inj.GetEditMode(), cWrap .. "1.|r Press CTRL+C to copy the text below.\n" .. cWrap .. "2.|r Open ESC -> Edit Mode.\n" .. cWrap .. "3.|r Click the Layout Dropdown -> Import -> Paste.") end, manual = true }
+    local FlagshipAddons
+    if isEllesmere then
+        FlagshipAddons = {
+            { name = "Base UI Framework", folder = baseFolder, url = baseUrl, func = Inj.BaseUI, requiresReload = true },
+            editModeAddon,
+            { name = "Danders Frames", folder = "DandersFrames", url = "https://www.curseforge.com/wow/addons/danders-frames", func = Inj.Danders, requiresReload = true, hasRoles = true },
+            { name = "Platynator", folder = "Platynator", url = "https://www.curseforge.com/wow/addons/platynator", func = Inj.Platynator },
+            { name = "XIV_Databar Continued", folder = "XIV_Databar_Continued", url = "https://www.curseforge.com/wow/addons/xiv-databar-continued", func = Inj.XIV },
+            { name = "BigWigs (Optional)", folder = "BigWigs", url = "https://www.curseforge.com/wow/addons/big-wigs", func = Inj.BigWigs, requiresReload = false },
+        }
+    else
+        FlagshipAddons = {
+            { name = "Base UI Framework", folder = baseFolder, url = baseUrl, func = Inj.BaseUI, requiresReload = true },
+            editModeAddon,
+            { name = "Ayije CDM", folder = "Ayije_CDM", url = "https://www.curseforge.com/wow/addons/ayije-cdm", func = Inj.AyijeCDM, requiresReload = true },
+            { name = "Chonky Character Sheet", folder = "ChonkyCharacterSheet", url = "https://www.curseforge.com/wow/addons/chonky-character-sheet", func = Inj.ChonkyCharacterSheet, requiresReload = true },
+            { name = "MPlusTimer", folder = "MPlusTimer", url = "https://www.curseforge.com/wow/addons/mplustimer", func = Inj.MPlusTimer, requiresReload = true },
+            { name = "Platynator", folder = "Platynator", url = "https://www.curseforge.com/wow/addons/platynator", func = Inj.Platynator },
+            { name = "Details! Damage Meter", folder = "Details", url = "https://www.curseforge.com/wow/addons/details", func = Inj.Details },
+            { name = "XIV_Databar Continued", folder = "XIV_Databar_Continued", url = "https://www.curseforge.com/wow/addons/xiv-databar-continued", func = Inj.XIV },
+            { name = "BigWigs (Optional)", folder = "BigWigs", url = "https://www.curseforge.com/wow/addons/big-wigs", func = Inj.BigWigs, requiresReload = false },
+        }
+    end
     addonTable.FlagshipAddons = FlagshipAddons
 
     local DeprecatedAddons = {}

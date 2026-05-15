@@ -18,6 +18,10 @@ local function GetElvUI()
     return _G.ElvUI[1]
 end
 
+local function IsElvUIProvider()
+    return not addonTable.Profiles or addonTable.Profiles.BASE_UI_PROVIDER ~= "Ellesmere"
+end
+
 local function GetActionBarsModule()
     local E = GetElvUI()
     if not E or type(E.GetModule) ~= "function" then return nil, nil end
@@ -303,6 +307,7 @@ local function RefreshElvUIBars()
 end
 
 function addonTable.RefreshActionBarFader()
+    if not IsElvUIProvider() then return end
     SuppressInactiveSpecialBars()
     SetElvUIMouseoverOverrides(EnsureDB().hide)
     DiscoverBars()
@@ -315,6 +320,7 @@ function addonTable.RefreshActionBarFader()
 end
 
 function addonTable.SetActionBarsHidden(state)
+    if not IsElvUIProvider() then return end
     EnsureDB().hide = state == true
     SetElvUIMouseoverOverrides(EnsureDB().hide)
     RefreshElvUIBars()
@@ -322,6 +328,7 @@ function addonTable.SetActionBarsHidden(state)
 end
 
 function addonTable.GetActionBarsHidden()
+    if not IsElvUIProvider() then return false end
     return EnsureDB().hide == true
 end
 

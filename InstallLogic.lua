@@ -167,6 +167,10 @@ local function GetRoleString(defaultString, healerString, role)
     return defaultString
 end
 
+local function TrimProfileString(profileString)
+    return string.gsub(profileString or "", "^%s+", ""):gsub("%s+$", "")
+end
+
 function addonTable.Injectors.ElvUI(profileName, role)
     if not C_AddOns.IsAddOnLoaded("ElvUI") then return end
 
@@ -215,7 +219,27 @@ function addonTable.Injectors.ElvUI(profileName, role)
 end
 
 function addonTable.Injectors.Ellesmere(profileName, role)
-    print("|cffff0000[OakUI Error]|r Ellesmere provider is not wired yet. Add its import API and profile string before enabling this base.")
+    if not C_AddOns.IsAddOnLoaded("EllesmereUI") then return end
+
+    ApplyBaseActionBarCVars()
+
+    local encoded = TrimProfileString(P.ELLESMERE_PROFILE)
+    if encoded == "" then
+        print("|cffff0000[OakUI Error]|r EllesmereUI profile string is missing or empty.")
+        return
+    end
+
+    if not _G.EllesmereUI or type(_G.EllesmereUI.ImportProfile) ~= "function" then
+        print("|cffff0000[OakUI Error]|r EllesmereUI import API is unavailable.")
+        return
+    end
+
+    local ok, success, err = pcall(_G.EllesmereUI.ImportProfile, encoded, profileName)
+    if not ok then
+        print("|cffff0000[OakUI Error]|r EllesmereUI import failed: " .. tostring(success))
+    elseif not success then
+        print("|cffff0000[OakUI Error]|r EllesmereUI import failed: " .. tostring(err))
+    end
 end
 
 function addonTable.Injectors.BaseUI(profileName, role)
@@ -224,6 +248,28 @@ function addonTable.Injectors.BaseUI(profileName, role)
         return addonTable.Injectors.Ellesmere(profileName, role)
     end
     return addonTable.Injectors.ElvUI(profileName, role)
+end
+
+function addonTable.Injectors.Danders(profileName, role)
+    if not C_AddOns.IsAddOnLoaded("DandersFrames") then return end
+
+    local encoded = TrimProfileString(GetRoleString(P.DANDERS_PROFILE, P.DANDERS_PROFILE_HEALS, role))
+    if encoded == "" then
+        print("|cffff0000[OakUI Error]|r Danders Frames profile string is missing or empty for this role.")
+        return
+    end
+
+    if type(_G.DandersFrames_Import) == "function" then
+        local ok, success, result = pcall(_G.DandersFrames_Import, encoded, profileName)
+        if not ok then
+            print("|cffff0000[OakUI Error]|r Danders Frames import failed: " .. tostring(success))
+        elseif not success then
+            print("|cffff0000[OakUI Error]|r Danders Frames import failed: " .. tostring(result))
+        end
+        return
+    end
+
+    print("|cffff0000[OakUI Error]|r Danders Frames import API is unavailable.")
 end
 
 function addonTable.Injectors.AyijeCDM(profileName, role)

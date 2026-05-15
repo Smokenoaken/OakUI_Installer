@@ -251,7 +251,14 @@ local MigrationText = MigrationNotice:CreateFontString(nil, "OVERLAY", "GameFont
 MigrationText:SetPoint("TOPLEFT", MigrationNotice, "TOPLEFT", 24, -55)
 MigrationText:SetPoint("TOPRIGHT", MigrationNotice, "TOPRIGHT", -24, -55)
 MigrationText:SetJustifyH("LEFT")
-MigrationText:SetText("This version of OAK UI no longer uses QUI as its base.\n\nCurrent OAK setup uses:\n- " .. (P.BASE_UI_PROVIDER or "ElvUI") .. "\n- Ayije CDM\n- Chonky Character Sheet\n- MPlusTimer\n- Platynator\n- Details! Damage Meter\n- XIV_Databar Continued\n- BigWigs is optional")
+local baseProvider = P.BASE_UI_PROVIDER or "ElvUI"
+local addonSummary
+if baseProvider == "Ellesmere" then
+    addonSummary = "- EllesmereUI\n- Danders Frames\n- Platynator\n- XIV_Databar Continued\n- BigWigs is optional"
+else
+    addonSummary = "- ElvUI\n- Ayije CDM\n- Chonky Character Sheet\n- MPlusTimer\n- Platynator\n- Details! Damage Meter\n- XIV_Databar Continued\n- BigWigs is optional"
+end
+MigrationText:SetText("This version of OAK UI no longer uses QUI as its base.\n\nCurrent OAK setup uses:\n" .. addonSummary)
 
 local DontShowAgain = CreateFrame("Button", nil, MigrationNotice)
 DontShowAgain:SetSize(20, 20)
