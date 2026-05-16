@@ -1,3 +1,7 @@
+## v2.0.0-ellesmere-alpha3
+
+- Added Ellesmere player frame show toggles for player health below 100% and group membership
+
 ## v2.0.0-ellesmere-alpha2
 
 - Fixed Compact Resource overlap after reload for characters that have both a class resource and power bar

@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.0.0-ellesmere-alpha2"
+P.VERSION = "2.0.0-ellesmere-alpha3"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -88,6 +88,13 @@ P.BIGWIGS_PROFILE = [[BW2:1VhNjONWHY9nukVa1IoDh0ynu5siQEjlgLYcphXSkMTOx+TDSezMeK
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.0.0-ellesmere-alpha3",
+        date = "May 16, 2026",
+        notes = {
+            "Added Ellesmere player frame show toggles for player health below 100% and group membership",
+        }
+    },
     {
         version = "v2.0.0-ellesmere-alpha2",
         date = "May 16, 2026",
