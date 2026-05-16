@@ -1,3 +1,7 @@
+## v2.0.0-ellesmere-alpha2
+
+- Fixed Compact Resource overlap after reload for characters that have both a class resource and power bar
+
 ## v2.0.0-ellesmere-alpha1
 
 - Moved OakUI installer defaults to EllesmereUI as the active base UI provider.
