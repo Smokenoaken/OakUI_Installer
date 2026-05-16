@@ -36,6 +36,42 @@ local function UnitIsInjured(unit)
     return ok and injured == true
 end
 
+local playerHealthBelowMax = false
+local playerHealthStableTimer
+local lastPlayerHealthEventTime = 0
+local HEALTH_STABLE_DURATION = 3
+
+local function SetPlayerHealthChanging()
+    local wasBelowMax = playerHealthBelowMax
+    playerHealthBelowMax = true
+    lastPlayerHealthEventTime = GetTime and GetTime() or 0
+
+    if not wasBelowMax and addonTable.RefreshEllesmereVisibilityTweaks then
+        addonTable.RefreshEllesmereVisibilityTweaks()
+    end
+
+    if playerHealthStableTimer or not C_Timer or not C_Timer.NewTicker then return end
+    playerHealthStableTimer = C_Timer.NewTicker(1, function()
+        if InCombatLockdown and InCombatLockdown() then return end
+        local now = GetTime and GetTime() or 0
+        if now - lastPlayerHealthEventTime < HEALTH_STABLE_DURATION then return end
+
+        playerHealthStableTimer:Cancel()
+        playerHealthStableTimer = nil
+        playerHealthBelowMax = false
+        if addonTable.RefreshEllesmereVisibilityTweaks then
+            addonTable.RefreshEllesmereVisibilityTweaks()
+        end
+    end)
+end
+
+local function PlayerHealthBelowMax()
+    return playerHealthBelowMax or UnitIsInjured("player")
+end
+
+local ellesmereUnitFrameVisibilityHooked
+local applyingEllesmereVisibility
+
 local function SetFrameVisible(frame, visible)
     if not frame then return end
     frame:SetAlpha(visible and 1 or 0)
@@ -64,7 +100,8 @@ end
 
 local function PlayerPetVisibilityEnabled()
     if not IsEllesmereProvider() then return false end
-    if EnsureVisibilityDB().smartPlayerPetVisibility ~= true then return false end
+    local db = EnsureVisibilityDB()
+    if db.smartPlayerPetVisibility ~= true and db.showPlayerWhenInjured ~= true and db.showPlayerInParty ~= true then return false end
     if EnsureVisibilityDB().playerFrameHidden == true then return true end
 
     local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
@@ -72,7 +109,28 @@ local function PlayerPetVisibilityEnabled()
     return player and player.visHideNoTarget == true
 end
 
+local function PlayerIsInGroup()
+    return (type(IsInGroup) == "function" and IsInGroup()) or (type(IsInRaid) == "function" and IsInRaid())
+end
+
+local function HookEllesmereUnitFrameVisibility()
+    if ellesmereUnitFrameVisibilityHooked then return end
+    local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
+    if not ns or type(ns.UpdateFrameVisibility) ~= "function" or not hooksecurefunc then return end
+
+    ellesmereUnitFrameVisibilityHooked = true
+    hooksecurefunc(ns, "UpdateFrameVisibility", function()
+        if applyingEllesmereVisibility then return end
+        C_Timer.After(0, function()
+            if addonTable.RefreshEllesmereVisibilityTweaks then
+                addonTable.RefreshEllesmereVisibilityTweaks(true)
+            end
+        end)
+    end)
+end
+
 function addonTable.RefreshEllesmereVisibilityTweaks()
+    HookEllesmereUnitFrameVisibility()
     if not PlayerPetVisibilityEnabled() then
         local playerFrame = _G.EllesmereUIUnitFrames_Player
         SetFrameVisible(playerFrame and playerFrame._visWrap or playerFrame, true)
@@ -81,14 +139,34 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
         return
     end
 
-    local shouldShow = UnitExists("target") or UnitIsInjured("player") or UnitIsInjured("pet")
+    local db = EnsureVisibilityDB()
+    local hasTarget = UnitExists("target")
+    if InCombatLockdown and InCombatLockdown() then
+        SetFrameVisible((_G.EllesmereUIUnitFrames_Player and _G.EllesmereUIUnitFrames_Player._visWrap) or _G.EllesmereUIUnitFrames_Player, true)
+        SetPetFrameVisible(_G.EllesmereUIUnitFrames_Pet, UnitExists("pet"))
+        SetPetFrameVisible(GetDandersPlayerPetFrame(), UnitExists("pet"))
+        return
+    end
+
+    local showPlayerForInjury = (db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true) and PlayerHealthBelowMax()
+    local showPlayerForParty = db.showPlayerInParty == true and PlayerIsInGroup()
+    local showPetForInjury = db.smartPlayerPetVisibility == true and UnitIsInjured("pet")
+    local shouldShowPlayer = hasTarget or showPlayerForInjury or showPlayerForParty or showPetForInjury
+    local shouldShowPet = hasTarget or showPetForInjury or showPlayerForInjury
     local playerFrame = _G.EllesmereUIUnitFrames_Player
     local petFrame = _G.EllesmereUIUnitFrames_Pet
     local dandersPetFrame = GetDandersPlayerPetFrame()
 
-    SetFrameVisible(playerFrame and playerFrame._visWrap or playerFrame, shouldShow)
-    SetPetFrameVisible(petFrame, shouldShow and UnitExists("pet"))
-    SetPetFrameVisible(dandersPetFrame, shouldShow and UnitExists("pet"))
+    local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
+    if ns and type(ns.UpdateFrameVisibility) == "function" and not applyingEllesmereVisibility then
+        applyingEllesmereVisibility = true
+        pcall(ns.UpdateFrameVisibility)
+        applyingEllesmereVisibility = nil
+    end
+
+    SetFrameVisible(playerFrame and playerFrame._visWrap or playerFrame, shouldShowPlayer)
+    SetPetFrameVisible(petFrame, shouldShowPet and UnitExists("pet"))
+    SetPetFrameVisible(dandersPetFrame, shouldShowPet and UnitExists("pet"))
 end
 
 local function FindCDMBarData(key)
@@ -516,6 +594,8 @@ end
 
 local function ScheduleLayoutRefresh()
     ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
+    ScheduleRefresh("visibilityInit", 0.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
+    ScheduleRefresh("visibilityLate", 1.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     ScheduleRefresh("utility", 0.1, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
     ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
 end
@@ -529,6 +609,7 @@ frame:RegisterEvent("UNIT_POWER_UPDATE")
 frame:RegisterEvent("UNIT_POWER_FREQUENT")
 frame:RegisterEvent("UNIT_MAXPOWER")
 frame:RegisterEvent("UNIT_PET")
+frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 frame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 frame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 frame:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
@@ -543,7 +624,10 @@ frame:SetScript("OnEvent", function(_, event, unit)
     if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
         ScheduleLayoutRefresh()
         ScheduleRefresh("chat", 0.1, addonTable.RefreshEllesmereChatLineFade, 1)
-    elseif event == "PLAYER_TARGET_CHANGED" or event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_PET" then
+    elseif event == "PLAYER_TARGET_CHANGED" or event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" then
+        if event == "UNIT_HEALTH" and unit == "player" then
+            SetPlayerHealthChanging()
+        end
         ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     elseif event == "SPELL_UPDATE_COOLDOWN" or event == "BAG_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_COOLDOWN" then
         ScheduleRefresh("utility", 0.1, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)

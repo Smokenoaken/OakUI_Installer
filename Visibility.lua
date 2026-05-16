@@ -246,6 +246,28 @@ local function GetEllesmereSmartPlayerPetVisibility()
     return EnsureVisibilityDB().smartPlayerPetVisibility == true
 end
 
+local function SetEllesmereShowPlayerWhenInjured(state)
+    EnsureVisibilityDB().showPlayerWhenInjured = state == true
+    if addonTable.RefreshEllesmereVisibilityTweaks then
+        addonTable.RefreshEllesmereVisibilityTweaks()
+    end
+end
+
+local function GetEllesmereShowPlayerWhenInjured()
+    return EnsureVisibilityDB().showPlayerWhenInjured == true
+end
+
+local function SetEllesmereShowPlayerInParty(state)
+    EnsureVisibilityDB().showPlayerInParty = state == true
+    if addonTable.RefreshEllesmereVisibilityTweaks then
+        addonTable.RefreshEllesmereVisibilityTweaks()
+    end
+end
+
+local function GetEllesmereShowPlayerInParty()
+    return EnsureVisibilityDB().showPlayerInParty == true
+end
+
 local function SetEllesmereChatLineFade(state)
     EnsureVisibilityDB().chatLineFade = state == true
     if addonTable.RefreshEllesmereChatLineFade then
@@ -431,6 +453,8 @@ local function SetAllHidden(state)
     SetCDMFading(state)
     if IsEllesmereProvider() then
         SetEllesmereSmartPlayerPetVisibility(state)
+        SetEllesmereShowPlayerWhenInjured(state)
+        SetEllesmereShowPlayerInParty(state)
         SetEllesmereCompactUtilityAnchor(state)
         SetEllesmereChatLineFade(state)
         SetEllesmereCompactClassResource(state)
@@ -441,7 +465,7 @@ end
 local function GetAllHidden()
     local baseState = GetUnitframes() and GetMouseover() and GetChatBackgroundHidden() and GetCDMFading()
     if IsEllesmereProvider() then
-        return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmereCompactUtilityAnchor() and GetEllesmereChatLineFade() and GetEllesmereCompactClassResource()
+        return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmereShowPlayerWhenInjured() and GetEllesmereShowPlayerInParty() and GetEllesmereCompactUtilityAnchor() and GetEllesmereChatLineFade() and GetEllesmereCompactClassResource()
     end
     return baseState
 end
@@ -504,23 +528,35 @@ function addonTable.BuildVisibilityUI(parentFrame)
         d5:SetPoint("LEFT", lbl5, "RIGHT", 15, 0); d5:SetText("- Shows both when either is injured."); d5:SetTextColor(0.6, 0.6, 0.6)
         table.insert(checkboxes, cb5)
 
-        local cb6, lbl6 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Compact Utility CDs|r", SetEllesmereCompactUtilityAnchor, GetEllesmereCompactUtilityAnchor)
+        local cb6, lbl6 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Show Player When Injured|r", SetEllesmereShowPlayerWhenInjured, GetEllesmereShowPlayerWhenInjured)
         cb6:SetPoint("TOPLEFT", cb5, "BOTTOMLEFT", 0, -30)
         local d6 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        d6:SetPoint("LEFT", lbl6, "RIGHT", 15, 0); d6:SetText("- Anchors Utility CDM under bottom visible row of Cooldown CDM"); d6:SetTextColor(0.6, 0.6, 0.6)
+        d6:SetPoint("LEFT", lbl6, "RIGHT", 15, 0); d6:SetText("- Shows player frame when health is below 100%."); d6:SetTextColor(0.6, 0.6, 0.6)
         table.insert(checkboxes, cb6)
 
-        local cb7, lbl7 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Chat Line Fade|r", SetEllesmereChatLineFade, GetEllesmereChatLineFade)
+        local cb7, lbl7 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Show Player In Group|r", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty)
         cb7:SetPoint("TOPLEFT", cb6, "BOTTOMLEFT", 0, -30)
         local d7 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        d7:SetPoint("LEFT", lbl7, "RIGHT", 15, 0); d7:SetText("- Uses Blizzard per-line chat fading."); d7:SetTextColor(0.6, 0.6, 0.6)
+        d7:SetPoint("LEFT", lbl7, "RIGHT", 15, 0); d7:SetText("- Shows player frame while in a party or raid."); d7:SetTextColor(0.6, 0.6, 0.6)
         table.insert(checkboxes, cb7)
 
-        local cb8, lbl8 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Compact Resource|r", SetEllesmereCompactClassResource, GetEllesmereCompactClassResource)
+        local cb8, lbl8 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Compact Utility CDs|r", SetEllesmereCompactUtilityAnchor, GetEllesmereCompactUtilityAnchor)
         cb8:SetPoint("TOPLEFT", cb7, "BOTTOMLEFT", 0, -30)
         local d8 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        d8:SetPoint("LEFT", lbl8, "RIGHT", 15, 0); d8:SetText("- Anchors class resource above Essential CDM when no power bar."); d8:SetTextColor(0.6, 0.6, 0.6)
+        d8:SetPoint("LEFT", lbl8, "RIGHT", 15, 0); d8:SetText("- Anchors Utility CDM under bottom visible row of Cooldown CDM"); d8:SetTextColor(0.6, 0.6, 0.6)
         table.insert(checkboxes, cb8)
+
+        local cb9, lbl9 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Chat Line Fade|r", SetEllesmereChatLineFade, GetEllesmereChatLineFade)
+        cb9:SetPoint("TOPLEFT", cb8, "BOTTOMLEFT", 0, -30)
+        local d9 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        d9:SetPoint("LEFT", lbl9, "RIGHT", 15, 0); d9:SetText("- Uses Blizzard per-line chat fading."); d9:SetTextColor(0.6, 0.6, 0.6)
+        table.insert(checkboxes, cb9)
+
+        local cb10, lbl10 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Compact Resource|r", SetEllesmereCompactClassResource, GetEllesmereCompactClassResource)
+        cb10:SetPoint("TOPLEFT", cb9, "BOTTOMLEFT", 0, -30)
+        local d10 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        d10:SetPoint("LEFT", lbl10, "RIGHT", 15, 0); d10:SetText("- Anchors class resource above Essential CDM when no power bar."); d10:SetTextColor(0.6, 0.6, 0.6)
+        table.insert(checkboxes, cb10)
     end
 
     parentFrame.UpdateVisibilityCheckboxes = function()
