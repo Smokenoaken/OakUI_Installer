@@ -435,7 +435,7 @@ end
 local function HasVisiblePowerBar()
     if type(_G._ERB_GetPrimaryPowerType) == "function" then
         local ok, powerType = pcall(_G._ERB_GetPrimaryPowerType)
-        if ok and powerType == nil then return false end
+        if ok then return powerType ~= nil end
     end
 
     local frame = _G.ERB_PrimaryBar
