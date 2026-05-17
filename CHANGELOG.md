@@ -1,3 +1,7 @@
+## v2.0.0-ellesmere-alpha3.1
+
+- Fixed Ellesmere player frame staying hidden when OakUI show-in-group visibility is enabled
+
 ## v2.0.0-ellesmere-alpha3
 
 - Added Ellesmere player frame show toggles for player health below 100% and group membership

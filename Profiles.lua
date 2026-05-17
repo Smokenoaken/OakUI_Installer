@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.0.0-ellesmere-alpha3"
+P.VERSION = "2.0.0-ellesmere-alpha3.1"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -88,6 +88,13 @@ P.BIGWIGS_PROFILE = [[BW2:1VhNjONWHY9nukVa1IoDh0ynu5siQEjlgLYcphXSkMTOx+TDSezMeK
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.0.0-ellesmere-alpha3.1",
+        date = "May 16, 2026",
+        notes = {
+            "Fixed Ellesmere player frame staying hidden when OakUI show-in-group visibility is enabled",
+        }
+    },
     {
         version = "v2.0.0-ellesmere-alpha3",
         date = "May 16, 2026",
