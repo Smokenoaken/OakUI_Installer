@@ -71,6 +71,7 @@ end
 
 local ellesmereUnitFrameVisibilityHooked
 local applyingEllesmereVisibility
+local playerVisibilityWatchFrame
 
 local function SetFrameVisible(frame, visible)
     if not frame then return end
@@ -113,6 +114,11 @@ local function PlayerIsInGroup()
     return (type(IsInGroup) == "function" and IsInGroup()) or (type(IsInRaid) == "function" and IsInRaid())
 end
 
+local function GetEllesmerePlayerVisibilityTarget()
+    local frame = _G.EllesmereUIUnitFrames_Player
+    return frame and (frame._visWrap or frame)
+end
+
 local function HookEllesmereUnitFrameVisibility()
     if ellesmereUnitFrameVisibilityHooked then return end
     local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
@@ -129,6 +135,48 @@ local function HookEllesmereUnitFrameVisibility()
     end)
 end
 
+local function ShouldForcePlayerFrameShown()
+    if not PlayerPetVisibilityEnabled() then return false end
+    local db = EnsureVisibilityDB()
+    if InCombatLockdown and InCombatLockdown() then return true end
+    if UnitExists("target") then return true end
+    if (db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true) and PlayerHealthBelowMax() then return true end
+    if db.showPlayerInParty == true and PlayerIsInGroup() then return true end
+    if db.smartPlayerPetVisibility == true and UnitIsInjured("pet") then return true end
+    return false
+end
+
+local function ApplyPlayerFrameVisibilityOverride()
+    local target = GetEllesmerePlayerVisibilityTarget()
+    if not target then return end
+    if ShouldForcePlayerFrameShown() then
+        target:SetAlpha(1)
+    end
+end
+
+local function UpdatePlayerVisibilityWatcher()
+    if not playerVisibilityWatchFrame then
+        playerVisibilityWatchFrame = CreateFrame("Frame")
+        playerVisibilityWatchFrame.elapsed = 0
+        playerVisibilityWatchFrame:SetScript("OnUpdate", function(self, elapsed)
+            self.elapsed = (self.elapsed or 0) + elapsed
+            if self.elapsed < 0.05 then return end
+            self.elapsed = 0
+            if ShouldForcePlayerFrameShown() then
+                ApplyPlayerFrameVisibilityOverride()
+            else
+                self:Hide()
+            end
+        end)
+    end
+
+    if ShouldForcePlayerFrameShown() then
+        playerVisibilityWatchFrame:Show()
+    else
+        playerVisibilityWatchFrame:Hide()
+    end
+end
+
 function addonTable.RefreshEllesmereVisibilityTweaks()
     HookEllesmereUnitFrameVisibility()
     if not PlayerPetVisibilityEnabled() then
@@ -136,15 +184,17 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
         SetFrameVisible(playerFrame and playerFrame._visWrap or playerFrame, true)
         SetFrameVisible(_G.EllesmereUIUnitFrames_Pet, true)
         SetPetFrameVisible(GetDandersPlayerPetFrame(), true)
+        UpdatePlayerVisibilityWatcher()
         return
     end
 
     local db = EnsureVisibilityDB()
     local hasTarget = UnitExists("target")
     if InCombatLockdown and InCombatLockdown() then
-        SetFrameVisible((_G.EllesmereUIUnitFrames_Player and _G.EllesmereUIUnitFrames_Player._visWrap) or _G.EllesmereUIUnitFrames_Player, true)
+        ApplyPlayerFrameVisibilityOverride()
         SetPetFrameVisible(_G.EllesmereUIUnitFrames_Pet, UnitExists("pet"))
         SetPetFrameVisible(GetDandersPlayerPetFrame(), UnitExists("pet"))
+        UpdatePlayerVisibilityWatcher()
         return
     end
 
@@ -167,6 +217,7 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
     SetFrameVisible(playerFrame and playerFrame._visWrap or playerFrame, shouldShowPlayer)
     SetPetFrameVisible(petFrame, shouldShowPet and UnitExists("pet"))
     SetPetFrameVisible(dandersPetFrame, shouldShowPet and UnitExists("pet"))
+    UpdatePlayerVisibilityWatcher()
 end
 
 local function FindCDMBarData(key)
