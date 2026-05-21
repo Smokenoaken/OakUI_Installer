@@ -31,21 +31,11 @@ function addonTable.BuildRawImportsUI(parentFrame)
 
     local imports = {
         { name = "Blizzard Edit Mode", var = P.EDITMODE_PROFILE, desc = "Copy this string and import it in Blizzard Edit Mode (Escape > Edit Mode > Layout dropdown > Import)." },
-        { name = "Base UI Profile", var = (P.BASE_UI_PROVIDER == "Ellesmere") and P.ELLESMERE_PROFILE or P.ELVUI_PROFILE, desc = "Manual fallback string for the selected base UI profile." },
+        { name = "Ellesmere UI Profile", var = P.ELLESMERE_PROFILE, desc = "Manual fallback string for the Ellesmere UI profile." },
     }
-    if P.BASE_UI_PROVIDER == "Ellesmere" then
-        table.insert(imports, { name = "Danders Frames (Tank/DPS)", var = P.DANDERS_PROFILE, desc = "Import this into Danders Frames profile import." })
-        table.insert(imports, { name = "Danders Frames (Healer)", var = P.DANDERS_PROFILE_HEALS, desc = "Import this into Danders Frames profile import." })
-    else
-        table.insert(imports, { name = "ElvUI Private (Tank/DPS)", var = P.ELVUI_PRIVATE, desc = "Manual fallback string for ElvUI's private profile import." })
-        table.insert(imports, { name = "Base UI Profile (Healer)", var = P.ELVUI_PROFILE_HEALS, desc = "Manual fallback string for the selected base UI healer profile." })
-        table.insert(imports, { name = "ElvUI Private (Healer)", var = P.ELVUI_PRIVATE_HEALS, desc = "Manual fallback string for ElvUI's healer private profile import." })
-        table.insert(imports, { name = "Ayije CDM", var = P.AYIJE_CDM_PROFILE, desc = "Import this into Ayije CDM's import/profile settings." })
-        table.insert(imports, { name = "Chonky Character Sheet", var = P.CHONKY_PROFILE, desc = "Import this into Chonky Character Sheet's profile import box." })
-        table.insert(imports, { name = "MPlusTimer", var = P.MPLUSTIMER_PROFILE, desc = "Import this into MPlusTimer's profile import field." })
-        table.insert(imports, { name = "Details! Damage Meter", var = P.DETAILS_PROFILE, desc = "Import this into Details! Options > Profiles > Import Profile." })
-    end
-    table.insert(imports, { name = "Platynator", var = P.PLATYNATOR_PROFILE, desc = "Import this into the Plater / Platynator profiles tab." })
+    table.insert(imports, { name = "Danders Frames (Tank/DPS)", var = P.DANDERS_PROFILE, desc = "Import this into Danders Frames profile import." })
+    table.insert(imports, { name = "Danders Frames (Healer)", var = P.DANDERS_PROFILE_HEALS, desc = "Import this into Danders Frames profile import." })
+    table.insert(imports, { name = "Platynator", var = P.PLATYNATOR_PROFILE, desc = "Import this into the Platynator profiles tab." })
     table.insert(imports, { name = "XIV_Databar Continued", var = P.XIV_PROFILE, desc = "Import this into the XIV_Databar profiles section." })
     table.insert(imports, { name = "BigWigs", var = P.BIGWIGS_PROFILE, desc = "Import this into BigWigs profile settings." })
 

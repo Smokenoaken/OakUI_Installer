@@ -14,7 +14,7 @@ end
 
 function addonTable.Injectors.Platynator(profileName, role)
     if _G.Platynator and _G.Platynator.API and type(_G.Platynator.API.ImportString) == "function" then
-        _G.Platynator.API.ImportString(P.PLATYNATOR_PROFILE, profileName, true)
+        _G.Platynator.API.ImportString(P.PLATYNATOR_PROFILE, profileName)
     end
 end
 
@@ -160,62 +160,15 @@ function addonTable.BypassElvUIInstaller()
     DisablePlatynatorConflictWarning(E)
 end
 
+local function TrimProfileString(profileString)
+    return string.gsub(profileString or "", "^%s+", ""):gsub("%s+$", "")
+end
+
 local function GetRoleString(defaultString, healerString, role)
     if role == "heals" then
         return healerString or defaultString
     end
     return defaultString
-end
-
-local function TrimProfileString(profileString)
-    return string.gsub(profileString or "", "^%s+", ""):gsub("%s+$", "")
-end
-
-function addonTable.Injectors.ElvUI(profileName, role)
-    if not C_AddOns.IsAddOnLoaded("ElvUI") then return end
-
-    ApplyBaseActionBarCVars()
-
-    local E = GetElvUICore()
-    if not E then
-        print("|cffff0000[OakUI Error]|r ElvUI is loaded, but its core API is unavailable.")
-        return
-    end
-    HideElvUIInstaller(E)
-    DisablePlatynatorConflictWarning(E)
-
-    if type(E.SetupCVars) == "function" then pcall(E.SetupCVars, E, true) end
-
-    local distributor = type(E.GetModule) == "function" and E:GetModule("Distributor", true)
-    if not distributor or type(distributor.Decode) ~= "function" or type(distributor.SetImportedProfile) ~= "function" then
-        print("|cffff0000[OakUI Error]|r ElvUI's profile import API is unavailable.")
-        return
-    end
-
-    local function ImportElvString(label, importString, required)
-        local encoded = string.gsub(importString or "", "^%s+", ""):gsub("%s+$", "")
-        if encoded == "" then
-            if required then
-                print("|cffff0000[OakUI Error]|r ElvUI " .. label .. " string is missing or empty for this role.")
-            end
-            return false
-        end
-
-        local profileType, profileKey, profileData = distributor:Decode(encoded)
-        if type(profileData) ~= "table" then
-            print("|cffff0000[OakUI Error]|r ElvUI " .. label .. " import failed. Check the embedded string.")
-            return false
-        end
-
-        if profileType == "profile" then profileKey = profileName end
-        distributor:SetImportedProfile(profileType or "profile", profileKey or profileName, profileData, true)
-        return true
-    end
-
-    local importedProfile = ImportElvString("profile", GetRoleString(P.ELVUI_PROFILE, P.ELVUI_PROFILE_HEALS, role), true)
-    ImportElvString("private", GetRoleString(P.ELVUI_PRIVATE, P.ELVUI_PRIVATE_HEALS, role), true)
-
-    if not importedProfile then return end
 end
 
 function addonTable.Injectors.Ellesmere(profileName, role)
@@ -243,11 +196,7 @@ function addonTable.Injectors.Ellesmere(profileName, role)
 end
 
 function addonTable.Injectors.BaseUI(profileName, role)
-    local provider = P.BASE_UI_PROVIDER or "ElvUI"
-    if provider == "Ellesmere" then
-        return addonTable.Injectors.Ellesmere(profileName, role)
-    end
-    return addonTable.Injectors.ElvUI(profileName, role)
+    return addonTable.Injectors.Ellesmere(profileName, role)
 end
 
 function addonTable.Injectors.Danders(profileName, role)
@@ -323,7 +272,7 @@ function addonTable.Injectors.ExecuteInstallAll(addonList, profileName, role, ca
             end
         end
 
-        if isReady and not addon.manual then
+        if isReady and (not addon.manual or addon.includeInAll) then
             -- Pass the role dynamically to the injector function
             addon.func(profileName, role)
             if addon.rowBtn then

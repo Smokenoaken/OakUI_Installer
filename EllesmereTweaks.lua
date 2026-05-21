@@ -114,6 +114,11 @@ local function PlayerIsInGroup()
     return (type(IsInGroup) == "function" and IsInGroup()) or (type(IsInRaid) == "function" and IsInRaid())
 end
 
+local function SmartPlayerVisibilityEnabled()
+    local db = EnsureVisibilityDB()
+    return db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true
+end
+
 local function GetEllesmerePlayerVisibilityTarget()
     local frame = _G.EllesmereUIUnitFrames_Player
     return frame and (frame._visWrap or frame)
@@ -140,9 +145,9 @@ local function ShouldForcePlayerFrameShown()
     local db = EnsureVisibilityDB()
     if InCombatLockdown and InCombatLockdown() then return true end
     if UnitExists("target") then return true end
-    if (db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true) and PlayerHealthBelowMax() then return true end
+    if SmartPlayerVisibilityEnabled() and PlayerHealthBelowMax() then return true end
     if db.showPlayerInParty == true and PlayerIsInGroup() then return true end
-    if db.smartPlayerPetVisibility == true and UnitIsInjured("pet") then return true end
+    if SmartPlayerVisibilityEnabled() and UnitIsInjured("pet") then return true end
     return false
 end
 
@@ -198,9 +203,10 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
         return
     end
 
-    local showPlayerForInjury = (db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true) and PlayerHealthBelowMax()
+    local smartPlayer = SmartPlayerVisibilityEnabled()
+    local showPlayerForInjury = smartPlayer and PlayerHealthBelowMax()
     local showPlayerForParty = db.showPlayerInParty == true and PlayerIsInGroup()
-    local showPetForInjury = db.smartPlayerPetVisibility == true and UnitIsInjured("pet")
+    local showPetForInjury = smartPlayer and UnitIsInjured("pet")
     local shouldShowPlayer = hasTarget or showPlayerForInjury or showPlayerForParty or showPetForInjury
     local shouldShowPet = hasTarget or showPetForInjury or showPlayerForInjury
     local playerFrame = _G.EllesmereUIUnitFrames_Player
@@ -651,6 +657,15 @@ local function ScheduleLayoutRefresh()
     ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
 end
 
+local function ScheduleCompactLayoutRefresh()
+    ScheduleRefresh("utility", 0.1, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
+    ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
+    ScheduleRefresh("utilitySpec", 0.8, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
+    ScheduleRefresh("resourceSpec", 0.9, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
+    ScheduleRefresh("utilitySpecLate", 2, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
+    ScheduleRefresh("resourceSpecLate", 2.1, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
+end
+
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
@@ -682,7 +697,9 @@ frame:SetScript("OnEvent", function(_, event, unit)
         ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     elseif event == "SPELL_UPDATE_COOLDOWN" or event == "BAG_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_COOLDOWN" then
         ScheduleRefresh("utility", 0.1, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
-    elseif event == "UNIT_POWER_UPDATE" or event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" or event == "PLAYER_SPECIALIZATION_CHANGED" or event == "ACTIVE_TALENT_GROUP_CHANGED" or event == "UPDATE_SHAPESHIFT_FORM" then
+    elseif event == "PLAYER_SPECIALIZATION_CHANGED" or event == "ACTIVE_TALENT_GROUP_CHANGED" or event == "UPDATE_SHAPESHIFT_FORM" then
+        ScheduleCompactLayoutRefresh()
+    elseif event == "UNIT_POWER_UPDATE" or event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" then
         ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
     end
 end)

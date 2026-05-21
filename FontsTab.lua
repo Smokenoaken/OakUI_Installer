@@ -211,6 +211,17 @@ function addonTable.BuildFontsUI(parentFrame)
     list:SetBackdropColor(0.08, 0.08, 0.09, 1)
     list:SetBackdropBorderColor(0.25, 0.25, 0.28, 1)
 
+    local listScroll = CreateFrame("ScrollFrame", nil, list, "UIPanelScrollFrameTemplate")
+    listScroll:SetPoint("TOPLEFT", list, "TOPLEFT", 4, -4)
+    listScroll:SetPoint("BOTTOMRIGHT", list, "BOTTOMRIGHT", -24, 4)
+    local listChild = CreateFrame("Frame", nil, listScroll)
+    listChild:SetWidth(180)
+    listScroll:SetScrollChild(listChild)
+    listScroll:SetScript("OnSizeChanged", function(self, width)
+        listChild:SetWidth(width)
+    end)
+    if addonTable.SkinScrollbar then addonTable.SkinScrollbar(listScroll) end
+
     local detail = CreateFrame("Frame", nil, parentFrame, "BackdropTemplate")
     detail:SetPoint("TOPLEFT", list, "TOPRIGHT", 10, 0)
     detail:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -15, 45)
@@ -265,8 +276,8 @@ function addonTable.BuildFontsUI(parentFrame)
     largeOutline:SetPoint("TOPLEFT", detail, "TOPLEFT", 84, -272)
 
     local note = detail:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", detail, "TOPLEFT", 14, -330)
-    note:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
+    note:SetPoint("BOTTOMLEFT", detail, "BOTTOMLEFT", 14, 14)
+    note:SetPoint("BOTTOMRIGHT", detail, "BOTTOMRIGHT", -14, 14)
     note:SetJustifyH("LEFT")
     note:SetTextColor(0.75, 0.75, 0.75)
 
@@ -315,10 +326,10 @@ function addonTable.BuildFontsUI(parentFrame)
 
     local y = -4
     for _, section in ipairs(addonTable.FontSections) do
-        local row = CreateFrame("Button", nil, list)
+        local row = CreateFrame("Button", nil, listChild)
         row:SetHeight(18)
-        row:SetPoint("TOPLEFT", list, "TOPLEFT", 4, y)
-        row:SetPoint("TOPRIGHT", list, "TOPRIGHT", -4, y)
+        row:SetPoint("TOPLEFT", listChild, "TOPLEFT", 0, y)
+        row:SetPoint("TOPRIGHT", listChild, "TOPRIGHT", 0, y)
         row.key = section.key
         row.name = section.name
         row.bg = row:CreateTexture(nil, "BACKGROUND")
@@ -336,6 +347,7 @@ function addonTable.BuildFontsUI(parentFrame)
         rows[#rows + 1] = row
         y = y - 18
     end
+    listChild:SetHeight(math.abs(y) + 4)
 
     local apply = addonTable.MakeFlatButton(parentFrame, "Apply Fonts", 120, 28)
     apply:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -15, 12)

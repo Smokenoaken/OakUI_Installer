@@ -190,7 +190,7 @@ function Inj.ExecuteInstallAll(addonList, profileName, role, callback)
             end
         end
         
-        if isReady and not addon.manual then
+        if isReady and (not addon.manual or addon.includeInAll) then
             local success, err = pcall(addon.func, profileName, role)
             if not success then
                 print("|cffff0000[OakUI] Error installing " .. addon.name .. ":|r " .. tostring(err))
@@ -215,7 +215,12 @@ function Inj.ExecuteInstallAll(addonList, profileName, role, callback)
 end
 
 function addonTable.QuickInstallAll(profileName, role)
-    profileName = profileName or "OakUI-Tank/DPS"
+    if not profileName and not role and addonTable.ShowProfilePrompt then
+        addonTable.ShowProfilePrompt(true, addonTable.FlagshipAddons or {}, nil, nil)
+        return 0
+    end
+
+    profileName = profileName or "OakUI"
     role = role or "dps"
 
     local installedCount = Inj.ExecuteInstallAll(addonTable.FlagshipAddons or {}, profileName, role, nil)
@@ -249,6 +254,7 @@ function addonTable.ShowProfilePrompt(isAll, addonList, singleAddon, singleFunc,
         PromptDesc:ClearAllPoints()
         PromptDesc:SetPoint("TOP", PromptTitle, "BOTTOM", 0, -15)
         ProfilePromptFrame:SetHeight(180)
+        PromptEditBox:SetText("OakUI")
     end
     ProfilePromptFrame:Show(); PromptEditBox:HighlightText(); PromptEditBox:SetFocus()
 end

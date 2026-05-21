@@ -36,6 +36,11 @@ end
 function addonTable.SetupChatWindows(silent)
     -- 1. Setup General Window (ChatFrame1)
     local cf1 = ChatFrame1
+    if not cf1 then
+        print("|cffff0000[OakUI]|r ChatFrame1 is not available yet. Try again after the UI finishes loading.")
+        return
+    end
+
     FCF_SetWindowName(cf1, "General")
     
     FCF_SetChatWindowFontSize(nil, cf1, 14)

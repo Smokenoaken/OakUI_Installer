@@ -76,8 +76,11 @@ ResizeGrip:SetScript("OnMouseUp", function(self, button) UI:StopMovingOrSizing()
 -- VIEW ROUTING (Tabs & Menus)
 -- ==========================================
 local HomeView = CreateFrame("Frame", nil, RightPane); HomeView:SetAllPoints()
-local TopLogo = HomeView:CreateTexture(nil, "ARTWORK"); TopLogo:SetSize(140, 140); TopLogo:SetPoint("TOP", HomeView, "TOP", 0, -30); TopLogo:SetTexture("Interface\\AddOns\\OakUI_Installer\\Media\\Logo.tga")
-local WelcomeText = HomeView:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge"); WelcomeText:SetPoint("TOP", TopLogo, "BOTTOM", 0, -10); WelcomeText:SetText(cWrap .. "OAK|r UI Installer")
+local BrandRow = CreateFrame("Frame", nil, HomeView); BrandRow:SetSize(430, 135); BrandRow:SetPoint("TOP", HomeView, "TOP", 0, -25)
+local ForText = BrandRow:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge"); ForText:SetPoint("CENTER", BrandRow, "CENTER", 0, 0); ForText:SetText(cWrap .. "For|r")
+local TopLogo = BrandRow:CreateTexture(nil, "ARTWORK"); TopLogo:SetSize(125, 125); TopLogo:SetPoint("RIGHT", ForText, "LEFT", -36, 0); TopLogo:SetTexture("Interface\\AddOns\\OakUI_Installer\\Media\\Logo.tga")
+local EllesmereLogo = BrandRow:CreateTexture(nil, "ARTWORK"); EllesmereLogo:SetSize(125, 125); EllesmereLogo:SetPoint("LEFT", ForText, "RIGHT", 36, 0); EllesmereLogo:SetTexture("Interface\\AddOns\\EllesmereUI\\media\\eg-logo.tga")
+local WelcomeText = HomeView:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge"); WelcomeText:SetPoint("TOP", BrandRow, "BOTTOM", 0, -5); WelcomeText:SetText(cWrap .. "Installer|r")
 local SubText = HomeView:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); SubText:SetPoint("TOP", WelcomeText, "BOTTOM", 0, -20); SubText:SetPoint("LEFT", HomeView, "LEFT", 20, 0); SubText:SetPoint("RIGHT", HomeView, "RIGHT", -20, 0); SubText:SetJustifyH("CENTER")
 SubText:SetText("Welcome to the OAK Flagship Suite.\n\n" .. cWrap .. "Note:|r The primary OAK profiles are built around a 1440p display with a UI Scale of 0.64.")
 
@@ -86,7 +89,7 @@ QuickInstallBtn:SetPoint("TOP", SubText, "BOTTOM", 0, -25)
 QuickInstallBtn.Text:SetTextColor(r, g, b)
 QuickInstallBtn:SetScript("OnClick", function()
     if addonTable.QuickInstallAll then
-        addonTable.QuickInstallAll("OakUI-Tank/DPS", "dps")
+        addonTable.QuickInstallAll()
     end
 end)
 
@@ -152,14 +155,15 @@ addonTable.BuildInstallerUI(InstallerView)
 
 -- CHAT SETTINGS VIEW
 local ChatTitle = ChatView:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge"); ChatTitle:SetPoint("TOPLEFT", ChatView, "TOPLEFT", 15, -20); ChatTitle:SetJustifyH("LEFT"); ChatTitle:SetText(cWrap .. "Chat Cleaning|r")
-local ChatDesc = ChatView:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); ChatDesc:SetPoint("TOPLEFT", ChatTitle, "BOTTOMLEFT", 0, -10); ChatDesc:SetPoint("TOPRIGHT", ChatView, "TOPRIGHT", -15, -10); ChatDesc:SetJustifyH("LEFT"); ChatDesc:SetText("Native chat cleaning engine. Choose which filters should be activated.\n|cffff0000Note:|r Filter changes require a UI Reload to fully apply/remove hooks.")
+local ChatDesc = ChatView:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); ChatDesc:SetPoint("TOPLEFT", ChatTitle, "BOTTOMLEFT", 0, -10); ChatDesc:SetPoint("TOPRIGHT", ChatView, "TOPRIGHT", -15, -10); ChatDesc:SetJustifyH("LEFT"); ChatDesc:SetText("Native chat cleaning engine. Choose which filters should be activated, or apply the OakUI two-window chat layout.\n|cffff0000Note:|r Filter and layout changes require a UI Reload to fully apply/remove hooks.")
 local ChatScrollFrame = CreateFrame("ScrollFrame", "OakUI_ChatScroll", ChatView, "UIPanelScrollFrameTemplate"); local ChatScrollChild = CreateFrame("Frame", nil, ChatScrollFrame)
 ChatScrollFrame:SetScrollChild(ChatScrollChild); ChatScrollFrame:SetPoint("TOPLEFT", ChatView, "TOPLEFT", 15, -100); ChatScrollFrame:SetPoint("BOTTOMRIGHT", ChatView, "BOTTOMRIGHT", -30, 50)
 ChatScrollFrame:SetScript("OnSizeChanged", function(self, width, height) self:GetScrollChild():SetWidth(width) end); ChatScrollChild:SetWidth(ChatScrollFrame:GetWidth() or 470)
 SkinScrollbar(ChatScrollFrame)
 local ChatDisableAllBtn = MakeFlatButton(ChatView, "Disable All", 100, 30); ChatDisableAllBtn:SetPoint("BOTTOMRIGHT", ChatView, "BOTTOMRIGHT", -30, 10)
 local ChatEnableAllBtn = MakeFlatButton(ChatView, "Enable All", 100, 30); ChatEnableAllBtn:SetPoint("RIGHT", ChatDisableAllBtn, "LEFT", -10, 0)
-local chatFiltersConfig = { { key = "achievements", name = "Achievements", desc = "Simplify Achievement messages." }, { key = "channels", name = "Chat Channel Names", desc = "Abbreviate chat channel names." }, { key = "collections", name = "Collections", desc = "Simplify messages for Appearances/Mounts/Pets." }, { key = "experience", name = "Experience", desc = "Abbreviate level gains." }, { key = "followers", name = "Garrison Followers", desc = "Simplify follower updates." }, { key = "loot", name = "Loot & Currency", desc = "Simplify loot drops." }, { key = "names", name = "Player Names", desc = "Remove brackets from player names." }, { key = "quests", name = "Quests", desc = "Simplify quest progress." }, { key = "reputation", name = "Reputation", desc = "Simplify rep gain/loss." }, { key = "status", name = "Player Status", desc = "Simplify AFK/DND messages." } }
+local ChatLayoutBtn = MakeFlatButton(ChatView, "Apply Chat Layout", 150, 30); ChatLayoutBtn:SetPoint("RIGHT", ChatEnableAllBtn, "LEFT", -10, 0); ChatLayoutBtn.Text:SetTextColor(r, g, b)
+local chatFiltersConfig = { { key = "achievements", name = "Achievements", desc = "Simplify Achievement messages." }, { key = "collections", name = "Collections", desc = "Simplify messages for Appearances/Mounts/Pets." }, { key = "experience", name = "Experience", desc = "Abbreviate level gains." }, { key = "followers", name = "Garrison Followers", desc = "Simplify follower updates." }, { key = "loot", name = "Loot & Currency", desc = "Simplify loot drops." }, { key = "quests", name = "Quests", desc = "Simplify quest progress." }, { key = "reputation", name = "Reputation", desc = "Simplify rep gain/loss." }, { key = "status", name = "Player Status", desc = "Simplify AFK/DND messages." } }
 local chatCheckboxes = {}
 local function InitChatSettings()
     local cyOffset = 0
@@ -176,6 +180,7 @@ end
 InitChatSettings()
 ChatEnableAllBtn:SetScript("OnClick", function() for _, f in ipairs(chatFiltersConfig) do OakUI_DB.chatFilters[f.key] = true end; for _, cb in ipairs(chatCheckboxes) do cb:UpdateState() end end)
 ChatDisableAllBtn:SetScript("OnClick", function() for _, f in ipairs(chatFiltersConfig) do OakUI_DB.chatFilters[f.key] = false end; for _, cb in ipairs(chatCheckboxes) do cb:UpdateState() end end)
+ChatLayoutBtn:SetScript("OnClick", function() if addonTable.SetupChatWindows then addonTable.SetupChatWindows(false) end end)
 
 -- SUPPORTERS VIEW 
 local SuppTitle = SupportersView:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge"); SuppTitle:SetPoint("TOPLEFT", SupportersView, "TOPLEFT", 15, -20); SuppTitle:SetJustifyH("LEFT"); SuppTitle:SetText(cWrap .. "Supporters|r")
@@ -195,10 +200,26 @@ local SupportersGrid = CreateFrame("Frame", nil, SupportersView)
 SupportersGrid:SetPoint("TOPLEFT", SupportersView, "TOPLEFT", 15, -110)
 SupportersGrid:SetPoint("BOTTOMRIGHT", SupportersView, "BOTTOMRIGHT", -15, 55)
 
+local supporterColumns = 3
+local supporterCellWidth = 160
+local supporterColumnGap = 12
+local supporterRowHeight = 16
+
+local function AddCenteredSupporterText(text, row, special)
+    local cell = SupportersGrid:CreateFontString(nil, "OVERLAY", special and "GameFontNormalLarge" or "GameFontHighlightSmall")
+    cell:SetPoint("TOP", SupportersGrid, "TOP", 0, -((row - 1) * supporterRowHeight))
+    cell:SetWidth(260)
+    cell:SetJustifyH("CENTER")
+    if cell.SetWordWrap then cell:SetWordWrap(false) end
+    if cell.SetMaxLines then cell:SetMaxLines(1) end
+    cell:SetText(special and "|cffF6D365" .. text .. "|r" or text)
+end
+
 local function AddSupporterText(text, col, row, special)
     local cell = SupportersGrid:CreateFontString(nil, "OVERLAY", special and "GameFontNormalLarge" or "GameFontHighlightSmall")
-    cell:SetPoint("TOPLEFT", SupportersGrid, "TOPLEFT", (col - 1) * 125, -((row - 1) * 21))
-    cell:SetWidth(118)
+    local columnOffset = (col - ((supporterColumns + 1) / 2)) * (supporterCellWidth + supporterColumnGap)
+    cell:SetPoint("TOP", SupportersGrid, "TOP", columnOffset, -((row - 1) * supporterRowHeight))
+    cell:SetWidth(supporterCellWidth)
     cell:SetJustifyH("CENTER")
     if cell.SetWordWrap then cell:SetWordWrap(false) end
     if cell.SetMaxLines then cell:SetMaxLines(1) end
@@ -213,21 +234,20 @@ if #topSupporters > 0 then
     header:SetText(cWrap .. "Top Supporters|r")
     gridRow = gridRow + 1
     for _, name in ipairs(topSupporters) do
-        AddSupporterText(name, 3, gridRow, true)
+        AddCenteredSupporterText(name, gridRow, true)
         gridRow = gridRow + 1
     end
     gridRow = gridRow + 1
 end
 
 local header = SupportersGrid:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-header:SetPoint("TOP", SupportersGrid, "TOP", 0, -((gridRow - 1) * 21))
+header:SetPoint("TOP", SupportersGrid, "TOP", 0, -((gridRow - 1) * supporterRowHeight))
 header:SetText(cWrap .. "Supporters|r")
 gridRow = gridRow + 1
 
-local columns = 4
 for i, name in ipairs(supporters) do
-    local col = ((i - 1) % columns) + 1
-    local row = gridRow + math.floor((i - 1) / columns)
+    local col = ((i - 1) % supporterColumns) + 1
+    local row = gridRow + math.floor((i - 1) / supporterColumns)
     AddSupporterText(name, col, row, false)
 end
 local JoinPatreonBtn = MakeFlatButton(SupportersView, "Support on Patreon", 200, 30); JoinPatreonBtn:SetPoint("BOTTOM", SupportersView, "BOTTOM", 0, 15)
@@ -331,7 +351,7 @@ end
 local HomeNavBtn = CreateNavButton(LeftPane, "Home", -20, HomeView)
 local InstallerNavBtn = CreateNavButton(LeftPane, "MAIN INSTALLER", -50, InstallerView)
 local ChatNavBtn = CreateNavButton(LeftPane, "Chat Cleaning", -80, ChatView)
-local VisNavBtn = CreateNavButton(LeftPane, "Visibility", -110, VisibilityView)
+local VisNavBtn = CreateNavButton(LeftPane, "Ellesmere Tweaks", -110, VisibilityView)
 local RawImportsNavBtn = CreateNavButton(LeftPane, "Raw Imports", -140, RawImportsView)
 local FontsNavBtn = CreateNavButton(LeftPane, "Custom Fonts", -170, FontsView)
 local ChangelogNavBtn = CreateNavButton(LeftPane, "Changelog", -200, ChangelogView)
