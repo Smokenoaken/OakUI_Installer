@@ -299,14 +299,14 @@ local function GetEllesmereCompactClassResource()
 end
 
 local function SetEllesmereTooltipAnchor(state)
-    EnsureVisibilityDB().tooltipAnchor = state == true
+    EnsureVisibilityDB().tooltipAnchor = false
     if addonTable.RefreshEllesmereTooltipAnchor then
         addonTable.RefreshEllesmereTooltipAnchor()
     end
 end
 
 local function GetEllesmereTooltipAnchor()
-    return EnsureVisibilityDB().tooltipAnchor == true
+    return false
 end
 
 local function RefreshElvUIUnitFrames(E)
@@ -560,8 +560,6 @@ function addonTable.BuildVisibilityUI(parentFrame)
 
         AddSection("Player Frame", leftX, -292)
         AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -320, colWidth)
-        AddSection("Anchors", rightX, -292)
-        AddOption("Tooltip Anchor", SetEllesmereTooltipAnchor, GetEllesmereTooltipAnchor, "Adds a Tooltip Anchor to Ellesmere Unlock Mode and pins the default GameTooltip to that movable anchor.", rightX, -320, colWidth)
 
         AddSection("Compact Layout", leftX, -390)
         AddOption("Compact Utility CDs", SetEllesmereCompactUtilityAnchor, GetEllesmereCompactUtilityAnchor, "If you have fewer than two rows of Essential Cooldowns in the CDM, this moves Utility Cooldowns directly under the lowest visible Essential Cooldown row.", leftX, -418, colWidth)

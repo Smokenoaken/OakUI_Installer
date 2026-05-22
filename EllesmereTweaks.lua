@@ -631,12 +631,11 @@ end
 local TOOLTIP_ANCHOR_KEY = "OakUI_Tooltip"
 local tooltipAnchorFrame
 local tooltipAnchorRegistered
-local tooltipHooked
-local tooltipAnchorApplying
-local tooltipDefaultAnchorOriginal
 
 local function TooltipAnchorEnabled()
-    return IsEllesmereProvider() and EnsureVisibilityDB().tooltipAnchor == true
+    -- Disabled pending a safer integration path. Hooking Blizzard's tooltip
+    -- anchor pipeline can taint secure tooltip data processing.
+    return false
 end
 
 local function EnsureTooltipAnchorFrame()
@@ -666,49 +665,6 @@ local function ApplyTooltipAnchorPosition(force)
     local pos = GetTooltipAnchorPosition()
     frame:ClearAllPoints()
     frame:SetPoint(pos.point or "BOTTOMRIGHT", UIParent, pos.relPoint or pos.point or "BOTTOMRIGHT", pos.x or -24, pos.y or 170)
-end
-
-local function ApplyTooltipAnchorToGameTooltip(tooltip)
-    if tooltipAnchorApplying or not TooltipAnchorEnabled() or not tooltip or tooltip ~= _G.GameTooltip then return end
-    if _G.EllesmereUI and _G.EllesmereUI._unlockActive then return end
-    local anchorFrame = EnsureTooltipAnchorFrame()
-    ApplyTooltipAnchorPosition()
-
-    tooltipAnchorApplying = true
-    tooltip:ClearAllPoints()
-    tooltip:SetPoint("BOTTOMRIGHT", anchorFrame, "TOPRIGHT", 0, 0)
-    tooltipAnchorApplying = nil
-end
-
-local function SetDefaultTooltipAnchor(tooltip, parent)
-    if tooltipAnchorApplying or not TooltipAnchorEnabled() or not tooltip or tooltip ~= _G.GameTooltip then return false end
-    if _G.EllesmereUI and _G.EllesmereUI._unlockActive then return false end
-    local anchorFrame = EnsureTooltipAnchorFrame()
-    ApplyTooltipAnchorPosition()
-
-    tooltipAnchorApplying = true
-    tooltip:SetOwner(parent or UIParent, "ANCHOR_NONE")
-    tooltip:ClearAllPoints()
-    tooltip:SetPoint("BOTTOMRIGHT", anchorFrame, "TOPRIGHT", 0, 0)
-    tooltipAnchorApplying = nil
-    return true
-end
-
-local function HookTooltipAnchor()
-    if tooltipHooked or not _G.GameTooltip or not hooksecurefunc then return end
-    tooltipHooked = true
-    if type(_G.GameTooltip_SetDefaultAnchor) == "function" and not tooltipDefaultAnchorOriginal then
-        tooltipDefaultAnchorOriginal = _G.GameTooltip_SetDefaultAnchor
-        _G.GameTooltip_SetDefaultAnchor = function(tooltip, parent)
-            if SetDefaultTooltipAnchor(tooltip, parent) then return end
-            return tooltipDefaultAnchorOriginal(tooltip, parent)
-        end
-    end
-
-    hooksecurefunc(_G.GameTooltip, "SetOwner", function(self, owner, anchorType)
-        if tooltipAnchorApplying or anchorType == "ANCHOR_NONE" then return end
-        SetDefaultTooltipAnchor(self, owner)
-    end)
 end
 
 local function RegisterTooltipUnlockElement()
@@ -767,16 +723,13 @@ end
 
 function addonTable.RefreshEllesmereTooltipAnchor()
     if not IsEllesmereProvider() then return end
+    EnsureVisibilityDB().tooltipAnchor = false
     local anchorFrame = EnsureTooltipAnchorFrame()
     ApplyTooltipAnchorPosition()
-    HookTooltipAnchor()
 
     if TooltipAnchorEnabled() then
         anchorFrame:Show()
         RegisterTooltipUnlockElement()
-        if _G.GameTooltip and _G.GameTooltip:IsShown() then
-            ApplyTooltipAnchorToGameTooltip(_G.GameTooltip)
-        end
     else
         anchorFrame:Hide()
         UnregisterTooltipUnlockElement()
