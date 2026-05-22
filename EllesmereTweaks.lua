@@ -628,6 +628,190 @@ function addonTable.RefreshEllesmereResourceAnchor(force)
     resourceWasCompacted = true
 end
 
+local TOOLTIP_ANCHOR_KEY = "OakUI_Tooltip"
+local tooltipAnchorFrame
+local tooltipAnchorRegistered
+local tooltipHooked
+local tooltipRepositioning
+
+local function TooltipAnchorEnabled()
+    return IsEllesmereProvider() and EnsureVisibilityDB().tooltipAnchor == true
+end
+
+local function EnsureTooltipAnchorFrame()
+    if tooltipAnchorFrame then return tooltipAnchorFrame end
+
+    tooltipAnchorFrame = CreateFrame("Frame", "OakUI_EllesmereTooltipAnchor", UIParent)
+    tooltipAnchorFrame:SetSize(180, 42)
+    tooltipAnchorFrame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -24, 170)
+    tooltipAnchorFrame:SetFrameStrata("TOOLTIP")
+    tooltipAnchorFrame:SetAlpha(0)
+    tooltipAnchorFrame:EnableMouse(false)
+    tooltipAnchorFrame:Hide()
+    return tooltipAnchorFrame
+end
+
+local function GetTooltipAnchorPosition()
+    local db = EnsureVisibilityDB()
+    if type(db.tooltipAnchorPosition) == "table" and db.tooltipAnchorPosition.point then
+        return db.tooltipAnchorPosition
+    end
+    return { point = "BOTTOMRIGHT", relPoint = "BOTTOMRIGHT", x = -24, y = 170 }
+end
+
+local function ApplyTooltipAnchorPosition(force)
+    if not force and _G.EllesmereUI and _G.EllesmereUI._unlockActive then return end
+    local frame = EnsureTooltipAnchorFrame()
+    local pos = GetTooltipAnchorPosition()
+    frame:ClearAllPoints()
+    frame:SetPoint(pos.point or "BOTTOMRIGHT", UIParent, pos.relPoint or pos.point or "BOTTOMRIGHT", pos.x or -24, pos.y or 170)
+end
+
+local function PositionTooltipAtAnchor(tooltip)
+    if tooltipRepositioning or not TooltipAnchorEnabled() or not tooltip or tooltip ~= _G.GameTooltip then return end
+    local anchorFrame = EnsureTooltipAnchorFrame()
+    ApplyTooltipAnchorPosition()
+
+    tooltipRepositioning = true
+    tooltip:ClearAllPoints()
+    tooltip:SetPoint("BOTTOMRIGHT", anchorFrame, "TOPRIGHT", 0, 0)
+    tooltipRepositioning = nil
+end
+
+local function HookTooltipAnchor()
+    if tooltipHooked or not _G.GameTooltip or not hooksecurefunc then return end
+    tooltipHooked = true
+    hooksecurefunc(_G.GameTooltip, "SetOwner", function(self)
+        PositionTooltipAtAnchor(self)
+    end)
+    hooksecurefunc(_G.GameTooltip, "SetPoint", function(self)
+        if tooltipRepositioning then return end
+        if TooltipAnchorEnabled() and self == _G.GameTooltip then
+            C_Timer.After(0, function()
+                PositionTooltipAtAnchor(self)
+            end)
+        end
+    end)
+    _G.GameTooltip:HookScript("OnShow", function(self)
+        PositionTooltipAtAnchor(self)
+    end)
+end
+
+local function RegisterTooltipUnlockElement()
+    if not TooltipAnchorEnabled() or tooltipAnchorRegistered then return end
+    if not _G.EllesmereUI or not _G.EllesmereUI.RegisterUnlockElements or not _G.EllesmereUI.MakeUnlockElement then return end
+
+    local MK = _G.EllesmereUI.MakeUnlockElement
+    local elements = {
+        MK({
+            key = TOOLTIP_ANCHOR_KEY,
+            label = "Tooltip Anchor",
+            group = "OakUI",
+            order = 900,
+            noResize = true,
+            noAnchorTarget = true,
+            getFrame = EnsureTooltipAnchorFrame,
+            getSize = function()
+                return 180, 42
+            end,
+            savePos = function(_, point, relPoint, x, y)
+                EnsureVisibilityDB().tooltipAnchorPosition = {
+                    point = point or "BOTTOMRIGHT",
+                    relPoint = relPoint or point or "BOTTOMRIGHT",
+                    x = x or -24,
+                    y = y or 170,
+                }
+                ApplyTooltipAnchorPosition(true)
+            end,
+            loadPos = function()
+                return GetTooltipAnchorPosition()
+            end,
+            clearPos = function()
+                EnsureVisibilityDB().tooltipAnchorPosition = nil
+                ApplyTooltipAnchorPosition(true)
+            end,
+            applyPos = function()
+                ApplyTooltipAnchorPosition(true)
+            end,
+            isHidden = function()
+                return not TooltipAnchorEnabled()
+            end,
+        }),
+    }
+
+    _G.EllesmereUI:RegisterUnlockElements(elements)
+    tooltipAnchorRegistered = true
+end
+
+local function UnregisterTooltipUnlockElement()
+    if not tooltipAnchorRegistered then return end
+    if _G.EllesmereUI and _G.EllesmereUI.UnregisterUnlockElement then
+        _G.EllesmereUI:UnregisterUnlockElement(TOOLTIP_ANCHOR_KEY)
+    end
+    tooltipAnchorRegistered = nil
+end
+
+function addonTable.RefreshEllesmereTooltipAnchor()
+    if not IsEllesmereProvider() then return end
+    local anchorFrame = EnsureTooltipAnchorFrame()
+    ApplyTooltipAnchorPosition()
+    HookTooltipAnchor()
+
+    if TooltipAnchorEnabled() then
+        anchorFrame:Show()
+        RegisterTooltipUnlockElement()
+        if _G.GameTooltip and _G.GameTooltip:IsShown() then
+            PositionTooltipAtAnchor(_G.GameTooltip)
+        end
+    else
+        anchorFrame:Hide()
+        UnregisterTooltipUnlockElement()
+    end
+end
+
+local function RestoreAlwaysVisibleActionBar(settings)
+    if type(settings) ~= "table" then return end
+    settings.barVisibility = "always"
+    settings.mouseoverEnabled = false
+    settings.alwaysHidden = false
+    settings.combatHideEnabled = false
+    settings.combatShowEnabled = false
+    settings.mouseoverAlpha = settings._savedBarAlpha or settings.mouseoverAlpha or 1
+end
+
+local function GetEllesmereActionBarSettings(key)
+    local actionBars = GetEllesmereAddonProfile("EllesmereUIActionBars")
+    local bars = actionBars and actionBars.bars
+    if type(bars) ~= "table" then return nil end
+    if type(bars[key]) == "table" then return bars[key] end
+    for _, settings in ipairs(bars) do
+        if type(settings) == "table" and settings.key == key then
+            return settings
+        end
+    end
+    return nil
+end
+
+function addonTable.RefreshEllesmereSpecialActionBarVisibility()
+    if not IsEllesmereProvider() then return end
+
+    RestoreAlwaysVisibleActionBar(GetEllesmereActionBarSettings("ExtraActionButton"))
+    RestoreAlwaysVisibleActionBar(GetEllesmereActionBarSettings("QueueStatus"))
+
+    for _, frame in ipairs({
+        _G.ExtraAbilityContainer,
+        _G.ExtraActionBarFrame,
+        _G.ZoneAbilityFrame,
+        _G.EllesmereEAB_ExtraActionButton,
+        _G.QueueStatusButton,
+        _G.EllesmereEAB_QueueStatus,
+    }) do
+        if frame and frame.SetAlpha then
+            frame:SetAlpha(1)
+        end
+    end
+end
+
 local frame = CreateFrame("Frame")
 local pending = {}
 local lastRefresh = {}
@@ -655,6 +839,8 @@ local function ScheduleLayoutRefresh()
     ScheduleRefresh("visibilityLate", 1.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     ScheduleRefresh("utility", 0.1, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
     ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
+    ScheduleRefresh("tooltip", 0.2, addonTable.RefreshEllesmereTooltipAnchor, 1)
+    ScheduleRefresh("specialActionBars", 0.3, addonTable.RefreshEllesmereSpecialActionBarVisibility, 1)
 end
 
 local function ScheduleCompactLayoutRefresh()
@@ -664,6 +850,7 @@ local function ScheduleCompactLayoutRefresh()
     ScheduleRefresh("resourceSpec", 0.9, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
     ScheduleRefresh("utilitySpecLate", 2, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
     ScheduleRefresh("resourceSpecLate", 2.1, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
+    ScheduleRefresh("tooltipSpec", 0.2, addonTable.RefreshEllesmereTooltipAnchor, 1)
 end
 
 frame:RegisterEvent("PLAYER_LOGIN")
@@ -682,6 +869,11 @@ frame:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
 frame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 frame:RegisterEvent("BAG_UPDATE_COOLDOWN")
 frame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
+frame:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
+frame:RegisterEvent("LFG_UPDATE")
+frame:RegisterEvent("LFG_QUEUE_STATUS_UPDATE")
+frame:RegisterEvent("LFG_ROLE_CHECK_UPDATE")
+frame:RegisterEvent("LFG_PROPOSAL_UPDATE")
 frame:SetScript("OnEvent", function(_, event, unit)
     if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_POWER_UPDATE" or event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" then
         if unit ~= "player" and unit ~= "pet" then return end
@@ -701,5 +893,7 @@ frame:SetScript("OnEvent", function(_, event, unit)
         ScheduleCompactLayoutRefresh()
     elseif event == "UNIT_POWER_UPDATE" or event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" then
         ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
+    elseif event == "UPDATE_EXTRA_ACTIONBAR" or event == "LFG_UPDATE" or event == "LFG_QUEUE_STATUS_UPDATE" or event == "LFG_ROLE_CHECK_UPDATE" or event == "LFG_PROPOSAL_UPDATE" then
+        ScheduleRefresh("specialActionBars", 0, addonTable.RefreshEllesmereSpecialActionBarVisibility, 0.25)
     end
 end)

@@ -100,30 +100,46 @@ local function SetEllesmereActionBars(state)
 
     actionBars.mouseoverShowAll = state == true
     actionBars.bars = actionBars.bars or {}
+    local alwaysVisibleSpecialBars = {
+        ExtraActionButton = true,
+        QueueStatus = true,
+    }
     for key, settings in pairs(actionBars.bars) do
         if type(settings) == "table" then
-            local visibility = settings.barVisibility or "always"
-            local isEnabled = settings.enabled ~= false and visibility ~= "never" and settings.alwaysHidden ~= true
-            if isEnabled then
-                if state then
-                    settings.barVisibility = "mouseover"
-                    settings.mouseoverEnabled = true
-                    settings.alwaysHidden = false
-                    settings.combatHideEnabled = false
-                    settings.combatShowEnabled = false
-                    if settings._savedBarAlpha == nil then settings._savedBarAlpha = settings.mouseoverAlpha or 1 end
-                    settings.mouseoverAlpha = 0
-                elseif settings.barVisibility == "mouseover" then
-                    settings.barVisibility = "always"
-                    settings.mouseoverEnabled = false
-                    settings.mouseoverAlpha = settings._savedBarAlpha or 1
-                end
-            elseif key == "PetBar" or key == "StanceBar" then
-                settings.alwaysHidden = true
-                settings.barVisibility = "never"
+            if alwaysVisibleSpecialBars[key] then
+                settings.barVisibility = "always"
                 settings.mouseoverEnabled = false
+                settings.alwaysHidden = false
+                settings.combatHideEnabled = false
+                settings.combatShowEnabled = false
+                settings.mouseoverAlpha = settings._savedBarAlpha or settings.mouseoverAlpha or 1
+            else
+                local visibility = settings.barVisibility or "always"
+                local isEnabled = settings.enabled ~= false and visibility ~= "never" and settings.alwaysHidden ~= true
+                if isEnabled then
+                    if state then
+                        settings.barVisibility = "mouseover"
+                        settings.mouseoverEnabled = true
+                        settings.alwaysHidden = false
+                        settings.combatHideEnabled = false
+                        settings.combatShowEnabled = false
+                        if settings._savedBarAlpha == nil then settings._savedBarAlpha = settings.mouseoverAlpha or 1 end
+                        settings.mouseoverAlpha = 0
+                    elseif settings.barVisibility == "mouseover" then
+                        settings.barVisibility = "always"
+                        settings.mouseoverEnabled = false
+                        settings.mouseoverAlpha = settings._savedBarAlpha or 1
+                    end
+                elseif key == "PetBar" or key == "StanceBar" then
+                    settings.alwaysHidden = true
+                    settings.barVisibility = "never"
+                    settings.mouseoverEnabled = false
+                end
             end
         end
+    end
+    if addonTable.RefreshEllesmereSpecialActionBarVisibility then
+        addonTable.RefreshEllesmereSpecialActionBarVisibility()
     end
 end
 
@@ -280,6 +296,17 @@ end
 
 local function GetEllesmereCompactClassResource()
     return EnsureVisibilityDB().compactClassResource == true
+end
+
+local function SetEllesmereTooltipAnchor(state)
+    EnsureVisibilityDB().tooltipAnchor = state == true
+    if addonTable.RefreshEllesmereTooltipAnchor then
+        addonTable.RefreshEllesmereTooltipAnchor()
+    end
+end
+
+local function GetEllesmereTooltipAnchor()
+    return EnsureVisibilityDB().tooltipAnchor == true
 end
 
 local function RefreshElvUIUnitFrames(E)
@@ -449,6 +476,7 @@ local function SetAllHidden(state)
         SetEllesmereCompactUtilityAnchor(state)
         SetEllesmereChatLineFade(state)
         SetEllesmereCompactClassResource(state)
+        SetEllesmereTooltipAnchor(state)
     end
     EnsureVisibilityDB().allHidden = state == true
 end
@@ -456,7 +484,7 @@ end
 local function GetAllHidden()
     local baseState = GetUnitframes() and GetMouseover() and GetChatBackgroundHidden() and GetCDMFading()
     if IsEllesmereProvider() then
-        return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmereShowPlayerInParty() and GetEllesmereCompactUtilityAnchor() and GetEllesmereChatLineFade() and GetEllesmereCompactClassResource()
+        return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmereShowPlayerInParty() and GetEllesmereCompactUtilityAnchor() and GetEllesmereChatLineFade() and GetEllesmereCompactClassResource() and GetEllesmereTooltipAnchor()
     end
     return baseState
 end
@@ -532,6 +560,8 @@ function addonTable.BuildVisibilityUI(parentFrame)
 
         AddSection("Player Frame", leftX, -292)
         AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -320, colWidth)
+        AddSection("Anchors", rightX, -292)
+        AddOption("Tooltip Anchor", SetEllesmereTooltipAnchor, GetEllesmereTooltipAnchor, "Adds a Tooltip Anchor to Ellesmere Unlock Mode and pins the default GameTooltip to that movable anchor.", rightX, -320, colWidth)
 
         AddSection("Compact Layout", leftX, -390)
         AddOption("Compact Utility CDs", SetEllesmereCompactUtilityAnchor, GetEllesmereCompactUtilityAnchor, "If you have fewer than two rows of Essential Cooldowns in the CDM, this moves Utility Cooldowns directly under the lowest visible Essential Cooldown row.", leftX, -418, colWidth)
