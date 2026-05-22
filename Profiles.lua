@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.0.0-EllesmereEdition"
+P.VERSION = "2.0.1-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -81,6 +81,19 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.0.1-EllesmereEdition",
+        date = "May 21, 2026",
+        notes = {
+            "Added an Ellesmere Tweaks toggle for a movable Tooltip Anchor in Ellesmere Unlock Mode",
+            "Kept the Extra Action Button visible when active while action bars are mouseover-hidden",
+            "Kept the LFG/LFR queue eye independent from action bar mouseover hiding",
+            "Updated the Ellesmere profile with a Dragonriding bar",
+            "Changed the Ellesmere cast bar color to a gradient class color",
+            "Updated the Ellesmere stance bar to anchor to the top action bar and grow right",
+            "Added Cody Buxton to the supporter list",
+        }
+    },
     {
         version = "v2.0.0-EllesmereEdition",
         date = "May 20, 2026",
