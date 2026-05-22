@@ -1,3 +1,7 @@
+## v2.0.2-EllesmereEdition
+
+- Fixed the Ellesmere Tooltip Anchor so Oak sets the default tooltip anchor without re-rendering or repeatedly repositioning EUI/WoW tooltips
+
 ## v2.0.1-EllesmereEdition
 
 - Added an Ellesmere Tweaks toggle for a movable Tooltip Anchor in Ellesmere Unlock Mode
