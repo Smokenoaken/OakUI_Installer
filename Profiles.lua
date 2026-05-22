@@ -27,6 +27,7 @@ P.PATREONS = {
     "Mandos",
     "Thomas Valhøj",
     "Justin Komosky",
+    "Cody Buxton",
     "psykotedy",
     "Brian Ehlers",
     "mglass",
