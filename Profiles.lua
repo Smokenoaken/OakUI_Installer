@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.0.2-EllesmereEdition"
+P.VERSION = "2.0.3-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -81,6 +81,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.0.3-EllesmereEdition",
+        date = "May 22, 2026",
+        notes = {
+            "Disabled the Ellesmere Tooltip Anchor option to avoid tainting Blizzard and third-party tooltip processing while a safer anchor integration is evaluated",
+        }
+    },
     {
         version = "v2.0.2-EllesmereEdition",
         date = "May 21, 2026",

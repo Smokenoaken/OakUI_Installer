@@ -1,3 +1,7 @@
+## v2.0.3-EllesmereEdition
+
+- Disabled the Ellesmere Tooltip Anchor option to avoid tainting Blizzard and third-party tooltip processing while a safer anchor integration is evaluated
+
 ## v2.0.2-EllesmereEdition
 
 - Fixed the Ellesmere Tooltip Anchor so Oak sets the default tooltip anchor without re-rendering or repeatedly repositioning EUI/WoW tooltips
