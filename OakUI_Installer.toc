@@ -3,19 +3,20 @@
 ## Notes: One-click profile importer for the OakUI suite.
 ## Author: Oakensoul
 ## IconTexture: Interface\AddOns\OakUI_Installer\Media\Logo.png
-## Version: 2.0.3-EllesmereEdition
+## Version: 2.0.4-EllesmereEdition
 ## X-Wago-ID: QNlzj8Ke
 ## DefaultState: enabled
 ## OptionalDeps: EllesmereUI, EllesmereUIActionBars, EllesmereUIChat, EllesmereUICooldownManager, EllesmereUIUnitFrames, DandersFrames, ElvUI, ElvUI_Libraries, SharedMedia
 ## SavedVariables: OakUI_DB
 Profiles.lua
 ExternalProfiles.lua
+EllesmereSupplement.lua
+FontEngine.lua
 InstallLogic.lua
 ChatLayout.lua
 ChatFilters.lua
 ActionBarFader.lua
 Widgets.lua
-FontEngine.lua
 InstallerTab.lua
 Visibility.lua
 EllesmereTweaks.lua

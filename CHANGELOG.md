@@ -1,3 +1,15 @@
+## v2.0.4-EllesmereEdition
+
+- Optimized OakUI Chat Layout Implementation When Installing
+- Disabled EllesmereUI Nameplates on reload when Platynator is enabled
+- Added supplemental Ellesmere tracked buff bar and chat settings after profile import
+- Imported the Blizzard Edit Mode layout automatically as an OakUI account layout
+- Updated the embedded OakUI Edit Mode layout for objective tracker and timeline placement
+- Applied OakUI font settings to the Blizzard Encounter Timeline
+- Synced the OakUI Loot chat tab alpha with EllesmereUI chat fading without changing tab text styling
+- Enabled Blizzard Timeline CVars when importing the BigWigs profile
+- Updated the Patreon and Ko-fi supporter list
+
 ## v2.0.3-EllesmereEdition
 
 - Disabled the Ellesmere Tooltip Anchor option to avoid tainting Blizzard and third-party tooltip processing while a safer anchor integration is evaluated

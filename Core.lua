@@ -180,7 +180,13 @@ end
 InitChatSettings()
 ChatEnableAllBtn:SetScript("OnClick", function() for _, f in ipairs(chatFiltersConfig) do OakUI_DB.chatFilters[f.key] = true end; for _, cb in ipairs(chatCheckboxes) do cb:UpdateState() end end)
 ChatDisableAllBtn:SetScript("OnClick", function() for _, f in ipairs(chatFiltersConfig) do OakUI_DB.chatFilters[f.key] = false end; for _, cb in ipairs(chatCheckboxes) do cb:UpdateState() end end)
-ChatLayoutBtn:SetScript("OnClick", function() if addonTable.SetupChatWindows then addonTable.SetupChatWindows(false) end end)
+ChatLayoutBtn:SetScript("OnClick", function()
+    if addonTable.ScheduleChatWindowsAfterEllesmereProfile then
+        addonTable.ScheduleChatWindowsAfterEllesmereProfile(false)
+    elseif addonTable.SetupChatWindows then
+        addonTable.SetupChatWindows(false)
+    end
+end)
 
 -- SUPPORTERS VIEW 
 local SuppTitle = SupportersView:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge"); SuppTitle:SetPoint("TOPLEFT", SupportersView, "TOPLEFT", 15, -20); SuppTitle:SetJustifyH("LEFT"); SuppTitle:SetText(cWrap .. "Supporters|r")

@@ -45,8 +45,17 @@ function addonTable.BuildInstallerUI(parentFrame)
 
     local baseFolder = "EllesmereUI"
     local baseUrl = "https://www.curseforge.com/wow/addons/ellesmere-ui"
-    local editModeAddon = { name = "Blizzard Edit Mode (Layout)", folder = nil, buttonText = "Copy Layout", installedText = "Copied!", func = function() ShowCopyBox(Inj.GetEditMode(), cWrap .. "1.|r Press CTRL+C to copy the text below.\n" .. cWrap .. "2.|r Open ESC -> Edit Mode.\n" .. cWrap .. "3.|r Click the Layout Dropdown -> Import -> Paste.") end, manual = true }
-    local chatLayoutAddon = { name = "OakUI Chat Layout", folder = nil, buttonText = "Apply Layout", installedText = "Applied!", func = function() if addonTable.SetupChatWindows then addonTable.SetupChatWindows(true) end end, requiresReload = true, manual = true, includeInAll = true }
+    local editModeAddon = { name = "Blizzard Edit Mode (Layout)", folder = nil, buttonText = "Import Layout", installedText = "Imported!", func = function()
+        if Inj.EditMode and Inj.EditMode() then return end
+        ShowCopyBox(Inj.GetEditMode(), cWrap .. "1.|r Press CTRL+C to copy the text below.\n" .. cWrap .. "2.|r Open ESC -> Edit Mode.\n" .. cWrap .. "3.|r Click the Layout Dropdown -> Import -> Paste.")
+    end, manual = true, includeInAll = true, requiresReload = true }
+    local chatLayoutAddon = { name = "OakUI Chat Layout", folder = nil, buttonText = "Apply Layout", installedText = "Applied!", func = function()
+        if addonTable.ScheduleChatWindowsAfterEllesmereProfile then
+            addonTable.ScheduleChatWindowsAfterEllesmereProfile(true)
+        elseif addonTable.SetupChatWindows then
+            addonTable.SetupChatWindows(true)
+        end
+    end, requiresReload = true, manual = true, includeInAll = true }
     local FlagshipAddons = {
         { name = "Ellesmere UI Profile", folder = baseFolder, url = baseUrl, func = Inj.BaseUI, requiresReload = true },
         editModeAddon,
@@ -133,10 +142,15 @@ function addonTable.BuildInstallerUI(parentFrame)
                 addon.rowBtn:SetWidth(120); addon.rowBtn:ClearAllPoints(); addon.rowBtn:SetPoint("RIGHT", row, "RIGHT", -5, 0); addon.rowBtn:Enable(); addon.rowBtn.Text:SetText(addon.buttonText or "Install"); addon.rowBtn.Text:SetTextColor(r, g, b)
                 addon.rowBtn:SetScript("OnClick", function() 
                     if addon.manual then 
-                        addon.func()
+                        local success, err = pcall(addon.func)
+                        if not success then
+                            print("|cffff0000[OakUI] Error applying " .. addon.name .. ":|r " .. tostring(err))
+                            return
+                        end
+
                         addon.rowBtn:SetText(addon.installedText or "Copied/Applied!")
-                        addon.rowBtn:Disable() 
-                        if addon.requiresReload then 
+                        addon.rowBtn:Disable()
+                        if addon.requiresReload then
                             StaticPopupDialogs["OAKUI_MANUAL_RELOAD"] = {
                                 text = "Settings applied successfully! A UI Reload is required. Reload now?",
                                 button1 = "Yes", button2 = "No",

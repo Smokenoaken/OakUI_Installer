@@ -203,12 +203,20 @@ function Inj.ExecuteInstallAll(addonList, profileName, role, callback)
         end
     end
     if addonTable.ApplyOakFontPreset then
-        addonTable.ApplyOakFontPreset()
-        anyReload = true
+        local success, err = pcall(addonTable.ApplyOakFontPreset)
+        if success then
+            anyReload = true
+        else
+            print("|cffff0000[OakUI] Error applying OakUI fonts:|r " .. tostring(err))
+        end
     end
     if addonTable.ApplyOakVisibilityDefaults then
-        addonTable.ApplyOakVisibilityDefaults()
-        anyReload = true
+        local success, err = pcall(addonTable.ApplyOakVisibilityDefaults)
+        if success then
+            anyReload = true
+        else
+            print("|cffff0000[OakUI] Error applying OakUI visibility defaults:|r " .. tostring(err))
+        end
     end
     if callback then callback(anyReload) end
     return installedCount

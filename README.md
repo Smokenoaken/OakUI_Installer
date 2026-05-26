@@ -59,7 +59,7 @@ Put one bullet per line in [NEXT_CHANGELOG.md](NEXT_CHANGELOG.md), then run the 
 
 ## Version
 
-Current repo version: `2.0.3-EllesmereEdition`
+Current repo version: `2.0.4-EllesmereEdition`
 
 ## Project Summary
 
