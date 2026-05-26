@@ -1,3 +1,7 @@
+## v2.0.5-EllesmereEdition
+
+- Fixed a FontEngine error when applying OakUI font settings to Blizzard Timeline frames
+
 ## v2.0.4-EllesmereEdition
 
 - Optimized OakUI Chat Layout Implementation When Installing

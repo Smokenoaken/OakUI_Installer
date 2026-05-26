@@ -165,26 +165,54 @@ local function ApplyObjectList(objects, fontPath, size, outline)
     end
 end
 
+local function SafeGetObjectType(obj)
+    if type(obj) ~= "table" or type(obj.GetObjectType) ~= "function" then return nil end
+    local ok, objectType = pcall(obj.GetObjectType, obj)
+    if ok then return objectType end
+end
+
+local function SafeGetName(obj)
+    if type(obj) ~= "table" or type(obj.GetName) ~= "function" then return nil end
+    local ok, name = pcall(obj.GetName, obj)
+    if ok then return name end
+end
+
+local function SafeGetRegions(obj)
+    if type(obj) ~= "table" or type(obj.GetRegions) ~= "function" then return nil end
+    local ok, regions = pcall(function()
+        return { obj:GetRegions() }
+    end)
+    if ok then return regions end
+end
+
+local function SafeGetChildren(obj)
+    if type(obj) ~= "table" or type(obj.GetChildren) ~= "function" then return nil end
+    local ok, children = pcall(function()
+        return { obj:GetChildren() }
+    end)
+    if ok then return children end
+end
+
 local function ApplyFrameFont(root, fontPath, size, outline, seen)
     if not root or not fontPath then return end
     seen = seen or {}
     if seen[root] then return end
     seen[root] = true
 
-    if root.GetObjectType and root:GetObjectType() == "FontString" then
+    if SafeGetObjectType(root) == "FontString" then
         SetFont(root, fontPath, size, outline)
         return
     end
 
-    if root.GetRegions then
-        local regions = { root:GetRegions() }
+    local regions = SafeGetRegions(root)
+    if regions then
         for i = 1, #regions do
             ApplyFrameFont(regions[i], fontPath, size, outline, seen)
         end
     end
 
-    if root.GetChildren then
-        local children = { root:GetChildren() }
+    local children = SafeGetChildren(root)
+    if children then
         for i = 1, #children do
             ApplyFrameFont(children[i], fontPath, size, outline, seen)
         end
@@ -195,7 +223,9 @@ local timelineRootCache = {}
 local timelineRootCacheBuilt = false
 local function AddTimelineRoot(root)
     if type(root) ~= "table" then return end
-    if not (root.GetObjectType or root.GetRegions or root.GetChildren or root.SetFont) then return end
+    local name = SafeGetName(root)
+    if not (name and (name:find("EncounterTimeline") or name:find("BossTimeline"))) then return end
+    if not (SafeGetObjectType(root) or root.GetRegions or root.GetChildren or root.SetFont) then return end
     timelineRootCache[root] = true
 end
 
@@ -237,10 +267,6 @@ local function ApplyBlizzardTimelineFont()
         _G.EncounterTimelineFrame,
         _G.EncounterTimelineContainer,
     }
-
-    if _G.EncounterTimeline and _G.EncounterTimeline.GetParent then
-        roots[#roots + 1] = _G.EncounterTimeline:GetParent()
-    end
 
     DiscoverTimelineRoots()
     for root in pairs(timelineRootCache) do

@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.0.4-EllesmereEdition"
+P.VERSION = "2.0.5-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -91,6 +91,12 @@ P.PATREONS = {
 -- ==========================================
 P.CHANGELOG = {
     {
+        version = "v2.0.5-EllesmereEdition",
+        date = "May 26, 2026",
+        notes = {
+            "Fixed a FontEngine error when applying OakUI font settings to Blizzard Timeline frames",
+        }
+    },    {
         version = "v2.0.4-EllesmereEdition",
         date = "May 26, 2026",
         notes = {
