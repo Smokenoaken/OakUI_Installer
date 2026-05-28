@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.0.6-EllesmereEdition"
+P.VERSION = "2.0.7-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -37,6 +37,12 @@ P.PATREONS = {
     "Andrew Steltz",
     "Clayton Johnson",
     "Scott Mortell",
+    "Tye Joseph",
+    "Doctadope",
+    "Donald Ross",
+    "Peter O'Toole",
+    "Trixon",
+    "George E",
     "psykotedy",
     "Brian Ehlers",
     "mglass",
