@@ -5,7 +5,7 @@ local classColor = C_ClassColor.GetClassColor(playerClass)
 local r, g, b = classColor.r, classColor.g, classColor.b
 local cWrap = "|c" .. classColor:GenerateHexColor()
 
-local function MakeVisibilityCheckbox(parent, text, updateFunc, getStateFunc)
+local function MakeVisibilityCheckbox(parent, text, updateFunc, getStateFunc, skipReloadPrompt)
     local btn = CreateFrame("Button", nil, parent)
     btn:SetSize(20, 20)
     local border = btn:CreateTexture(nil, "BACKGROUND")
@@ -32,6 +32,10 @@ local function MakeVisibilityCheckbox(parent, text, updateFunc, getStateFunc)
         self:UpdateState()
         if parent.UpdateVisibilityCheckboxes then
             parent:UpdateVisibilityCheckboxes()
+        end
+
+        if skipReloadPrompt then
+            return
         end
 
         if addonTable.ShowReloadPrompt then
@@ -70,6 +74,54 @@ local function GetEllesmereAddonProfile(addonKey)
     return profile.addons[addonKey]
 end
 
+local function GetEllesmereUnitHideNoTarget(unit)
+    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
+    local settings = unitFrames and unitFrames[unit]
+    if type(settings) ~= "table" or settings.visHideNoTarget == nil then return nil end
+    return settings.visHideNoTarget == true
+end
+
+local ELLESMERE_VISIBILITY_OPTION_KEYS = {
+    "visOnlyInstances",
+    "visHideHousing",
+    "visHideMounted",
+    "visHideNoTarget",
+    "visHideNoEnemy",
+}
+
+local function SetEllesmereHideNoTargetOption(settings, state)
+    if type(settings) ~= "table" then return end
+    for _, key in ipairs(ELLESMERE_VISIBILITY_OPTION_KEYS) do
+        settings[key] = false
+    end
+    settings.visHideNoTarget = state == true
+end
+
+local function RefreshEllesmereOptionsPage()
+    if _G.EllesmereUI and type(_G.EllesmereUI.RefreshPage) == "function" then
+        pcall(_G.EllesmereUI.RefreshPage, _G.EllesmereUI)
+    end
+end
+
+local function RefreshEllesmereUnitFrameSettings()
+    local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
+    if ns and type(ns.UpdateFrameVisibility) == "function" then
+        pcall(ns.UpdateFrameVisibility)
+    end
+    RefreshEllesmereOptionsPage()
+end
+
+local function SyncEllesmerePlayerFrameState()
+    local playerHidden = GetEllesmereUnitHideNoTarget("player")
+    local petHidden = GetEllesmereUnitHideNoTarget("pet")
+    if playerHidden ~= nil or petHidden ~= nil then
+        local enabled = playerHidden == true and petHidden == true
+        EnsureVisibilityDB().playerFrameHidden = enabled
+        return enabled
+    end
+    return EnsureVisibilityDB().playerFrameHidden == true
+end
+
 local function SetEllesmerePlayerFrame(state)
     local db = EnsureVisibilityDB()
     db.playerFrameHidden = state == true
@@ -77,8 +129,9 @@ local function SetEllesmerePlayerFrame(state)
     if unitFrames then
         unitFrames.player = unitFrames.player or {}
         unitFrames.pet = unitFrames.pet or {}
-        unitFrames.player.visHideNoTarget = state == true
-        unitFrames.pet.visHideNoTarget = state == true
+        SetEllesmereHideNoTargetOption(unitFrames.player, state)
+        SetEllesmereHideNoTargetOption(unitFrames.pet, state)
+        RefreshEllesmereUnitFrameSettings()
     end
     if addonTable.RefreshEllesmereVisibilityTweaks then
         addonTable.RefreshEllesmereVisibilityTweaks()
@@ -86,11 +139,18 @@ local function SetEllesmerePlayerFrame(state)
 end
 
 local function GetEllesmerePlayerFrame()
-    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
-    if unitFrames and unitFrames.player and unitFrames.player.visHideNoTarget ~= nil then
-        return unitFrames.player.visHideNoTarget == true
+    return SyncEllesmerePlayerFrameState()
+end
+
+local function RefreshEllesmereActionBars()
+    local EAB = type(_G.EllesmereUIActionBars) == "table" and _G.EllesmereUIActionBars
+    if EAB then
+        if type(EAB.RefreshRuntimeVisibility) == "function" then pcall(EAB.RefreshRuntimeVisibility, EAB) end
+        if type(EAB.RefreshMouseover) == "function" then pcall(EAB.RefreshMouseover, EAB) end
+        if type(EAB.ApplyCombatVisibility) == "function" then pcall(EAB.ApplyCombatVisibility, EAB) end
+        if type(EAB.UpdateHousingVisibility) == "function" then pcall(EAB.UpdateHousingVisibility, EAB) end
     end
-    return EnsureVisibilityDB().playerFrameHidden == true
+    RefreshEllesmereOptionsPage()
 end
 
 local function SetEllesmereActionBars(state)
@@ -117,6 +177,7 @@ local function SetEllesmereActionBars(state)
                 local visibility = settings.barVisibility or "always"
                 local isEnabled = settings.enabled ~= false and visibility ~= "never" and settings.alwaysHidden ~= true
                 if isEnabled then
+                    SetEllesmereHideNoTargetOption(settings, false)
                     if state then
                         settings.barVisibility = "mouseover"
                         settings.mouseoverEnabled = true
@@ -125,7 +186,7 @@ local function SetEllesmereActionBars(state)
                         settings.combatShowEnabled = false
                         if settings._savedBarAlpha == nil then settings._savedBarAlpha = settings.mouseoverAlpha or 1 end
                         settings.mouseoverAlpha = 0
-                    elseif settings.barVisibility == "mouseover" then
+                    else
                         settings.barVisibility = "always"
                         settings.mouseoverEnabled = false
                         settings.mouseoverAlpha = settings._savedBarAlpha or 1
@@ -138,6 +199,7 @@ local function SetEllesmereActionBars(state)
             end
         end
     end
+    RefreshEllesmereActionBars()
     if addonTable.RefreshEllesmereSpecialActionBarVisibility then
         addonTable.RefreshEllesmereSpecialActionBarVisibility()
     end
@@ -145,10 +207,47 @@ end
 
 local function GetEllesmereActionBars()
     local actionBars = GetEllesmereAddonProfile("EllesmereUIActionBars")
-    if actionBars and actionBars.mouseoverShowAll ~= nil then
-        return actionBars.mouseoverShowAll == true
+    local bars = actionBars and actionBars.bars
+    if type(bars) == "table" then
+        local found = false
+        for key, settings in pairs(bars) do
+            if type(settings) == "table" and key ~= "ExtraActionButton" and key ~= "QueueStatus" then
+                local visibility = settings.barVisibility or "always"
+                local isEnabled = settings.enabled ~= false and visibility ~= "never" and settings.alwaysHidden ~= true
+                if isEnabled then
+                    found = true
+                    if visibility ~= "mouseover" then
+                        EnsureVisibilityDB().actionBarsHidden = false
+                        return false
+                    end
+                end
+            end
+        end
+        if found then
+            EnsureVisibilityDB().actionBarsHidden = true
+            return true
+        end
     end
     return EnsureVisibilityDB().actionBarsHidden == true
+end
+
+local function GetEllesmereChatAddon()
+    if _G.EllesmereUI and _G.EllesmereUI.Lite and _G.EllesmereUI.Lite.GetAddon then
+        local addon = _G.EllesmereUI.Lite.GetAddon("EllesmereUIChat", true)
+        if addon then return addon end
+    end
+    return nil
+end
+
+local function RefreshEllesmereChat()
+    local ECHAT = GetEllesmereChatAddon()
+    if ECHAT then
+        if type(ECHAT.ApplyBackground) == "function" then pcall(ECHAT.ApplyBackground) end
+        if type(ECHAT.ApplyFonts) == "function" then pcall(ECHAT.ApplyFonts) end
+        if type(ECHAT.RefreshVisibility) == "function" then pcall(ECHAT.RefreshVisibility) end
+        if type(ECHAT.ResetIdleTimer) == "function" then pcall(ECHAT.ResetIdleTimer) end
+    end
+    RefreshEllesmereOptionsPage()
 end
 
 local function SetEllesmereChatBackground(state)
@@ -158,59 +257,138 @@ local function SetEllesmereChatBackground(state)
         chat.chat = chat.chat or {}
         chat.chat.bgAlpha = state and 0 or 0.65
         chat.chat.idleFadeStrength = state and 100 or 40
+        RefreshEllesmereChat()
     end
 end
 
 local function GetEllesmereChatBackground()
     local chat = GetEllesmereAddonProfile("EllesmereUIChat")
     if chat and chat.chat then
-        return (chat.chat.bgAlpha or 0.65) <= 0.01 and (chat.chat.idleFadeStrength or 40) >= 100
+        local hidden = (chat.chat.bgAlpha or 0.65) <= 0.01 and (chat.chat.idleFadeStrength or 40) >= 100
+        EnsureVisibilityDB().chatBackgroundHidden = hidden
+        return hidden
     end
     return EnsureVisibilityDB().chatBackgroundHidden == true
+end
+
+local function RefreshEllesmereCDM()
+    local cdm = type(_G.EllesmereUICooldownManager) == "table" and _G.EllesmereUICooldownManager
+    if cdm and type(cdm.CDMApplyVisibility) == "function" then
+        pcall(cdm.CDMApplyVisibility)
+    elseif type(_G._ECME_ApplyVisibility) == "function" then
+        pcall(_G._ECME_ApplyVisibility)
+    end
+    RefreshEllesmereOptionsPage()
+end
+
+local function GetEllesmereResourceBarsProfile()
+    if type(_G._ERB_AceDB) == "table" and type(_G._ERB_AceDB.profile) == "table" then
+        return _G._ERB_AceDB.profile
+    end
+    return GetEllesmereAddonProfile("EllesmereUIResourceBars")
+end
+
+local function RefreshEllesmereResourceBars()
+    if type(_G._ERB_Apply) == "function" then
+        pcall(_G._ERB_Apply)
+    end
+    RefreshEllesmereOptionsPage()
+end
+
+local function SetEllesmereResourceBarsVisibility(state)
+    local profile = GetEllesmereResourceBarsProfile()
+    if type(profile) ~= "table" then return end
+
+    for _, key in ipairs({ "health", "primary", "secondary" }) do
+        local settings = profile[key]
+        if type(settings) == "table" then
+            settings.visibility = "always"
+            SetEllesmereHideNoTargetOption(settings, state)
+        end
+    end
+    RefreshEllesmereResourceBars()
+end
+
+local function GetEllesmereResourceBarsVisibility()
+    local profile = GetEllesmereResourceBarsProfile()
+    if type(profile) ~= "table" then return nil end
+
+    local found = false
+    for _, key in ipairs({ "health", "primary", "secondary" }) do
+        local settings = profile[key]
+        if type(settings) == "table" then
+            found = true
+            if settings.visHideNoTarget ~= true then return false end
+        end
+    end
+    if found then return true end
+    return nil
 end
 
 local function SetEllesmereCDM(state)
     EnsureVisibilityDB().cdmFading = state == true
     local cdm = GetEllesmereAddonProfile("EllesmereUICooldownManager")
     local bars = cdm and cdm.cdmBars and cdm.cdmBars.bars
-    if type(bars) ~= "table" then return end
+    if type(bars) == "table" then
+        local wanted = { cooldowns = true, utility = true, buffs = true }
+        for _, key in ipairs({ "cooldowns", "utility", "buffs" }) do
+            if type(bars[key]) == "table" then
+                bars[key].barVisibility = "always"
+                SetEllesmereHideNoTargetOption(bars[key], state)
+            end
+        end
+        for _, bar in ipairs(bars) do
+            if type(bar) == "table" and wanted[bar.key] then
+                bar.barVisibility = "always"
+                SetEllesmereHideNoTargetOption(bar, state)
+            end
+        end
+        RefreshEllesmereCDM()
+    end
 
-    local wanted = { cooldowns = true, utility = true, buffs = true }
-    for _, key in ipairs({ "cooldowns", "utility", "buffs" }) do
-        if type(bars[key]) == "table" then
-            bars[key].barVisibility = "always"
-            bars[key].visHideNoTarget = state == true
-        end
-    end
-    for _, bar in ipairs(bars) do
-        if type(bar) == "table" and wanted[bar.key] then
-            bar.barVisibility = "always"
-            bar.visHideNoTarget = state == true
-        end
-    end
+    SetEllesmereResourceBarsVisibility(state)
 end
 
 local function GetEllesmereCDM()
+    local resourceHidden = GetEllesmereResourceBarsVisibility()
     local cdm = GetEllesmereAddonProfile("EllesmereUICooldownManager")
     local bars = cdm and cdm.cdmBars and cdm.cdmBars.bars
     if type(bars) == "table" then
         local seen = { cooldowns = false, utility = false, buffs = false }
         for _, key in ipairs({ "cooldowns", "utility", "buffs" }) do
             if type(bars[key]) == "table" then
-                if bars[key].visHideNoTarget ~= true then return false end
+                if bars[key].visHideNoTarget ~= true then
+                    EnsureVisibilityDB().cdmFading = false
+                    return false
+                end
                 seen[key] = true
             end
         end
         for _, bar in ipairs(bars) do
             if type(bar) == "table" and seen[bar.key] ~= nil then
-                if bar.visHideNoTarget ~= true then return false end
+                if bar.visHideNoTarget ~= true then
+                    EnsureVisibilityDB().cdmFading = false
+                    return false
+                end
                 seen[bar.key] = true
             end
         end
         for _, key in ipairs({ "cooldowns", "utility", "buffs" }) do
-            if not seen[key] then return false end
+            if not seen[key] then
+                EnsureVisibilityDB().cdmFading = false
+                return false
+            end
         end
+        if resourceHidden == false then
+            EnsureVisibilityDB().cdmFading = false
+            return false
+        end
+        EnsureVisibilityDB().cdmFading = true
         return true
+    end
+    if resourceHidden ~= nil then
+        EnsureVisibilityDB().cdmFading = resourceHidden
+        return resourceHidden
     end
     return EnsureVisibilityDB().cdmFading == true
 end
@@ -475,7 +653,6 @@ local function SetAllHidden(state)
         SetEllesmereShowPlayerInParty(state)
         SetEllesmereCompactUtilityAnchor(state)
         SetEllesmereChatLineFade(state)
-        SetEllesmereCompactClassResource(state)
         SetEllesmereTooltipAnchor(state)
     end
     EnsureVisibilityDB().allHidden = state == true
@@ -484,7 +661,7 @@ end
 local function GetAllHidden()
     local baseState = GetUnitframes() and GetMouseover() and GetChatBackgroundHidden() and GetCDMFading()
     if IsEllesmereProvider() then
-        return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmereShowPlayerInParty() and GetEllesmereCompactUtilityAnchor() and GetEllesmereChatLineFade() and GetEllesmereCompactClassResource() and GetEllesmereTooltipAnchor()
+        return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmereShowPlayerInParty() and GetEllesmereCompactUtilityAnchor() and GetEllesmereChatLineFade() and GetEllesmereTooltipAnchor()
     end
     return baseState
 end
@@ -522,8 +699,8 @@ function addonTable.BuildVisibilityUI(parentFrame)
         end)
     end
 
-    local function AddOption(text, updateFunc, getStateFunc, tooltip, x, y, width)
-        local cb, lbl = MakeVisibilityCheckbox(parentFrame, cWrap .. text .. "|r", updateFunc, getStateFunc)
+    local function AddOption(text, updateFunc, getStateFunc, tooltip, x, y, width, skipReloadPrompt)
+        local cb, lbl = MakeVisibilityCheckbox(parentFrame, cWrap .. text .. "|r", updateFunc, getStateFunc, skipReloadPrompt)
         cb:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", x, y)
         lbl:SetFontObject("GameFontHighlight")
         lbl:SetWidth((width or 215) - 32)
@@ -551,9 +728,9 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddOption("Apply All", SetAllHidden, GetAllHidden, nil, 300, -23, 150)
 
         AddSection("Visibility", leftX, -92)
-        AddOption("Hide Player/Pet", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options to hide Player/Pet when you have no target.", leftX, -120, colWidth)
-        AddOption("Hide CDM", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager Visibility Options to hide the CDM when you have no target.", rightX, -120, colWidth)
-        AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility Options to hide the action bars unless you mouse over them. Hides/shows all bars when mousing over any bar.", leftX, -120 + rowGap, colWidth)
+        AddOption("Hide Player/Pet", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options between None and Hide without Target for Player/Pet.", leftX, -120, colWidth, true)
+        AddOption("Hide CDM", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -120, colWidth, true)
+        AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -120 + rowGap, colWidth)
         AddOption("Hide Chat Background", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade.", rightX, -120 + rowGap, colWidth)
         AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -120 + rowGap * 2, colWidth)
         AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", rightX, -120 + rowGap * 2, colWidth)
@@ -563,10 +740,14 @@ function addonTable.BuildVisibilityUI(parentFrame)
 
         AddSection("Compact Layout", leftX, -390)
         AddOption("Compact Utility CDs", SetEllesmereCompactUtilityAnchor, GetEllesmereCompactUtilityAnchor, "If you have fewer than two rows of Essential Cooldowns in the CDM, this moves Utility Cooldowns directly under the lowest visible Essential Cooldown row.", leftX, -418, colWidth)
-        AddOption("Compact Resource", SetEllesmereCompactClassResource, GetEllesmereCompactClassResource, "If you are on a class with only one resource/power bar, this moves that bar directly above the top Essential Cooldown CDM bar.", rightX, -418, colWidth)
 
         parentFrame.UpdateVisibilityCheckboxes = function()
             for _, cb in ipairs(checkboxes) do cb:UpdateState() end
+        end
+        addonTable.RefreshVisibilityCheckboxes = function()
+            if parentFrame:IsShown() then
+                parentFrame:UpdateVisibilityCheckboxes()
+            end
         end
 
         parentFrame:UpdateVisibilityCheckboxes()
@@ -608,6 +789,11 @@ function addonTable.BuildVisibilityUI(parentFrame)
 
     parentFrame.UpdateVisibilityCheckboxes = function()
         for _, cb in ipairs(checkboxes) do cb:UpdateState() end
+    end
+    addonTable.RefreshVisibilityCheckboxes = function()
+        if parentFrame:IsShown() then
+            parentFrame:UpdateVisibilityCheckboxes()
+        end
     end
 
     parentFrame:UpdateVisibilityCheckboxes()

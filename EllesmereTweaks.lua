@@ -75,7 +75,14 @@ local playerVisibilityWatchFrame
 
 local function SetFrameVisible(frame, visible)
     if not frame then return end
+    frame.oakVisibilityTweaksManaged = true
     frame:SetAlpha(visible and 1 or 0)
+end
+
+local function ReleaseFrameVisibility(frame)
+    if not frame or not frame.oakVisibilityTweaksManaged then return end
+    frame.oakVisibilityTweaksManaged = nil
+    frame:SetAlpha(1)
 end
 
 local function SetPetFrameVisible(frame, visible)
@@ -91,6 +98,18 @@ local function SetPetFrameVisible(frame, visible)
     end
 end
 
+local function ReleasePetFrameVisibility(frame)
+    if not frame then return end
+    local wasManaged = frame.oakVisibilityTweaksManaged
+    ReleaseFrameVisibility(frame)
+    if not wasManaged then return end
+
+    frame.dfPetHidden = nil
+    if not InCombatLockdown or not InCombatLockdown() then
+        if frame.Show then frame:Show() end
+    end
+end
+
 local function GetDandersPlayerPetFrame()
     local DF = _G.DandersFrames
     if DF and DF.petFrames and DF.petFrames.player then
@@ -99,15 +118,46 @@ local function GetDandersPlayerPetFrame()
     return _G.DandersFrames_Pet_Pet
 end
 
-local function PlayerPetVisibilityEnabled()
+local function GetEllesmereUnitHideNoTarget(unit)
+    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
+    local settings = unitFrames and unitFrames[unit]
+    if type(settings) ~= "table" or settings.visHideNoTarget == nil then return nil end
+    return settings.visHideNoTarget == true
+end
+
+local function SyncPlayerPetVisibilityState()
+    local playerHidden = GetEllesmereUnitHideNoTarget("player")
+    local petHidden = GetEllesmereUnitHideNoTarget("pet")
+    if playerHidden ~= nil or petHidden ~= nil then
+        local db = EnsureVisibilityDB()
+        local enabled = playerHidden == true and petHidden == true
+        local changed = db.playerFrameHidden ~= enabled
+        db.playerFrameHidden = enabled
+        if changed and addonTable.RefreshVisibilityCheckboxes then
+            addonTable.RefreshVisibilityCheckboxes()
+        end
+    end
+    return playerHidden, petHidden
+end
+
+local function PlayerPetVisibilityOptionsEnabled()
     if not IsEllesmereProvider() then return false end
     local db = EnsureVisibilityDB()
-    if db.smartPlayerPetVisibility ~= true and db.showPlayerWhenInjured ~= true and db.showPlayerInParty ~= true then return false end
-    if EnsureVisibilityDB().playerFrameHidden == true then return true end
+    return db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true or db.showPlayerInParty == true
+end
 
-    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
-    local player = unitFrames and unitFrames.player
-    return player and player.visHideNoTarget == true
+local function PlayerVisibilityOverrideEnabled()
+    if not PlayerPetVisibilityOptionsEnabled() then return false end
+    local playerHidden = GetEllesmereUnitHideNoTarget("player")
+    if playerHidden ~= nil then return playerHidden == true end
+    return EnsureVisibilityDB().playerFrameHidden == true
+end
+
+local function PetVisibilityOverrideEnabled()
+    if not PlayerPetVisibilityOptionsEnabled() then return false end
+    local petHidden = GetEllesmereUnitHideNoTarget("pet")
+    if petHidden ~= nil then return petHidden == true end
+    return EnsureVisibilityDB().playerFrameHidden == true
 end
 
 local function PlayerIsInGroup()
@@ -141,7 +191,7 @@ local function HookEllesmereUnitFrameVisibility()
 end
 
 local function ShouldForcePlayerFrameShown()
-    if not PlayerPetVisibilityEnabled() then return false end
+    if not PlayerVisibilityOverrideEnabled() then return false end
     local db = EnsureVisibilityDB()
     if InCombatLockdown and InCombatLockdown() then return true end
     if UnitExists("target") then return true end
@@ -184,11 +234,15 @@ end
 
 function addonTable.RefreshEllesmereVisibilityTweaks()
     HookEllesmereUnitFrameVisibility()
-    if not PlayerPetVisibilityEnabled() then
+    SyncPlayerPetVisibilityState()
+    local playerOverrideEnabled = PlayerVisibilityOverrideEnabled()
+    local petOverrideEnabled = PetVisibilityOverrideEnabled()
+
+    if not playerOverrideEnabled and not petOverrideEnabled then
         local playerFrame = _G.EllesmereUIUnitFrames_Player
-        SetFrameVisible(playerFrame and playerFrame._visWrap or playerFrame, true)
-        SetFrameVisible(_G.EllesmereUIUnitFrames_Pet, true)
-        SetPetFrameVisible(GetDandersPlayerPetFrame(), true)
+        ReleaseFrameVisibility(playerFrame and playerFrame._visWrap or playerFrame)
+        ReleasePetFrameVisibility(_G.EllesmereUIUnitFrames_Pet)
+        ReleasePetFrameVisibility(GetDandersPlayerPetFrame())
         UpdatePlayerVisibilityWatcher()
         return
     end
@@ -196,9 +250,19 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
     local db = EnsureVisibilityDB()
     local hasTarget = UnitExists("target")
     if InCombatLockdown and InCombatLockdown() then
-        ApplyPlayerFrameVisibilityOverride()
-        SetPetFrameVisible(_G.EllesmereUIUnitFrames_Pet, UnitExists("pet"))
-        SetPetFrameVisible(GetDandersPlayerPetFrame(), UnitExists("pet"))
+        if playerOverrideEnabled then
+            ApplyPlayerFrameVisibilityOverride()
+        else
+            local playerFrame = _G.EllesmereUIUnitFrames_Player
+            ReleaseFrameVisibility(playerFrame and playerFrame._visWrap or playerFrame)
+        end
+        if petOverrideEnabled then
+            SetPetFrameVisible(_G.EllesmereUIUnitFrames_Pet, UnitExists("pet"))
+            SetPetFrameVisible(GetDandersPlayerPetFrame(), UnitExists("pet"))
+        else
+            ReleasePetFrameVisibility(_G.EllesmereUIUnitFrames_Pet)
+            ReleasePetFrameVisibility(GetDandersPlayerPetFrame())
+        end
         UpdatePlayerVisibilityWatcher()
         return
     end
@@ -220,9 +284,19 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
         applyingEllesmereVisibility = nil
     end
 
-    SetFrameVisible(playerFrame and playerFrame._visWrap or playerFrame, shouldShowPlayer)
-    SetPetFrameVisible(petFrame, shouldShowPet and UnitExists("pet"))
-    SetPetFrameVisible(dandersPetFrame, shouldShowPet and UnitExists("pet"))
+    if playerOverrideEnabled then
+        SetFrameVisible(playerFrame and playerFrame._visWrap or playerFrame, shouldShowPlayer)
+    else
+        ReleaseFrameVisibility(playerFrame and playerFrame._visWrap or playerFrame)
+    end
+
+    if petOverrideEnabled then
+        SetPetFrameVisible(petFrame, shouldShowPet and UnitExists("pet"))
+        SetPetFrameVisible(dandersPetFrame, shouldShowPet and UnitExists("pet"))
+    else
+        ReleasePetFrameVisibility(petFrame)
+        ReleasePetFrameVisibility(dandersPetFrame)
+    end
     UpdatePlayerVisibilityWatcher()
 end
 
@@ -604,28 +678,12 @@ function addonTable.RefreshEllesmereResourceAnchor(force)
     if InCombatLockdown and InCombatLockdown() then return end
 
     local resourceFrame = _G.ERB_SecondaryFrame
-    local cooldownFrame = GetCDMFrame("cooldowns") or GetBlizzardCDMViewer("cooldowns")
-    if not resourceFrame then return end
-
     local db = EnsureVisibilityDB()
-    if not IsEllesmereProvider() or db.compactClassResource ~= true or not cooldownFrame or not HasClassResource() or HasVisiblePowerBar() then
-        lastResourceSignature = nil
+    db.compactClassResource = false
+    lastResourceSignature = nil
+    if resourceFrame then
         RestoreResourcePoint(resourceFrame)
-        return
     end
-
-    local signature
-    if cooldownFrame.GetTop and cooldownFrame.GetCenter then
-        signature = table.concat({ cooldownFrame:GetCenter() or 0, cooldownFrame:GetTop() or 0 }, ":")
-        if not force and resourceWasCompacted and signature == lastResourceSignature then return end
-    end
-
-    DisableEllesmereClassResourceAnchor()
-    SaveResourcePoint(resourceFrame)
-    resourceFrame:ClearAllPoints()
-    resourceFrame:SetPoint("BOTTOM", cooldownFrame, "TOP", 0, 2)
-    lastResourceSignature = signature
-    resourceWasCompacted = true
 end
 
 local TOOLTIP_ANCHOR_KEY = "OakUI_Tooltip"
