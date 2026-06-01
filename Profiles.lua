@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.0.7-EllesmereEdition"
+P.VERSION = "2.0.8-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -98,6 +98,15 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.0.8-EllesmereEdition",
+        date = "May 31, 2026",
+        notes = {
+            "Added optional DBM profile injection and raw import support",
+            "Added optional Blizzi Party Tools profile injection and raw import support",
+            "Included installed optional boss/tool profiles in Quick Install and Install All",
+        }
+    },
     {
         version = "v2.0.6-EllesmereEdition",
         date = "May 28, 2026",

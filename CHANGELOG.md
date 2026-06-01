@@ -1,3 +1,9 @@
+## v2.0.8-EllesmereEdition
+
+- Added optional DBM profile injection and raw import support
+- Added optional Blizzi Party Tools profile injection and raw import support
+- Included installed optional boss/tool profiles in Quick Install and Install All
+
 ## v2.0.6-EllesmereEdition
 
 - Allowed Ellesmere player/pet visibility changes made in Ellesmere's own settings to override OakUI's saved tweak state
