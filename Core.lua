@@ -280,9 +280,9 @@ MigrationText:SetJustifyH("LEFT")
 local baseProvider = P.BASE_UI_PROVIDER or "ElvUI"
 local addonSummary
 if baseProvider == "Ellesmere" then
-    addonSummary = "- EllesmereUI\n- Danders Frames\n- Platynator\n- XIV_Databar Continued\n- BigWigs is optional"
+    addonSummary = "- EllesmereUI\n- Danders Frames\n- Platynator\n- XIV_Databar Continued\n- DBM, BigWigs, and Blizzi Party Tools are optional"
 else
-    addonSummary = "- ElvUI\n- Ayije CDM\n- Chonky Character Sheet\n- MPlusTimer\n- Platynator\n- Details! Damage Meter\n- XIV_Databar Continued\n- BigWigs is optional"
+    addonSummary = "- ElvUI\n- Ayije CDM\n- Chonky Character Sheet\n- MPlusTimer\n- Platynator\n- Details! Damage Meter\n- XIV_Databar Continued\n- DBM, BigWigs, and Blizzi Party Tools are optional"
 end
 MigrationText:SetText("This version of OAK UI no longer uses QUI as its base.\n\nCurrent OAK setup uses:\n" .. addonSummary)
 

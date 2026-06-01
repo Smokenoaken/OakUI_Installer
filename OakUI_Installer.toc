@@ -6,7 +6,7 @@
 ## Version: 2.0.7-EllesmereEdition
 ## X-Wago-ID: QNlzj8Ke
 ## DefaultState: enabled
-## OptionalDeps: EllesmereUI, EllesmereUIActionBars, EllesmereUIChat, EllesmereUICooldownManager, EllesmereUIUnitFrames, DandersFrames, ElvUI, ElvUI_Libraries, SharedMedia
+## OptionalDeps: EllesmereUI, EllesmereUIActionBars, EllesmereUIChat, EllesmereUICooldownManager, EllesmereUIUnitFrames, DandersFrames, ElvUI, ElvUI_Libraries, SharedMedia, DBM-Core, DBM-GUI, DBM-StatusBarTimers, BigWigs, BliZzi_Interrupts
 ## SavedVariables: OakUI_DB
 Profiles.lua
 ExternalProfiles.lua

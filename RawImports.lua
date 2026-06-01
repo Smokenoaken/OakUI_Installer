@@ -37,7 +37,9 @@ function addonTable.BuildRawImportsUI(parentFrame)
     table.insert(imports, { name = "Danders Frames (Healer)", var = P.DANDERS_PROFILE_HEALS, desc = "Import this into Danders Frames profile import." })
     table.insert(imports, { name = "Platynator", var = P.PLATYNATOR_PROFILE, desc = "Import this into the Platynator profiles tab." })
     table.insert(imports, { name = "XIV_Databar Continued", var = P.XIV_PROFILE, desc = "Import this into the XIV_Databar profiles section." })
+    table.insert(imports, { name = "DBM", var = P.DBM_PROFILE, desc = "Import this into DBM profile settings." })
     table.insert(imports, { name = "BigWigs", var = P.BIGWIGS_PROFILE, desc = "Import this into BigWigs profile settings." })
+    table.insert(imports, { name = "Blizzi Party Tools", var = P.BLIZZI_PARTY_TOOLS_PROFILE, desc = "Import this into Blizzi Party Tools profile import." })
 
     local activeEditBoxes = {} 
     local yOffset = -10
