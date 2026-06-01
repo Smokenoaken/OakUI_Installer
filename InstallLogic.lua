@@ -405,14 +405,6 @@ local function ApplyBigWigsTimelineSettings(profileName)
             timelineDB.profiles[profileName].timersMode = "enhanced"
         end
     end
-
-    if addonTable.ApplyBlizzardTimelineFont then
-        addonTable.ApplyBlizzardTimelineFont()
-        if C_Timer and C_Timer.After then
-            C_Timer.After(0.5, addonTable.ApplyBlizzardTimelineFont)
-            C_Timer.After(1.5, addonTable.ApplyBlizzardTimelineFont)
-        end
-    end
 end
 
 function addonTable.Injectors.BigWigs(profileName, role)

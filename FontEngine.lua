@@ -29,7 +29,6 @@ local SECTIONS = {
     { key = "pvpzone", name = "PVP Zone Text", objects = { "PVPArenaTextString" }, size = 22, outline = "OUTLINE" },
     { key = "pvpsubzone", name = "PVP Sub Zone Text", objects = { "PVPInfoTextString" }, size = 22, outline = "OUTLINE" },
     { key = "objective", name = "Objective Text", objects = { "ObjectiveFont", "ObjectiveTrackerLineFont", "ObjectiveTrackerHeaderFont" }, size = 12, outline = "SHADOW", objectiveRange = true },
-    { key = "timeline", name = "Blizzard Timeline", frameRoot = "EncounterTimeline", size = 12, outline = "SHADOW" },
     { key = "errortext", name = "Quest Progress / Error Text", objects = { "ErrorFont" }, size = 16, outline = "SHADOW", resizeErrors = true },
     { key = "mailbody", name = "Mail Text", objects = { "MailTextFontNormal" }, size = 15, outline = "NONE" },
     { key = "questtitle", name = "Quest Title", objects = { "QuestTitleFont" }, size = 18, outline = "NONE" },
@@ -169,155 +168,6 @@ local function ApplyObjectList(objects, fontPath, size, outline)
     end
 end
 
-local function SafeGetObjectType(obj)
-    if type(obj) ~= "table" or type(obj.GetObjectType) ~= "function" then return nil end
-    local ok, objectType = pcall(obj.GetObjectType, obj)
-    if ok then return objectType end
-end
-
-local function SafeGetName(obj)
-    if type(obj) ~= "table" or type(obj.GetName) ~= "function" then return nil end
-    local ok, name = pcall(obj.GetName, obj)
-    if ok then return name end
-end
-
-local function SafeGetRegions(obj)
-    if type(obj) ~= "table" or type(obj.GetRegions) ~= "function" then return nil end
-    local ok, regions = pcall(function()
-        return { obj:GetRegions() }
-    end)
-    if ok then return regions end
-end
-
-local function SafeGetChildren(obj)
-    if type(obj) ~= "table" or type(obj.GetChildren) ~= "function" then return nil end
-    local ok, children = pcall(function()
-        return { obj:GetChildren() }
-    end)
-    if ok then return children end
-end
-
-local function ApplyFrameFont(root, fontPath, size, outline, seen)
-    if not root or not fontPath then return end
-    seen = seen or {}
-    if seen[root] then return end
-    seen[root] = true
-
-    if SafeGetObjectType(root) == "FontString" then
-        SetFont(root, fontPath, size, outline)
-        return
-    end
-
-    local regions = SafeGetRegions(root)
-    if regions then
-        for i = 1, #regions do
-            ApplyFrameFont(regions[i], fontPath, size, outline, seen)
-        end
-    end
-
-    local children = SafeGetChildren(root)
-    if children then
-        for i = 1, #children do
-            ApplyFrameFont(children[i], fontPath, size, outline, seen)
-        end
-    end
-end
-
-local timelineRootCache = {}
-local timelineRootCacheBuilt = false
-local function AddTimelineRoot(root)
-    if type(root) ~= "table" then return end
-    local name = SafeGetName(root)
-    if not (name and (name:find("EncounterTimeline") or name:find("BossTimeline"))) then return end
-    if not (SafeGetObjectType(root) or root.GetRegions or root.GetChildren or root.SetFont) then return end
-    timelineRootCache[root] = true
-end
-
-local function DiscoverTimelineRoots()
-    if timelineRootCacheBuilt then return end
-    timelineRootCacheBuilt = true
-
-    for name, obj in pairs(_G) do
-        if type(name) == "string" and (name:find("EncounterTimeline") or name:find("BossTimeline")) then
-            AddTimelineRoot(obj)
-        end
-    end
-end
-
-local function ApplyBlizzardTimelineFont()
-    local db = EnsureFontDB()
-    local global = db.global or {}
-    local section
-    for _, candidate in ipairs(SECTIONS) do
-        if candidate.key == "timeline" then
-            section = candidate
-            break
-        end
-    end
-    if not section then return end
-
-    local settings = db.sections and db.sections.timeline
-    local active = (settings and settings.enable) and settings or {
-        font = global.font or DEFAULT_FONT,
-        size = section.size or global.size or DEFAULT_SIZE,
-        outline = section.outline or global.outline or DEFAULT_OUTLINE,
-    }
-    local fontPath = GetFontPath(active.font)
-    local size = active.size or section.size or DEFAULT_SIZE
-    local outline = active.outline or section.outline or DEFAULT_OUTLINE
-
-    local roots = {
-        _G.EncounterTimeline,
-        _G.EncounterTimelineFrame,
-        _G.EncounterTimelineContainer,
-    }
-
-    DiscoverTimelineRoots()
-    for root in pairs(timelineRootCache) do
-        roots[#roots + 1] = root
-    end
-
-    for _, root in ipairs(roots) do
-        ApplyFrameFont(root, fontPath, size, outline)
-    end
-end
-
-addonTable.ApplyBlizzardTimelineFont = ApplyBlizzardTimelineFont
-
-local timelineFontTicker
-local timelineAPIHooked = false
-local timelineFontWatcher = CreateFrame("Frame")
-local timelineFontWatchElapsed = 0
-local function ScheduleBlizzardTimelineFontRefresh()
-    timelineRootCacheBuilt = false
-    ApplyBlizzardTimelineFont()
-
-    if not C_Timer or type(C_Timer.NewTicker) ~= "function" then return end
-    if timelineFontTicker then return end
-
-    local ticks = 0
-    timelineFontTicker = C_Timer.NewTicker(0.15, function(ticker)
-        ticks = ticks + 1
-        ApplyBlizzardTimelineFont()
-        if ticks >= 12 then
-            ticker:Cancel()
-            timelineFontTicker = nil
-        end
-    end)
-end
-
-local function HookBlizzardTimelineAPI()
-    if timelineAPIHooked or not C_EncounterTimeline then return end
-    timelineAPIHooked = true
-
-    if C_EncounterTimeline.AddEditModeEvents then
-        hooksecurefunc(C_EncounterTimeline, "AddEditModeEvents", ScheduleBlizzardTimelineFontRefresh)
-    end
-    if C_EncounterTimeline.SetEventIconTextures then
-        hooksecurefunc(C_EncounterTimeline, "SetEventIconTextures", ScheduleBlizzardTimelineFontRefresh)
-    end
-end
-
 local function ApplySection(section, settings, fallback)
     if not settings and not fallback then return end
     if settings and not settings.enable and not fallback then return end
@@ -359,10 +209,6 @@ local function ApplySection(section, settings, fallback)
         SetFont(GetNestedObject(section.talkingObject), fontPath, active.size or section.size, active.outline or section.outline)
     end
 
-    if section.frameRoot then
-        ApplyFrameFont(_G[section.frameRoot], fontPath, active.size or section.size, active.outline or section.outline)
-    end
-
     if section.resizeErrors and _G.UIErrorsFrame then
         local size = active.size or section.size
         local diff = (size - 16) / 16
@@ -401,8 +247,6 @@ function addonTable.ApplyOakFonts()
         end
         ApplySection(section, db.sections[section.key], fallback)
     end
-
-    ApplyBlizzardTimelineFont()
 end
 
 function addonTable.ApplyFontToAll(fontName)
@@ -427,37 +271,14 @@ end
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
-eventFrame:RegisterEvent("ENCOUNTER_START")
-eventFrame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
-eventFrame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_REMOVED")
-eventFrame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:SetScript("OnEvent", function(self, event, addon)
     if event == "ADDON_LOADED" and addon == addonName then
         RegisterOakFonts()
         EnsureFontDB()
-        HookBlizzardTimelineAPI()
         addonTable.ApplyOakFonts()
-    elseif event == "ADDON_LOADED" and addon == "BigWigs_Plugins" then
-        HookBlizzardTimelineAPI()
-        ScheduleBlizzardTimelineFontRefresh()
     elseif event == "PLAYER_LOGIN" then
-        HookBlizzardTimelineAPI()
         addonTable.ApplyOakFonts()
         self:UnregisterEvent("PLAYER_LOGIN")
-    elseif event == "ENCOUNTER_START" then
-        ScheduleBlizzardTimelineFontRefresh()
-    elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" or event == "ENCOUNTER_TIMELINE_EVENT_REMOVED" or event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
-        ScheduleBlizzardTimelineFontRefresh()
-    end
-end)
-
-timelineFontWatcher:SetScript("OnUpdate", function(_, elapsed)
-    timelineFontWatchElapsed = timelineFontWatchElapsed + elapsed
-    if timelineFontWatchElapsed < 0.25 then return end
-    timelineFontWatchElapsed = 0
-
-    if _G.EncounterTimeline and _G.EncounterTimeline.IsShown and _G.EncounterTimeline:IsShown() then
-        ApplyBlizzardTimelineFont()
     end
 end)
