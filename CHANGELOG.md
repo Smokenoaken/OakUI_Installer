@@ -1,3 +1,7 @@
+## v2.0.9-EllesmereEdition
+
+- Discovered a stutter-causing issue in BossMods profiles and updated them to avoid encounter stutters
+
 ## v2.0.8-EllesmereEdition
 
 - Added optional DBM profile injection and raw import support

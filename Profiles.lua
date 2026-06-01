@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.0.8-EllesmereEdition"
+P.VERSION = "2.0.9-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -98,6 +98,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.0.9-EllesmereEdition",
+        date = "June 1, 2026",
+        notes = {
+            "Discovered a stutter-causing issue in BossMods profiles and updated them to avoid encounter stutters",
+        }
+    },
     {
         version = "v2.0.8-EllesmereEdition",
         date = "May 31, 2026",
