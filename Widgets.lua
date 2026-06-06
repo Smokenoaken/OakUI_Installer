@@ -111,7 +111,11 @@ local function UpdateRoleVisuals(role)
     RoleDPSBtn.Text:SetTextColor(isHealer and r or 1, isHealer and g or 1, isHealer and b or 1)
     RoleHealBtn.bg:SetColorTexture(isHealer and r or 0.2, isHealer and g or 0.22, isHealer and b or 0.28, isHealer and 0.5 or 1)
     RoleHealBtn.Text:SetTextColor(isHealer and 1 or r, isHealer and 1 or g, isHealer and 1 or b)
-    PromptEditBox:SetText(isHealer and "OakUI-Healer" or "OakUI-Tank/DPS")
+    if addonTable.GetOakEllesmereRoleProfileName then
+        PromptEditBox:SetText(addonTable.GetOakEllesmereRoleProfileName(isHealer and "heals" or "dps"))
+    else
+        PromptEditBox:SetText(isHealer and "OakUI Healer" or "OakUI Tank/DPS")
+    end
 end
 RoleDPSBtn:SetScript("OnClick", function() UpdateRoleVisuals("dps") end); RoleHealBtn:SetScript("OnClick", function() UpdateRoleVisuals("heals") end)
 local InstallBtn = addonTable.MakeFlatButton(ProfilePromptFrame, "Install", 100, 26); InstallBtn:SetPoint("BOTTOMRIGHT", ProfilePromptFrame, "BOTTOM", -5, 15); InstallBtn.Text:SetTextColor(r, g, b)

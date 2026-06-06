@@ -57,10 +57,9 @@ function addonTable.BuildInstallerUI(parentFrame)
         end
     end, requiresReload = true, manual = true, includeInAll = true }
     local FlagshipAddons = {
-        { name = "Ellesmere UI Profile", folder = baseFolder, url = baseUrl, func = Inj.BaseUI, requiresReload = true },
+        { name = "Ellesmere UI Profile", folder = baseFolder, url = baseUrl, func = Inj.BaseUI, requiresReload = true, hasRoles = true },
         editModeAddon,
         chatLayoutAddon,
-        { name = "Danders Frames", folder = "DandersFrames", url = "https://www.curseforge.com/wow/addons/danders-frames", func = Inj.Danders, requiresReload = true, hasRoles = true },
         { name = "Platynator", folder = "Platynator", url = "https://www.curseforge.com/wow/addons/platynator", func = Inj.Platynator },
         { name = "XIV_Databar Continued", folder = "XIV_Databar_Continued", url = "https://www.curseforge.com/wow/addons/xiv-databar-continued", func = Inj.XIV },
         { name = "DBM (Optional)", folder = "DBM-Core", url = "https://www.curseforge.com/wow/addons/deadly-boss-mods", func = Inj.DBM, requiresReload = false },

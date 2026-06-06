@@ -145,6 +145,7 @@ end
 local InstallerView = CreateFrame("Frame", nil, RightPane); InstallerView:SetAllPoints(); InstallerView:Hide()
 local ChatView = CreateFrame("Frame", nil, RightPane); ChatView:SetAllPoints(); ChatView:Hide()
 local VisibilityView = CreateFrame("Frame", nil, RightPane); VisibilityView:SetAllPoints(); VisibilityView:Hide()
+local EllesmereSelectiveView = CreateFrame("Frame", nil, RightPane); EllesmereSelectiveView:SetAllPoints(); EllesmereSelectiveView:Hide()
 local RawImportsView = CreateFrame("Frame", nil, RightPane); RawImportsView:SetAllPoints(); RawImportsView:Hide()
 local FontsView = CreateFrame("Frame", nil, RightPane); FontsView:SetAllPoints(); FontsView:Hide()
 local ChangelogView = CreateFrame("Frame", nil, RightPane); ChangelogView:SetAllPoints(); ChangelogView:Hide()
@@ -280,7 +281,7 @@ MigrationText:SetJustifyH("LEFT")
 local baseProvider = P.BASE_UI_PROVIDER or "ElvUI"
 local addonSummary
 if baseProvider == "Ellesmere" then
-    addonSummary = "- EllesmereUI\n- Danders Frames\n- Platynator\n- XIV_Databar Continued\n- DBM, BigWigs, and Blizzi Party Tools are optional"
+    addonSummary = "- EllesmereUI\n- Platynator\n- XIV_Databar Continued\n- DBM, BigWigs, and Blizzi Party Tools are optional"
 else
     addonSummary = "- ElvUI\n- Ayije CDM\n- Chonky Character Sheet\n- MPlusTimer\n- Platynator\n- Details! Damage Meter\n- XIV_Databar Continued\n- DBM, BigWigs, and Blizzi Party Tools are optional"
 end
@@ -349,7 +350,7 @@ local function CreateNavButton(parent, text, yOffset, viewFrame)
     btn:SetScript("OnEnter", function(self) if not self.selected then bg:SetColorTexture(1, 1, 1, 0.05) end end)
     btn:SetScript("OnLeave", function(self) if not self.selected then bg:SetColorTexture(0, 0, 0, 0) end end)
     -- Hide all frames
-    btn:SetScript("OnClick", function(self) UpdateMenuHighlight(self); HomeView:Hide(); InstallerView:Hide(); ChatView:Hide(); VisibilityView:Hide(); RawImportsView:Hide(); FontsView:Hide(); ChangelogView:Hide(); SupportersView:Hide(); viewFrame:Show() end)
+    btn:SetScript("OnClick", function(self) UpdateMenuHighlight(self); HomeView:Hide(); InstallerView:Hide(); ChatView:Hide(); VisibilityView:Hide(); EllesmereSelectiveView:Hide(); RawImportsView:Hide(); FontsView:Hide(); ChangelogView:Hide(); SupportersView:Hide(); viewFrame:Show() end)
     table.insert(navButtons, btn); return btn
 end
 
@@ -358,13 +359,15 @@ local HomeNavBtn = CreateNavButton(LeftPane, "Home", -20, HomeView)
 local InstallerNavBtn = CreateNavButton(LeftPane, "MAIN INSTALLER", -50, InstallerView)
 local ChatNavBtn = CreateNavButton(LeftPane, "Chat Cleaning", -80, ChatView)
 local VisNavBtn = CreateNavButton(LeftPane, "Ellesmere Tweaks", -110, VisibilityView)
-local RawImportsNavBtn = CreateNavButton(LeftPane, "Raw Imports", -140, RawImportsView)
-local FontsNavBtn = CreateNavButton(LeftPane, "Custom Fonts", -170, FontsView)
-local ChangelogNavBtn = CreateNavButton(LeftPane, "Changelog", -200, ChangelogView)
-local SuppNavBtn = CreateNavButton(LeftPane, "Supporters", -230, SupportersView)
+local EllesmereSelectiveNavBtn = CreateNavButton(LeftPane, "Ellesmere Import", -140, EllesmereSelectiveView)
+local RawImportsNavBtn = CreateNavButton(LeftPane, "Raw Imports", -170, RawImportsView)
+local FontsNavBtn = CreateNavButton(LeftPane, "Custom Fonts", -200, FontsView)
+local ChangelogNavBtn = CreateNavButton(LeftPane, "Changelog", -230, ChangelogView)
+local SuppNavBtn = CreateNavButton(LeftPane, "Supporters", -260, SupportersView)
 
-local visibilityBuilt, rawImportsBuilt, fontsBuilt, changelogBuilt = false, false, false, false
+local visibilityBuilt, ellesmereSelectiveBuilt, rawImportsBuilt, fontsBuilt, changelogBuilt = false, false, false, false, false
 VisNavBtn:HookScript("OnClick", function() if not visibilityBuilt and addonTable.BuildVisibilityUI then addonTable.BuildVisibilityUI(VisibilityView); visibilityBuilt = true end end)
+EllesmereSelectiveNavBtn:HookScript("OnClick", function() if not ellesmereSelectiveBuilt and addonTable.BuildEllesmereSelectiveUI then addonTable.BuildEllesmereSelectiveUI(EllesmereSelectiveView); ellesmereSelectiveBuilt = true end end)
 RawImportsNavBtn:HookScript("OnClick", function() if not rawImportsBuilt and addonTable.BuildRawImportsUI then addonTable.BuildRawImportsUI(RawImportsView); rawImportsBuilt = true end end)
 FontsNavBtn:HookScript("OnClick", function() if not fontsBuilt and addonTable.BuildFontsUI then addonTable.BuildFontsUI(FontsView); fontsBuilt = true end end)
 ChangelogNavBtn:HookScript("OnClick", function() if not changelogBuilt and addonTable.BuildChangelogUI then addonTable.BuildChangelogUI(ChangelogView); changelogBuilt = true end end)
@@ -461,6 +464,8 @@ function addonTable.OpenInstaller(tab)
     UI:Show()
     if tab == "installer" then
         InstallerNavBtn:Click()
+    elseif tab == "ellesmere" then
+        EllesmereSelectiveNavBtn:Click()
     else
         HomeNavBtn:Click()
     end

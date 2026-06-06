@@ -165,13 +165,6 @@ local function TrimProfileString(profileString)
     return string.gsub(profileString or "", "^%s+", ""):gsub("%s+$", "")
 end
 
-local function GetRoleString(defaultString, healerString, role)
-    if role == "heals" then
-        return healerString or defaultString
-    end
-    return defaultString
-end
-
 local function IsAddonInstalled(folder)
     if not C_AddOns or not C_AddOns.GetAddOnInfo then return false end
     local name, _, _, _, reason = C_AddOns.GetAddOnInfo(folder)
@@ -292,7 +285,8 @@ function addonTable.Injectors.Ellesmere(profileName, role)
         addonTable.RegisterOakFonts()
     end
 
-    local encoded = TrimProfileString(P.ELLESMERE_PROFILE)
+    local healerEncoded = role == "heals" and TrimProfileString(P.ELLESMERE_PROFILE_HEALS) or ""
+    local encoded = healerEncoded ~= "" and healerEncoded or TrimProfileString(P.ELLESMERE_PROFILE)
     if encoded == "" then
         print("|cffff0000[OakUI Error]|r EllesmereUI profile string is missing or empty.")
         return
@@ -313,6 +307,12 @@ function addonTable.Injectors.Ellesmere(profileName, role)
         if not supplementOk then
             print("|cffff0000[OakUI Error]|r Ellesmere supplement failed: " .. tostring(supplementErr))
         end
+        if addonTable.ApplyOakEllesmereSnapshotAll then
+            local snapshotOk, snapshotErr = pcall(addonTable.ApplyOakEllesmereSnapshotAll, profileName, role, true)
+            if not snapshotOk then
+                print("|cffff0000[OakUI Error]|r Ellesmere snapshot failed: " .. tostring(snapshotErr))
+            end
+        end
         pcall(addonTable.DisableEllesmereNameplatesForPlatynator, false)
         RefreshEllesmereAfterProfileImport()
     end
@@ -320,48 +320,6 @@ end
 
 function addonTable.Injectors.BaseUI(profileName, role)
     return addonTable.Injectors.Ellesmere(profileName, role)
-end
-
-function addonTable.Injectors.Danders(profileName, role)
-    if not C_AddOns.IsAddOnLoaded("DandersFrames") then return end
-
-    local encoded = TrimProfileString(GetRoleString(P.DANDERS_PROFILE, P.DANDERS_PROFILE_HEALS, role))
-    if encoded == "" then
-        print("|cffff0000[OakUI Error]|r Danders Frames profile string is missing or empty for this role.")
-        return
-    end
-
-    if type(_G.DandersFrames_Import) == "function" then
-        local ok, success, result = pcall(_G.DandersFrames_Import, encoded, profileName)
-        if not ok then
-            print("|cffff0000[OakUI Error]|r Danders Frames import failed: " .. tostring(success))
-        elseif not success then
-            print("|cffff0000[OakUI Error]|r Danders Frames import failed: " .. tostring(result))
-        end
-        return
-    end
-
-    print("|cffff0000[OakUI Error]|r Danders Frames import API is unavailable.")
-end
-
-function addonTable.Injectors.AyijeCDM(profileName, role)
-    if not C_AddOns.IsAddOnLoaded("Ayije_CDM") then return end
-    local encoded = string.gsub(P.AYIJE_CDM_PROFILE or "", "^%s+", ""):gsub("%s+$", "")
-    if encoded == "" then
-        print("|cffff0000[OakUI Error]|r Ayije CDM profile string is missing or empty.")
-        return
-    end
-
-    local api = _G.Ayije_CDM_API or (_G.Ayije_CDM and _G.Ayije_CDM.API)
-    if api and type(api.ImportProfile) == "function" then
-        local ok, err = pcall(api.ImportProfile, api, encoded, profileName)
-        if ok then return end
-        print("|cffff0000[OakUI Error]|r Ayije CDM import failed: " .. tostring(err))
-    elseif _G.Ayije_CDM and type(_G.Ayije_CDM.ImportProfileData) == "function" then
-        print("|cffff0000[OakUI Error]|r Ayije CDM direct profile data import requires decoded profile data.")
-    else
-        print("|cffff0000[OakUI Error]|r Ayije CDM import API is unavailable.")
-    end
 end
 
 local function SetBigWigsTimelineCVar(name, enabled)
