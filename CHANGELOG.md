@@ -1,3 +1,12 @@
+## v2.5-EllesmereEdition
+
+- Added a dedicated Ellesmere Import tab with QUI-style selective section imports.
+- Baked OakUI Tank/DPS and OakUI Healer Ellesmere settings directly from SavedVariables.
+- Normalized the Healer baked profile from Tank/DPS with only party-frame healer differences overlaid.
+- Added role-aware Ellesmere installs for Quick Install, Install All, and selective imports.
+- Removed Danders Frames profile support and Ayije CDM profile support from the OakUI installer.
+- Refreshed Ellesmere optional dependencies and bundled module coverage for the Ellesmere Edition installer.
+
 ## v2.0.9-EllesmereEdition
 
 - Discovered a stutter-causing issue in BossMods profiles and updated them to avoid encounter stutters

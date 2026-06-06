@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.0.9-EllesmereEdition"
+P.VERSION = "2.5-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -96,6 +96,18 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.5-EllesmereEdition",
+        date = "June 5, 2026",
+        notes = {
+            "Added a dedicated Ellesmere Import tab with QUI-style selective section imports.",
+            "Baked OakUI Tank/DPS and OakUI Healer Ellesmere settings directly from SavedVariables.",
+            "Normalized the Healer baked profile from Tank/DPS with only party-frame healer differences overlaid.",
+            "Added role-aware Ellesmere installs for Quick Install, Install All, and selective imports.",
+            "Removed Danders Frames profile support and Ayije CDM profile support from the OakUI installer.",
+            "Refreshed Ellesmere optional dependencies and bundled module coverage for the Ellesmere Edition installer.",
+        }
+    },
     {
         version = "v2.0.9-EllesmereEdition",
         date = "June 1, 2026",
