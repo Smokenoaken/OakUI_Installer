@@ -1,3 +1,9 @@
+## v2.5.1-EllesmereEdition
+
+- Removed the retired Compact Layout section from Ellesmere Tweaks.
+- Removed the Compact Utility CDs option and runtime CDM utility anchor mover now that EllesmereUI handles this natively.
+- Stopped OakUI from refreshing or applying the old Utility CD compact positioning on cooldown, spec, or shapeshift events.
+
 ## v2.5-EllesmereEdition
 
 - Added a dedicated Ellesmere Import tab with QUI-style selective section imports.

@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.5-EllesmereEdition"
+P.VERSION = "2.5.1-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -96,6 +96,15 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.5.1-EllesmereEdition",
+        date = "June 6, 2026",
+        notes = {
+            "Removed the retired Compact Layout section from Ellesmere Tweaks.",
+            "Removed the Compact Utility CDs option and runtime CDM utility anchor mover now that EllesmereUI handles this natively.",
+            "Stopped OakUI from refreshing or applying the old Utility CD compact positioning on cooldown, spec, or shapeshift events.",
+        }
+    },
     {
         version = "v2.5-EllesmereEdition",
         date = "June 5, 2026",
