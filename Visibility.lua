@@ -393,42 +393,6 @@ local function GetEllesmereCDM()
     return EnsureVisibilityDB().cdmFading == true
 end
 
-local function SetEllesmereCompactUtilityAnchor(state)
-    EnsureVisibilityDB().compactUtilityAnchor = state == true
-    if state then
-        local utility = nil
-        local cdm = GetEllesmereAddonProfile("EllesmereUICooldownManager")
-        local bars = cdm and cdm.cdmBars and cdm.cdmBars.bars
-        if type(bars) == "table" then
-            utility = type(bars.utility) == "table" and bars.utility or nil
-            if not utility then
-                for _, bar in ipairs(bars) do
-                    if type(bar) == "table" and bar.key == "utility" then
-                        utility = bar
-                        break
-                    end
-                end
-            end
-        end
-        if utility then
-            utility.anchorTo = "none"
-            utility.anchorPosition = utility.anchorPosition or "left"
-            utility.anchorOffsetX = 0
-            utility.anchorOffsetY = 0
-        end
-        if type(_G.EllesmereUIDB) == "table" and type(_G.EllesmereUIDB.unlockAnchors) == "table" then
-            _G.EllesmereUIDB.unlockAnchors.CDM_utility = nil
-        end
-    end
-    if addonTable.RefreshEllesmereCDMUtilityAnchor then
-        addonTable.RefreshEllesmereCDMUtilityAnchor()
-    end
-end
-
-local function GetEllesmereCompactUtilityAnchor()
-    return EnsureVisibilityDB().compactUtilityAnchor == true
-end
-
 local function SetEllesmereSmartPlayerPetVisibility(state)
     local db = EnsureVisibilityDB()
     db.smartPlayerPetVisibility = state == true
@@ -463,17 +427,6 @@ end
 
 local function GetEllesmereChatLineFade()
     return EnsureVisibilityDB().chatLineFade == true
-end
-
-local function SetEllesmereCompactClassResource(state)
-    EnsureVisibilityDB().compactClassResource = state == true
-    if addonTable.RefreshEllesmereResourceAnchor then
-        addonTable.RefreshEllesmereResourceAnchor()
-    end
-end
-
-local function GetEllesmereCompactClassResource()
-    return EnsureVisibilityDB().compactClassResource == true
 end
 
 local function SetEllesmereTooltipAnchor(state)
@@ -651,7 +604,6 @@ local function SetAllHidden(state)
     if IsEllesmereProvider() then
         SetEllesmereSmartPlayerPetVisibility(state)
         SetEllesmereShowPlayerInParty(state)
-        SetEllesmereCompactUtilityAnchor(state)
         SetEllesmereChatLineFade(state)
         SetEllesmereTooltipAnchor(state)
     end
@@ -661,7 +613,7 @@ end
 local function GetAllHidden()
     local baseState = GetUnitframes() and GetMouseover() and GetChatBackgroundHidden() and GetCDMFading()
     if IsEllesmereProvider() then
-        return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmereShowPlayerInParty() and GetEllesmereCompactUtilityAnchor() and GetEllesmereChatLineFade() and GetEllesmereTooltipAnchor()
+        return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmereShowPlayerInParty() and GetEllesmereChatLineFade() and GetEllesmereTooltipAnchor()
     end
     return baseState
 end
@@ -683,7 +635,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
     Desc:SetPoint("TOPLEFT", Title, "BOTTOMLEFT", 0, -10)
     Desc:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, -10)
     Desc:SetJustifyH("LEFT")
-    Desc:SetText(IsEllesmereProvider() and "Tune OakUI's Ellesmere visibility, fade, and compact layout behavior." or "Control OakUI visibility behavior for the selected base UI.")
+    Desc:SetText(IsEllesmereProvider() and "Tune OakUI's Ellesmere visibility and fade behavior." or "Control OakUI visibility behavior for the selected base UI.")
 
     local checkboxes = {}
     local function AddTooltip(frame, title, tooltip)
@@ -737,9 +689,6 @@ function addonTable.BuildVisibilityUI(parentFrame)
 
         AddSection("Player Frame", leftX, -292)
         AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -320, colWidth)
-
-        AddSection("Compact Layout", leftX, -390)
-        AddOption("Compact Utility CDs", SetEllesmereCompactUtilityAnchor, GetEllesmereCompactUtilityAnchor, "If you have fewer than two rows of Essential Cooldowns in the CDM, this moves Utility Cooldowns directly under the lowest visible Essential Cooldown row.", leftX, -418, colWidth)
 
         parentFrame.UpdateVisibilityCheckboxes = function()
             for _, cb in ipairs(checkboxes) do cb:UpdateState() end

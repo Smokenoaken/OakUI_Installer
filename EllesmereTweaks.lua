@@ -300,33 +300,6 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
     UpdatePlayerVisibilityWatcher()
 end
 
-local function FindCDMBarData(key)
-    local cdm = GetEllesmereAddonProfile("EllesmereUICooldownManager")
-    local bars = cdm and cdm.cdmBars and cdm.cdmBars.bars
-    if type(bars) ~= "table" then return nil end
-    if type(bars[key]) == "table" then return bars[key] end
-    for _, bar in ipairs(bars) do
-        if type(bar) == "table" and bar.key == key then
-            return bar
-        end
-    end
-    return nil
-end
-
-local function DisableEllesmereUtilityAnchor()
-    local utilityData = FindCDMBarData("utility")
-    if utilityData then
-        utilityData.anchorTo = "none"
-        utilityData.anchorPosition = utilityData.anchorPosition or "left"
-        utilityData.anchorOffsetX = 0
-        utilityData.anchorOffsetY = 0
-    end
-
-    if type(_G.EllesmereUIDB) == "table" and type(_G.EllesmereUIDB.unlockAnchors) == "table" then
-        _G.EllesmereUIDB.unlockAnchors.CDM_utility = nil
-    end
-end
-
 local chatFadeHooked = {}
 local originalResetIdleTimer
 local chatFadeApplied
@@ -418,193 +391,6 @@ function addonTable.RefreshEllesmereChatLineFade()
     if not ChatLineFadeEnabled() and not chatFadeApplied then return end
     ApplyChatLineFade()
     chatFadeApplied = ChatLineFadeEnabled()
-end
-
-local function GetCDMFrame(key)
-    if type(_G._ECME_GetBarFrame) == "function" then
-        local frame = _G._ECME_GetBarFrame(key)
-        if frame then return frame end
-    end
-    if key == "cooldowns" then return _G.EssentialCooldownViewer end
-    if key == "utility" then return _G.UtilityCooldownViewer end
-    return nil
-end
-
-local function GetBlizzardCDMViewer(key)
-    if key == "cooldowns" then return _G.EssentialCooldownViewer end
-    if key == "utility" then return _G.UtilityCooldownViewer end
-    if key == "buffs" then return _G.BuffIconCooldownViewer end
-    return nil
-end
-
-local function GetCDMIcons(key)
-    local ns = type(_G.EllesmereUICooldownManager) == "table" and _G.EllesmereUICooldownManager
-    if ns and type(ns.GetCDMBarIcons) == "function" then
-        local icons = ns.GetCDMBarIcons(key)
-        if type(icons) == "table" then return icons end
-    end
-    return nil
-end
-
-local function CollectVisibleIcons(key)
-    local icons = GetCDMIcons(key)
-    local visible = {}
-    local seen = {}
-    local function AddIcon(icon)
-        if icon and not seen[icon] and icon.IsShown and icon:IsShown() and icon.GetCenter and icon:GetCenter() and icon.GetBottom and icon:GetBottom() then
-            seen[icon] = true
-            visible[#visible + 1] = icon
-        end
-    end
-
-    if type(icons) == "table" then
-        for _, icon in ipairs(icons) do
-            AddIcon(icon)
-        end
-    end
-    if #visible > 0 then return visible end
-
-    for _, frame in ipairs({ GetCDMFrame(key), GetBlizzardCDMViewer(key) }) do
-        if frame and frame.GetChildren then
-            for i = 1, frame:GetNumChildren() do
-                local child = select(i, frame:GetChildren())
-                if child and child.GetWidth and child.GetHeight and child:GetWidth() > 8 and child:GetHeight() > 8 then
-                    AddIcon(child)
-                end
-            end
-        end
-    end
-
-    return visible
-end
-
-local function CollectAllVisibleChildren(frame, visible, seen)
-    if not frame or not frame.GetChildren then return end
-    for i = 1, frame:GetNumChildren() do
-        local child = select(i, frame:GetChildren())
-        if child and not seen[child] then
-            seen[child] = true
-            if child.IsShown and child:IsShown() and child.GetCenter and child:GetCenter() and child.GetBottom and child:GetBottom() and child.GetWidth and child:GetWidth() > 8 and child.GetHeight and child:GetHeight() > 8 then
-                visible[#visible + 1] = child
-            end
-            CollectAllVisibleChildren(child, visible, seen)
-        end
-    end
-end
-
-local function CollectViewerIconDescendants(key)
-    local visible, seen = {}, {}
-    CollectAllVisibleChildren(GetBlizzardCDMViewer(key), visible, seen)
-    return visible
-end
-
-local function GetVisibleCooldownIcons()
-    local icons = CollectVisibleIcons("cooldowns")
-    if #icons > 0 then return icons end
-    return CollectViewerIconDescendants("cooldowns")
-end
-
-local function GetLowestVisibleRowBottom(icons)
-    local lowestBottom
-    for _, icon in ipairs(icons) do
-        local bottom = icon:GetBottom()
-        if bottom and (not lowestBottom or bottom < lowestBottom) then
-            lowestBottom = bottom
-        end
-    end
-    return lowestBottom
-end
-
-local function GetUtilityFrame()
-    return GetCDMFrame("utility") or GetBlizzardCDMViewer("utility")
-end
-
-local utilityWasCompacted
-local utilitySavedPoint
-local utilitySavedViewerPoint
-local anchor = CreateFrame("Frame", "OakUI_EllesmereCDMUtilityAnchor", UIParent)
-anchor:SetSize(1, 1)
-
-local function MoveUtilityFrameTo(frame, centerX, bottomY, gap)
-    anchor:ClearAllPoints()
-    anchor:SetPoint("CENTER", UIParent, "BOTTOMLEFT", centerX, bottomY - gap)
-    frame:ClearAllPoints()
-    frame:SetPoint("TOP", anchor, "CENTER", 0, 0)
-
-    local viewer = GetBlizzardCDMViewer("utility")
-    if viewer and viewer ~= frame then
-        viewer:ClearAllPoints()
-        viewer:SetPoint("TOP", anchor, "CENTER", 0, 0)
-    end
-end
-
-local function RestoreUtilityViewerPoint()
-    local frame = GetBlizzardCDMViewer("utility")
-    if not utilityWasCompacted or not frame or not utilitySavedViewerPoint or not utilitySavedViewerPoint[1] then return end
-    frame:ClearAllPoints()
-    frame:SetPoint(unpack(utilitySavedViewerPoint))
-end
-
-local function SaveUtilityViewerPoint()
-    local frame = GetBlizzardCDMViewer("utility")
-    if utilitySavedViewerPoint or not frame or frame:GetNumPoints() == 0 then return end
-    utilitySavedViewerPoint = { frame:GetPoint(1) }
-end
-
-local function SaveUtilityPoint(frame)
-    if utilitySavedPoint or not frame or frame:GetNumPoints() == 0 then return end
-    utilitySavedPoint = { frame:GetPoint(1) }
-    SaveUtilityViewerPoint()
-end
-
-local function RestoreUtilityPoint(frame)
-    if not utilityWasCompacted or not frame then return end
-    utilityWasCompacted = nil
-    if utilitySavedPoint and utilitySavedPoint[1] then
-        frame:ClearAllPoints()
-        frame:SetPoint(unpack(utilitySavedPoint))
-    end
-    RestoreUtilityViewerPoint()
-end
-
-local lastUtilitySignature
-
-function addonTable.RefreshEllesmereCDMUtilityAnchor(force)
-    if InCombatLockdown and InCombatLockdown() then return end
-
-    local utilityFrame = GetUtilityFrame()
-    local cooldownFrame = GetCDMFrame("cooldowns") or GetBlizzardCDMViewer("cooldowns")
-    if not utilityFrame or not cooldownFrame then return end
-
-    local db = EnsureVisibilityDB()
-    local cooldownData = FindCDMBarData("cooldowns")
-    local numRows = cooldownData and cooldownData.numRows or 2
-    if not IsEllesmereProvider() or db.compactUtilityAnchor ~= true or numRows ~= 2 then
-        RestoreUtilityPoint(utilityFrame)
-        return
-    end
-    DisableEllesmereUtilityAnchor()
-
-    local icons = GetVisibleCooldownIcons()
-    local lowestBottom = GetLowestVisibleRowBottom(icons)
-    if not lowestBottom then
-        lastUtilitySignature = nil
-        RestoreUtilityPoint(utilityFrame)
-        return
-    end
-
-    local centerX = cooldownFrame:GetCenter()
-    if not centerX then return end
-
-    local utilityData = FindCDMBarData("utility")
-    local gap = (utilityData and utilityData.spacing) or (cooldownData and cooldownData.spacing) or 2
-    local signature = table.concat({ centerX, lowestBottom, gap, numRows }, ":")
-    if not force and utilityWasCompacted and signature == lastUtilitySignature then return end
-
-    SaveUtilityPoint(utilityFrame)
-    MoveUtilityFrameTo(utilityFrame, centerX, lowestBottom, gap)
-    lastUtilitySignature = signature
-    utilityWasCompacted = true
 end
 
 local resourceWasCompacted
@@ -862,18 +648,14 @@ local function ScheduleLayoutRefresh()
     ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     ScheduleRefresh("visibilityInit", 0.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     ScheduleRefresh("visibilityLate", 1.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
-    ScheduleRefresh("utility", 0.1, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
     ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
     ScheduleRefresh("tooltip", 0.2, addonTable.RefreshEllesmereTooltipAnchor, 1)
     ScheduleRefresh("specialActionBars", 0.3, addonTable.RefreshEllesmereSpecialActionBarVisibility, 1)
 end
 
-local function ScheduleCompactLayoutRefresh()
-    ScheduleRefresh("utility", 0.1, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
+local function ScheduleDeprecatedResourceCleanup()
     ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
-    ScheduleRefresh("utilitySpec", 0.8, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
     ScheduleRefresh("resourceSpec", 0.9, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
-    ScheduleRefresh("utilitySpecLate", 2, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
     ScheduleRefresh("resourceSpecLate", 2.1, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
     ScheduleRefresh("tooltipSpec", 0.2, addonTable.RefreshEllesmereTooltipAnchor, 1)
 end
@@ -891,9 +673,6 @@ frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 frame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 frame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 frame:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
-frame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
-frame:RegisterEvent("BAG_UPDATE_COOLDOWN")
-frame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
 frame:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
 frame:RegisterEvent("LFG_UPDATE")
 frame:RegisterEvent("LFG_QUEUE_STATUS_UPDATE")
@@ -912,10 +691,8 @@ frame:SetScript("OnEvent", function(_, event, unit)
             SetPlayerHealthChanging()
         end
         ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
-    elseif event == "SPELL_UPDATE_COOLDOWN" or event == "BAG_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_COOLDOWN" then
-        ScheduleRefresh("utility", 0.1, function() addonTable.RefreshEllesmereCDMUtilityAnchor(true) end, 0.75)
     elseif event == "PLAYER_SPECIALIZATION_CHANGED" or event == "ACTIVE_TALENT_GROUP_CHANGED" or event == "UPDATE_SHAPESHIFT_FORM" then
-        ScheduleCompactLayoutRefresh()
+        ScheduleDeprecatedResourceCleanup()
     elseif event == "UNIT_POWER_UPDATE" or event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" then
         ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
     elseif event == "UPDATE_EXTRA_ACTIONBAR" or event == "LFG_UPDATE" or event == "LFG_QUEUE_STATUS_UPDATE" or event == "LFG_ROLE_CHECK_UPDATE" or event == "LFG_PROPOSAL_UPDATE" then
