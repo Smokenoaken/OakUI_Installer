@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.5.1-EllesmereEdition"
+P.VERSION = "2.5.2-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -96,6 +96,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.5.2-EllesmereEdition",
+        date = "June 11, 2026",
+        notes = {
+            "Fixed Trinket/Pot bar display.",
+            "Fixed Tracked Bars display.",
+        }
+    },
     {
         version = "v2.5.1-EllesmereEdition",
         date = "June 6, 2026",

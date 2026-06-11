@@ -1,3 +1,8 @@
+## v2.5.2-EllesmereEdition
+
+- Fixed Trinket/Pot bar display.
+- Fixed Tracked Bars display.
+
 ## v2.5.1-EllesmereEdition
 
 - Removed the retired Compact Layout section from Ellesmere Tweaks.
