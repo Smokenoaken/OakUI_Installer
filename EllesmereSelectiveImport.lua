@@ -376,37 +376,63 @@ local function ApplyCDMBars(targetProfile, sourceProfile)
     end
 end
 
-local function ApplySpecAssignmentKeys(db, snapshot, keys)
-    local srcProfiles = snapshot.spellAssignments and snapshot.spellAssignments.specProfiles
-    if type(srcProfiles) ~= "table" then return end
+local function GetSpecAssignmentStores(db, profileName)
     db.spellAssignments = db.spellAssignments or {}
     db.spellAssignments.specProfiles = db.spellAssignments.specProfiles or {}
+
+    local profileSpecs
+    if profileName and profileName ~= "" then
+        db.spellAssignments.profiles = db.spellAssignments.profiles or {}
+        db.spellAssignments.profiles[profileName] = db.spellAssignments.profiles[profileName] or {}
+        db.spellAssignments.profiles[profileName].specProfiles = db.spellAssignments.profiles[profileName].specProfiles or {}
+        profileSpecs = db.spellAssignments.profiles[profileName].specProfiles
+    end
+
+    return db.spellAssignments.specProfiles, profileSpecs
+end
+
+local function ApplySpecAssignmentKeys(db, snapshot, keys, profileName)
+    local srcProfiles = snapshot.spellAssignments and snapshot.spellAssignments.specProfiles
+    if type(srcProfiles) ~= "table" then return end
+    local legacySpecs, profileSpecs = GetSpecAssignmentStores(db, profileName)
     for specID, srcSpec in pairs(srcProfiles) do
         if type(srcSpec) == "table" then
-            db.spellAssignments.specProfiles[specID] = db.spellAssignments.specProfiles[specID] or {}
-            local dstSpec = db.spellAssignments.specProfiles[specID]
+            legacySpecs[specID] = legacySpecs[specID] or {}
+            local profileSpec
+            if profileSpecs then
+                profileSpecs[specID] = profileSpecs[specID] or {}
+                profileSpec = profileSpecs[specID]
+            end
             for _, key in ipairs(keys) do
-                if srcSpec[key] ~= nil then dstSpec[key] = DeepCopy(srcSpec[key]) end
+                if srcSpec[key] ~= nil then
+                    legacySpecs[specID][key] = DeepCopy(srcSpec[key])
+                    if profileSpec then profileSpec[key] = DeepCopy(srcSpec[key]) end
+                end
             end
         end
     end
 end
 
-local function ApplySpecBarKeys(db, snapshot, barKeys)
+local function ApplySpecBarKeys(db, snapshot, barKeys, profileName)
     local srcProfiles = snapshot.spellAssignments and snapshot.spellAssignments.specProfiles
     if type(srcProfiles) ~= "table" or type(barKeys) ~= "table" then return end
-    db.spellAssignments = db.spellAssignments or {}
-    db.spellAssignments.specProfiles = db.spellAssignments.specProfiles or {}
+    local legacySpecs, profileSpecs = GetSpecAssignmentStores(db, profileName)
     for specID, srcSpec in pairs(srcProfiles) do
         if type(srcSpec) == "table" then
-            db.spellAssignments.specProfiles[specID] = db.spellAssignments.specProfiles[specID] or {}
-            local dstSpec = db.spellAssignments.specProfiles[specID]
+            legacySpecs[specID] = legacySpecs[specID] or {}
+            local targetSpecs = { legacySpecs[specID] }
+            if profileSpecs then
+                profileSpecs[specID] = profileSpecs[specID] or {}
+                targetSpecs[#targetSpecs + 1] = profileSpecs[specID]
+            end
             for _, rootKey in ipairs({ "barSpells", "barGlows" }) do
                 if type(srcSpec[rootKey]) == "table" then
-                    dstSpec[rootKey] = dstSpec[rootKey] or {}
-                    for _, barKey in ipairs(barKeys) do
-                        if srcSpec[rootKey][barKey] ~= nil then
-                            dstSpec[rootKey][barKey] = DeepCopy(srcSpec[rootKey][barKey])
+                    for _, dstSpec in ipairs(targetSpecs) do
+                        dstSpec[rootKey] = dstSpec[rootKey] or {}
+                        for _, barKey in ipairs(barKeys) do
+                            if srcSpec[rootKey][barKey] ~= nil then
+                                dstSpec[rootKey][barKey] = DeepCopy(srcSpec[rootKey][barKey])
+                            end
                         end
                     end
                 end
@@ -415,7 +441,7 @@ local function ApplySpecBarKeys(db, snapshot, barKeys)
     end
 end
 
-local function ApplyCDMBarByKey(targetProfile, sourceProfile, db, snapshot, barKey)
+local function ApplyCDMBarByKey(targetProfile, sourceProfile, db, snapshot, barKey, profileName)
     if type(barKey) ~= "string" or barKey == "" then return end
     local src = GetAddonTable(sourceProfile, "EllesmereUICooldownManager")
     if type(src) ~= "table" then return end
@@ -438,12 +464,12 @@ local function ApplyCDMBarByKey(targetProfile, sourceProfile, db, snapshot, barK
         dst.cdmBarPositions[barKey] = DeepCopy(src.cdmBarPositions[barKey])
     end
 
-    ApplySpecBarKeys(db, snapshot, { barKey })
+    ApplySpecBarKeys(db, snapshot, { barKey }, profileName)
 end
 
-local function ApplyCDMBarGroup(targetProfile, sourceProfile, db, snapshot, barKeys)
+local function ApplyCDMBarGroup(targetProfile, sourceProfile, db, snapshot, barKeys, profileName)
     for _, barKey in ipairs(barKeys or {}) do
-        ApplyCDMBarByKey(targetProfile, sourceProfile, db, snapshot, barKey)
+        ApplyCDMBarByKey(targetProfile, sourceProfile, db, snapshot, barKey, profileName)
     end
 end
 
@@ -493,7 +519,7 @@ local function ApplyGroupFramesSubset(targetProfile, sourceProfile, mode)
     end
 end
 
-local function ApplySelectionCategory(id, db, snapshot, targetProfile, sourceProfile)
+local function ApplySelectionCategory(id, db, snapshot, targetProfile, sourceProfile, profileName)
     if id == "theme" then
         CopyRootKeys(db, snapshot, { "fonts", "fctFont", "customColors", "activeTheme", "useClassAccentColor" })
         CopyProfileKeys(targetProfile, sourceProfile, { "fonts", "customColors", "euiAccent" })
@@ -536,18 +562,18 @@ local function ApplySelectionCategory(id, db, snapshot, targetProfile, sourcePro
         CopyAddonKeys(targetProfile, sourceProfile, "EllesmereUIResourceBars", { "castBar", "health", "primary", "secondary", "totemBar" })
     elseif id == "cdm" then
         ApplyCDMBars(targetProfile, sourceProfile)
-        ApplySpecAssignmentKeys(db, snapshot, { "barSpells", "barGlows", "trackedBuffBars", "tbbPositions" })
+        ApplySpecAssignmentKeys(db, snapshot, { "barSpells", "barGlows", "trackedBuffBars", "tbbPositions" }, profileName)
     elseif id == "cdmEssential" then
-        ApplyCDMBarGroup(targetProfile, sourceProfile, db, snapshot, { "cooldowns" })
+        ApplyCDMBarGroup(targetProfile, sourceProfile, db, snapshot, { "cooldowns" }, profileName)
     elseif id == "cdmUtility" then
-        ApplyCDMBarGroup(targetProfile, sourceProfile, db, snapshot, { "utility", "focuskick" })
+        ApplyCDMBarGroup(targetProfile, sourceProfile, db, snapshot, { "utility", "focuskick" }, profileName)
     elseif id == "cdmBuff" then
-        ApplyCDMBarGroup(targetProfile, sourceProfile, db, snapshot, { "buffs" })
-        ApplySpecAssignmentKeys(db, snapshot, { "trackedBuffBars", "tbbPositions" })
+        ApplyCDMBarGroup(targetProfile, sourceProfile, db, snapshot, { "buffs" }, profileName)
+        ApplySpecAssignmentKeys(db, snapshot, { "trackedBuffBars", "tbbPositions" }, profileName)
     elseif id == "cdmClassResourceBar" then
         CopyAddonKeys(targetProfile, sourceProfile, "EllesmereUIResourceBars", { "primary", "secondary" })
     elseif id == "cdmEffects" then
-        ApplySpecAssignmentKeys(db, snapshot, { "barGlows" })
+        ApplySpecAssignmentKeys(db, snapshot, { "barGlows" }, profileName)
         CopyAddonPaths(targetProfile, sourceProfile, "EllesmereUICooldownManager", { "cdmBars.bars" })
     elseif id == "cdmRotationAssist" then
         CopyAddonKeys(targetProfile, sourceProfile, "EllesmereUICooldownManager", { "spec" })
@@ -577,11 +603,11 @@ local function ApplySelectionCategory(id, db, snapshot, targetProfile, sourcePro
         CopyAddon(targetProfile, sourceProfile, "EllesmereUIFriends")
     elseif id == "customCdmBars" then
         ApplyCDMBars(targetProfile, sourceProfile)
-        ApplySpecAssignmentKeys(db, snapshot, { "barSpells", "barGlows" })
+        ApplySpecAssignmentKeys(db, snapshot, { "barSpells", "barGlows" }, profileName)
     elseif id == "customCdmBarsShared" then
         CopyAddonPaths(targetProfile, sourceProfile, "EllesmereUICooldownManager", { "cdmBars" })
     elseif type(id) == "string" and id:find("^customCdmBar:") then
-        ApplyCDMBarByKey(targetProfile, sourceProfile, db, snapshot, id:match("^customCdmBar:(.+)$"))
+        ApplyCDMBarByKey(targetProfile, sourceProfile, db, snapshot, id:match("^customCdmBar:(.+)$"), profileName)
     elseif id == "timersWidgets" then
         for _, folder in ipairs({ "EllesmereUIMythicTimer", "EllesmereUIQuestTracker", "EllesmereUIAuraBuffReminders", "EllesmereUIDragonRiding" }) do
             CopyAddon(targetProfile, sourceProfile, folder)
@@ -702,7 +728,7 @@ function addonTable.ApplyOakEllesmereSnapshot(profileName, role, selection, quie
     if type(selection) == "table" and not selection.all then
         for key, enabled in pairs(selection) do
             if enabled then
-                ApplySelectionCategory(key, db, snapshot, targetProfile, sourceProfile)
+                ApplySelectionCategory(key, db, snapshot, targetProfile, sourceProfile, profileName)
             end
         end
     end
@@ -736,15 +762,15 @@ function addonTable.ApplyOakEllesmereSnapshot(profileName, role, selection, quie
     end
 
     if SelectionIncludes(selection, "cdmSpells") then
-        ApplySpecAssignmentKeys(db, snapshot, { "barSpells" })
+        ApplySpecAssignmentKeys(db, snapshot, { "barSpells" }, profileName)
     end
 
     if SelectionIncludes(selection, "cdmGlows") then
-        ApplySpecAssignmentKeys(db, snapshot, { "barGlows" })
+        ApplySpecAssignmentKeys(db, snapshot, { "barGlows" }, profileName)
     end
 
     if SelectionIncludes(selection, "buffBars") then
-        ApplySpecAssignmentKeys(db, snapshot, { "trackedBuffBars", "tbbPositions" })
+        ApplySpecAssignmentKeys(db, snapshot, { "trackedBuffBars", "tbbPositions" }, profileName)
     end
 
     if SelectionIncludes(selection, "clickCast") then

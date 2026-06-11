@@ -253,9 +253,14 @@ local function ApplyEllesmereProfileSupplement(profileName)
     if type(specProfiles) == "table" then
         db.spellAssignments = db.spellAssignments or {}
         db.spellAssignments.specProfiles = db.spellAssignments.specProfiles or {}
+        db.spellAssignments.profiles = db.spellAssignments.profiles or {}
+        db.spellAssignments.profiles[profileName] = db.spellAssignments.profiles[profileName] or {}
+        db.spellAssignments.profiles[profileName].specProfiles = db.spellAssignments.profiles[profileName].specProfiles or {}
         for specID, specData in pairs(specProfiles) do
             db.spellAssignments.specProfiles[specID] = db.spellAssignments.specProfiles[specID] or {}
             DeepMergeTable(db.spellAssignments.specProfiles[specID], specData)
+            db.spellAssignments.profiles[profileName].specProfiles[specID] = db.spellAssignments.profiles[profileName].specProfiles[specID] or {}
+            DeepMergeTable(db.spellAssignments.profiles[profileName].specProfiles[specID], specData)
         end
     end
 end
