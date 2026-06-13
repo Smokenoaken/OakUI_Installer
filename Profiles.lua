@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.5.2-EllesmereEdition"
+P.VERSION = "2.6.0-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -111,6 +111,16 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.0-EllesmereEdition",
+        date = "June 13, 2026",
+        notes = {
+            "Added OakUI Round Thin border styling with rounded masks for Ellesmere frames, cast bars, tracking bars, boss mod bars, Blizzi interrupt bars, and damage meters.",
+            "Refreshed the baked Ellesmere Tank/DPS and Healer profiles, including the updated Tank/DPS settings while preserving the Healer party-frame layout.",
+            "Grouped all rounded-border options into a tighter Rounded Borders section on the Ellesmere Tweaks page.",
+            "Updated the minimap button to use the bundled PNG logo.",
+        }
+    },
     {
         version = "v2.5.2-EllesmereEdition",
         date = "June 11, 2026",

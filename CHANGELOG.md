@@ -1,3 +1,10 @@
+## v2.6.0-EllesmereEdition
+
+- Added OakUI Round Thin border styling with rounded masks for Ellesmere frames, cast bars, tracking bars, boss mod bars, Blizzi interrupt bars, and damage meters.
+- Refreshed the baked Ellesmere Tank/DPS and Healer profiles, including the updated Tank/DPS settings while preserving the Healer party-frame layout.
+- Grouped all rounded-border options into a tighter Rounded Borders section on the Ellesmere Tweaks page.
+- Updated the minimap button to use the bundled PNG logo.
+
 ## v2.5.2-EllesmereEdition
 
 - Fixed Trinket/Pot bar display.
