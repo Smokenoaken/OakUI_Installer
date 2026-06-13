@@ -318,6 +318,36 @@ function addonTable.Injectors.Ellesmere(profileName, role)
                 print("|cffff0000[OakUI Error]|r Ellesmere snapshot failed: " .. tostring(snapshotErr))
             end
         end
+        if addonTable.ApplyOakRoundThinBordersIfEnabled then
+            local borderOk, borderErr = pcall(addonTable.ApplyOakRoundThinBordersIfEnabled, profileName)
+            if not borderOk then
+                print("|cffff0000[OakUI Error]|r Ellesmere round thin borders failed: " .. tostring(borderErr))
+            end
+        end
+        if addonTable.ApplyOakRoundThinDamageMetersIfEnabled then
+            local damageBorderOk, damageBorderErr = pcall(addonTable.ApplyOakRoundThinDamageMetersIfEnabled, profileName)
+            if not damageBorderOk then
+                print("|cffff0000[OakUI Error]|r Damage Meter round thin borders failed: " .. tostring(damageBorderErr))
+            end
+        end
+        if addonTable.ApplyOakRoundThinTrackingBarsIfEnabled then
+            local trackingBorderOk, trackingBorderErr = pcall(addonTable.ApplyOakRoundThinTrackingBarsIfEnabled, profileName)
+            if not trackingBorderOk then
+                print("|cffff0000[OakUI Error]|r Tracking Bar round thin borders failed: " .. tostring(trackingBorderErr))
+            end
+        end
+        if addonTable.ApplyOakRoundThinCastBarsIfEnabled then
+            local castBorderOk, castBorderErr = pcall(addonTable.ApplyOakRoundThinCastBarsIfEnabled, profileName)
+            if not castBorderOk then
+                print("|cffff0000[OakUI Error]|r Cast Bar round thin borders failed: " .. tostring(castBorderErr))
+            end
+        end
+        if addonTable.ApplyOakRoundThinBossFramesIfEnabled then
+            local bossBorderOk, bossBorderErr = pcall(addonTable.ApplyOakRoundThinBossFramesIfEnabled, profileName)
+            if not bossBorderOk then
+                print("|cffff0000[OakUI Error]|r Boss Frame round thin borders failed: " .. tostring(bossBorderErr))
+            end
+        end
         pcall(addonTable.DisableEllesmereNameplatesForPlatynator, false)
         RefreshEllesmereAfterProfileImport()
     end
@@ -381,6 +411,9 @@ function addonTable.Injectors.BigWigs(profileName, role)
             _G.BigWigsAPI.RegisterProfile("OakUI", encoded, profileName)
         end)
         ApplyBigWigsTimelineSettings(profileName)
+        if addonTable.ApplyOakRoundThinBossModBarsIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinBossModBarsIfEnabled)
+        end
     else
         print("|cffff0000[OakUI]|r Your version of BigWigs is too old. Please update BigWigs to import the profile.")
     end
@@ -446,6 +479,9 @@ function addonTable.Injectors.DBM(profileName, role)
     if _G.DBM and type(_G.DBM.ApplyProfile) == "function" then
         _G.DBM:ApplyProfile(profileName)
     end
+    if addonTable.ApplyOakRoundThinBossModBarsIfEnabled then
+        pcall(addonTable.ApplyOakRoundThinBossModBarsIfEnabled)
+    end
 
     if _G.LibStub and type(importTable.minimap.hide) == "boolean" then
         local LibDBIcon = _G.LibStub("LibDBIcon-1.0", true)
@@ -475,6 +511,9 @@ function addonTable.Injectors.BlizziPartyTools(profileName, role)
         elseif not success then
             print("|cffff0000[OakUI Error]|r Blizzi Party Tools import failed: " .. tostring(result))
         end
+        if addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled)
+        end
         return
     end
 
@@ -484,6 +523,9 @@ function addonTable.Injectors.BlizziPartyTools(profileName, role)
             print("|cffff0000[OakUI Error]|r Blizzi Party Tools import failed: " .. tostring(success))
         elseif not success then
             print("|cffff0000[OakUI Error]|r Blizzi Party Tools import failed: " .. tostring(result))
+        end
+        if addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled)
         end
         return
     end

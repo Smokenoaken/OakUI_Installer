@@ -103,6 +103,1260 @@ local function RefreshEllesmereOptionsPage()
     end
 end
 
+local OAK_BORDER_NIL = "__OAKUI_NIL__"
+local OAK_RESOURCE_BORDER_FIELDS = {
+    "borderSize",
+    "borderR", "borderG", "borderB", "borderA",
+    "borderTexture", "borderTextureOffset", "borderTextureOffsetY",
+    "borderTextureShiftX", "borderTextureShiftY", "borderBehind",
+}
+local OAK_UNIT_BORDER_FIELDS = {
+    "borderSize", "borderColor", "borderAlpha", "borderTexture", "borderBehind",
+    "borderTextureOffset", "borderTextureOffsetY", "borderTextureShiftX", "borderTextureShiftY",
+}
+local OAK_DAMAGE_METER_BORDER_FIELDS = {
+    "borderSize",
+    "borderR", "borderG", "borderB", "borderA",
+    "borderTexture", "borderTextureOffset", "borderTextureOffsetY",
+    "borderTextureShiftX", "borderTextureShiftY",
+}
+local OAK_TRACKING_BAR_BORDER_FIELDS = {
+    "borderSize",
+    "borderR", "borderG", "borderB", "borderA",
+    "borderClassColor", "borderTexture", "borderTextureOffset", "borderTextureOffsetY",
+    "borderTextureShiftX", "borderTextureShiftY", "borderBehind", "borderThickness",
+}
+local OAK_RESOURCE_BORDER_KEYS = { "health", "primary", "secondary", "castBar", "totemBar" }
+local OAK_UNIT_FRAME_KEYS = { "player", "target", "targettarget", "pet", "totPet", "focus", "focustarget", "boss" }
+
+local function DeepCopy(value, seen)
+    if type(value) ~= "table" then return value end
+    seen = seen or {}
+    if seen[value] then return seen[value] end
+    local copy = {}
+    seen[value] = copy
+    for k, v in pairs(value) do
+        copy[DeepCopy(k, seen)] = DeepCopy(v, seen)
+    end
+    return copy
+end
+
+local function GetActiveEllesmereProfileName(profileName)
+    if profileName and profileName ~= "" then return profileName end
+    if type(_G.EllesmereUIDB) ~= "table" then return nil end
+    return _G.EllesmereUIDB.activeProfile
+end
+
+local function GetOakRoundThinBorderKey()
+    if addonTable.RegisterOakMedia then
+        addonTable.RegisterOakMedia()
+    elseif addonTable.RegisterOakFonts then
+        addonTable.RegisterOakFonts()
+    end
+
+    local mediaName = addonTable.OAK_ROUND_THIN_BORDER_NAME or "OakUI Round Thin"
+    local LSM = _G.LibStub and _G.LibStub("LibSharedMedia-3.0", true)
+    if LSM and LSM.Fetch and LSM:Fetch("border", mediaName, true) then
+        return "sm:" .. mediaName
+    end
+    return addonTable.OAK_ROUND_THIN_BORDER_PATH or "Interface\\AddOns\\OakUI_Installer\\Media\\Borders\\OakRoundThinBorder.png"
+end
+
+local function GetFrameChildrenSafe(frame)
+    if not frame or type(frame.GetChildren) ~= "function" then return nil end
+    local ok, children = pcall(function()
+        return { frame:GetChildren() }
+    end)
+    if ok then return children end
+    return nil
+end
+
+local function CallFrameMethodSafe(frame, methodName)
+    if not frame or type(frame[methodName]) ~= "function" then return nil end
+    local ok, result = pcall(frame[methodName], frame)
+    if ok then return result end
+    return nil
+end
+
+local function GetFrameNameSafe(frame)
+    return CallFrameMethodSafe(frame, "GetName")
+end
+
+local function GetFrameParentSafe(frame)
+    return CallFrameMethodSafe(frame, "GetParent")
+end
+
+local function GetFrameLevelSafe(frame)
+    return CallFrameMethodSafe(frame, "GetFrameLevel")
+end
+
+local function EnsureOakRoundThinRenderer()
+    if addonTable.RegisterOakMedia then
+        addonTable.RegisterOakMedia()
+    elseif addonTable.RegisterOakFonts then
+        addonTable.RegisterOakFonts()
+    end
+    if addonTable.RegisterOakRoundThinBorderRenderer then
+        addonTable.RegisterOakRoundThinBorderRenderer()
+    end
+end
+
+local function SaveBorderFields(backup, settings, fields)
+    if type(settings) ~= "table" or type(fields) ~= "table" or type(backup) ~= "table" then return end
+    for _, field in ipairs(fields) do
+        local value = settings[field]
+        backup[field] = value == nil and OAK_BORDER_NIL or DeepCopy(value)
+    end
+end
+
+local function RestoreBorderFields(backup, settings, fields)
+    if type(settings) ~= "table" or type(fields) ~= "table" then return end
+    if type(backup) ~= "table" then return end
+    for _, field in ipairs(fields) do
+        local value = backup[field]
+        if value == OAK_BORDER_NIL then
+            settings[field] = nil
+        elseif value ~= nil then
+            settings[field] = DeepCopy(value)
+        else
+            settings[field] = nil
+        end
+    end
+    return true
+end
+
+local function IsOakRoundThinBorderValue(value)
+    if not value or value == "" then return false end
+    if addonTable.IsOakRoundThinBorderKey and addonTable.IsOakRoundThinBorderKey(value) then
+        return true
+    end
+    local mediaName = addonTable.OAK_ROUND_THIN_BORDER_NAME or "OakUI Round Thin"
+    local mediaPath = addonTable.OAK_ROUND_THIN_BORDER_PATH or "Interface\\AddOns\\OakUI_Installer\\Media\\Borders\\OakRoundThinBorder.png"
+    return value == mediaName or value == ("sm:" .. mediaName) or value == mediaPath
+end
+
+local function RestoreBorderFieldsOrFallback(backup, settings, fields, fallbackFunc)
+    RestoreBorderFields(backup, settings, fields)
+    if fallbackFunc and type(settings) == "table" and IsOakRoundThinBorderValue(settings.borderTexture) then
+        fallbackFunc(settings)
+    end
+end
+
+local function ApplyResourceRoundThin(settings, borderKey)
+    if type(settings) ~= "table" then return end
+    settings.borderSize = settings.borderSize and math.max(settings.borderSize, 1) or 1
+    settings.borderR, settings.borderG, settings.borderB, settings.borderA = 0, 0, 0, 1
+    settings.borderTexture = borderKey
+    settings.borderTextureOffset = 0
+    settings.borderTextureOffsetY = 0
+    settings.borderTextureShiftX = nil
+    settings.borderTextureShiftY = nil
+    settings.borderBehind = false
+end
+
+local function FallbackResourceBorder(settings)
+    if type(settings) ~= "table" then return end
+    settings.borderSize = settings.borderSize and math.max(settings.borderSize, 1) or 1
+    settings.borderR, settings.borderG, settings.borderB, settings.borderA = 0, 0, 0, 1
+    settings.borderTexture = "solid"
+    settings.borderTextureOffset = 0
+    settings.borderTextureOffsetY = 0
+    settings.borderTextureShiftX = nil
+    settings.borderTextureShiftY = nil
+    settings.borderBehind = false
+end
+
+local function ApplyUnitRoundThin(settings, borderKey)
+    if type(settings) ~= "table" then return end
+    settings.borderSize = settings.borderSize and math.max(settings.borderSize, 1) or 1
+    settings.borderColor = { r = 0, g = 0, b = 0 }
+    settings.borderAlpha = 1
+    settings.borderTexture = borderKey
+    settings.borderTextureOffset = 0
+    settings.borderTextureOffsetY = 0
+    settings.borderTextureShiftX = nil
+    settings.borderTextureShiftY = nil
+    settings.borderBehind = false
+end
+
+local function FallbackUnitBorder(settings)
+    if type(settings) ~= "table" then return end
+    settings.borderSize = settings.borderSize and math.max(settings.borderSize, 1) or 1
+    settings.borderColor = settings.borderColor or { r = 0, g = 0, b = 0 }
+    settings.borderAlpha = settings.borderAlpha or 1
+    settings.borderTexture = "solid"
+    settings.borderTextureOffset = 0
+    settings.borderTextureOffsetY = 0
+    settings.borderTextureShiftX = nil
+    settings.borderTextureShiftY = nil
+    settings.borderBehind = false
+end
+
+local function ApplyDamageMeterRoundThin(settings, borderKey)
+    if type(settings) ~= "table" then return end
+    settings.borderSize = settings.borderSize and math.max(settings.borderSize, 1) or 1
+    settings.borderR, settings.borderG, settings.borderB, settings.borderA = 0, 0, 0, 1
+    settings.borderTexture = borderKey
+    settings.borderTextureOffset = 0
+    settings.borderTextureOffsetY = 0
+    settings.borderTextureShiftX = nil
+    settings.borderTextureShiftY = nil
+end
+
+local function FallbackDamageMeterBorder(settings)
+    if type(settings) ~= "table" then return end
+    settings.borderSize = 0
+    settings.borderR, settings.borderG, settings.borderB, settings.borderA = 0, 0, 0, 1
+    settings.borderTexture = "solid"
+    settings.borderTextureOffset = 0
+    settings.borderTextureOffsetY = 0
+    settings.borderTextureShiftX = nil
+    settings.borderTextureShiftY = nil
+end
+
+local function ApplyTrackingBarRoundThin(settings, borderKey)
+    if type(settings) ~= "table" then return end
+    settings.borderSize = 1
+    settings.borderR, settings.borderG, settings.borderB, settings.borderA = 0, 0, 0, 1
+    settings.borderClassColor = false
+    settings.borderTexture = borderKey
+    settings.borderTextureOffset = 0
+    settings.borderTextureOffsetY = 0
+    settings.borderTextureShiftX = nil
+    settings.borderTextureShiftY = nil
+    settings.borderBehind = false
+    settings.borderThickness = "thin"
+end
+
+local function FallbackTrackingBarBorder(settings)
+    FallbackResourceBorder(settings)
+    settings.borderClassColor = false
+    settings.borderThickness = "thin"
+end
+
+local function RefreshEllesmereBorderTargets()
+    if _G._EUF_ReloadFrames then pcall(_G._EUF_ReloadFrames) end
+    if _G._ERB_Apply then pcall(_G._ERB_Apply) end
+    if _G._ERF_RefreshAll then pcall(_G._ERF_RefreshAll) end
+
+    local ERF = type(_G.EllesmereUIRaidFrames) == "table" and _G.EllesmereUIRaidFrames
+    if ERF then
+        if type(ERF.ReloadFrames) == "function" then
+            pcall(ERF.ReloadFrames)
+        elseif type(ERF.UpdateAllFrames) == "function" then
+            pcall(ERF.UpdateAllFrames, ERF)
+        end
+    end
+    RefreshEllesmereOptionsPage()
+end
+
+local function ApplyEllesmereRoundThinBorders(state, profileName, skipRefresh)
+    local db = EnsureVisibilityDB()
+    db.roundThinBorders = state == true
+
+    local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
+    local profiles = type(_G.EllesmereUIDB) == "table" and _G.EllesmereUIDB.profiles
+    local profile = activeProfile and profiles and profiles[activeProfile]
+    if type(profile) ~= "table" then return end
+
+    profile.addons = profile.addons or {}
+    db.roundThinBorderBackups = db.roundThinBorderBackups or {}
+    local allBackups = db.roundThinBorderBackups
+    local profileBackup = allBackups[activeProfile]
+
+    if state then
+        if type(profileBackup) ~= "table" then
+            profileBackup = {}
+            allBackups[activeProfile] = profileBackup
+        end
+    end
+
+    local borderKey = GetOakRoundThinBorderKey()
+
+    local resourceBars = profile.addons.EllesmereUIResourceBars
+    if type(resourceBars) == "table" then
+        if state then profileBackup.resourcebars = profileBackup.resourcebars or {} end
+        for _, key in ipairs(OAK_RESOURCE_BORDER_KEYS) do
+            local settings = resourceBars[key]
+            if type(settings) == "table" then
+                if state then
+                    if type(profileBackup.resourcebars[key]) ~= "table" then
+                        profileBackup.resourcebars[key] = {}
+                        SaveBorderFields(profileBackup.resourcebars[key], settings, OAK_RESOURCE_BORDER_FIELDS)
+                    end
+                    ApplyResourceRoundThin(settings, borderKey)
+                else
+                    RestoreBorderFieldsOrFallback(profileBackup and profileBackup.resourcebars and profileBackup.resourcebars[key], settings, OAK_RESOURCE_BORDER_FIELDS, FallbackResourceBorder)
+                end
+            end
+        end
+    end
+
+    local liveResourceBars = type(_G._ERB_AceDB) == "table" and type(_G._ERB_AceDB.profile) == "table" and _G._ERB_AceDB.profile
+    if type(liveResourceBars) == "table" and liveResourceBars ~= resourceBars then
+        if state then profileBackup.resourcebarsLive = profileBackup.resourcebarsLive or {} end
+        for _, key in ipairs(OAK_RESOURCE_BORDER_KEYS) do
+            local settings = liveResourceBars[key]
+            if type(settings) == "table" then
+                if state then
+                    if type(profileBackup.resourcebarsLive[key]) ~= "table" then
+                        profileBackup.resourcebarsLive[key] = {}
+                        SaveBorderFields(profileBackup.resourcebarsLive[key], settings, OAK_RESOURCE_BORDER_FIELDS)
+                    end
+                    ApplyResourceRoundThin(settings, borderKey)
+                else
+                    RestoreBorderFieldsOrFallback(profileBackup and profileBackup.resourcebarsLive and profileBackup.resourcebarsLive[key], settings, OAK_RESOURCE_BORDER_FIELDS, FallbackResourceBorder)
+                end
+            end
+        end
+    end
+
+    local unitFrames = profile.addons.EllesmereUIUnitFrames
+    if type(unitFrames) == "table" then
+        if state then profileBackup.unitframes = profileBackup.unitframes or {} end
+        for _, key in ipairs(OAK_UNIT_FRAME_KEYS) do
+            local settings = unitFrames[key]
+            if type(settings) == "table" then
+                if state then
+                    if type(profileBackup.unitframes[key]) ~= "table" then
+                        profileBackup.unitframes[key] = {}
+                        SaveBorderFields(profileBackup.unitframes[key], settings, OAK_UNIT_BORDER_FIELDS)
+                    end
+                    ApplyUnitRoundThin(settings, borderKey)
+                else
+                    RestoreBorderFieldsOrFallback(profileBackup and profileBackup.unitframes and profileBackup.unitframes[key], settings, OAK_UNIT_BORDER_FIELDS, FallbackUnitBorder)
+                end
+            end
+        end
+    end
+
+    local unitFrameAddon = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
+    local liveUnitFrames = unitFrameAddon and type(unitFrameAddon.db) == "table" and type(unitFrameAddon.db.profile) == "table" and unitFrameAddon.db.profile
+    if type(liveUnitFrames) == "table" and liveUnitFrames ~= unitFrames then
+        if state then profileBackup.unitframesLive = profileBackup.unitframesLive or {} end
+        for _, key in ipairs(OAK_UNIT_FRAME_KEYS) do
+            local settings = liveUnitFrames[key]
+            if type(settings) == "table" then
+                if state then
+                    if type(profileBackup.unitframesLive[key]) ~= "table" then
+                        profileBackup.unitframesLive[key] = {}
+                        SaveBorderFields(profileBackup.unitframesLive[key], settings, OAK_UNIT_BORDER_FIELDS)
+                    end
+                    ApplyUnitRoundThin(settings, borderKey)
+                else
+                    RestoreBorderFieldsOrFallback(profileBackup and profileBackup.unitframesLive and profileBackup.unitframesLive[key], settings, OAK_UNIT_BORDER_FIELDS, FallbackUnitBorder)
+                end
+            end
+        end
+    end
+
+    local raidFrames = profile.addons.EllesmereUIRaidFrames
+    if type(raidFrames) == "table" then
+        if state then
+            profileBackup.raidframes = profileBackup.raidframes or {}
+            if type(profileBackup.raidframes.root) ~= "table" then
+                profileBackup.raidframes.root = {}
+                SaveBorderFields(profileBackup.raidframes.root, raidFrames, OAK_UNIT_BORDER_FIELDS)
+            end
+            ApplyUnitRoundThin(raidFrames, borderKey)
+        else
+            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.raidframes and profileBackup.raidframes.root, raidFrames, OAK_UNIT_BORDER_FIELDS, FallbackUnitBorder)
+        end
+    end
+
+    local raidFrameAddon = type(_G.EllesmereUIRaidFrames) == "table" and _G.EllesmereUIRaidFrames
+    local liveRaidFrames = raidFrameAddon and type(raidFrameAddon.db) == "table" and type(raidFrameAddon.db.profile) == "table" and raidFrameAddon.db.profile
+    if type(liveRaidFrames) == "table" and liveRaidFrames ~= raidFrames then
+        if state then
+            profileBackup.raidframesLive = profileBackup.raidframesLive or {}
+            if type(profileBackup.raidframesLive.root) ~= "table" then
+                profileBackup.raidframesLive.root = {}
+                SaveBorderFields(profileBackup.raidframesLive.root, liveRaidFrames, OAK_UNIT_BORDER_FIELDS)
+            end
+            ApplyUnitRoundThin(liveRaidFrames, borderKey)
+        else
+            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.raidframesLive and profileBackup.raidframesLive.root, liveRaidFrames, OAK_UNIT_BORDER_FIELDS, FallbackUnitBorder)
+        end
+    end
+
+    if not state and activeProfile then
+        allBackups[activeProfile] = nil
+    end
+
+    if not skipRefresh then
+        RefreshEllesmereBorderTargets()
+    end
+end
+
+local function SetEllesmereRoundThinBorders(state)
+    ApplyEllesmereRoundThinBorders(state)
+end
+
+local function GetEllesmereRoundThinBorders()
+    return EnsureVisibilityDB().roundThinBorders == true
+end
+
+function addonTable.ApplyOakRoundThinBordersIfEnabled(profileName)
+    local db = EnsureVisibilityDB()
+    if db.roundThinBorders ~= true then return end
+    local activeProfile = GetActiveEllesmereProfileName(profileName)
+    if activeProfile then
+        db.roundThinBorderBackups = db.roundThinBorderBackups or {}
+        db.roundThinBorderBackups[activeProfile] = nil
+    end
+    ApplyEllesmereRoundThinBorders(true, profileName)
+end
+
+local function IsDamageMeterHeaderFrame(frame)
+    if not frame or not frame._hdrBg or not frame.GetParent or not frame.GetChildren then return false end
+    local parent = GetFrameParentSafe(frame)
+    if not parent or not parent._bg then return false end
+    local children = GetFrameChildrenSafe(frame)
+    if not children then return false end
+    for _, child in ipairs(children) do
+        if child and child.IsObjectType and child:IsObjectType("Button") then
+            return true
+        end
+    end
+    return false
+end
+
+local function ForEachDamageMeterHeader(root, callback, depth)
+    if not root or not root.GetChildren or (depth or 0) <= 0 then return end
+    local children = GetFrameChildrenSafe(root)
+    if not children then return end
+    for _, child in ipairs(children) do
+        if IsDamageMeterHeaderFrame(child) then
+            callback(child)
+        end
+        ForEachDamageMeterHeader(child, callback, depth - 1)
+    end
+end
+
+local function EnsureDamageMeterHeaderMaskTools()
+    if addonTable.RegisterOakMedia then
+        addonTable.RegisterOakMedia()
+    elseif addonTable.RegisterOakFonts then
+        addonTable.RegisterOakFonts()
+    end
+    if addonTable.RegisterOakRoundThinBorderRenderer then
+        addonTable.RegisterOakRoundThinBorderRenderer()
+    end
+end
+
+local function ApplyDamageMeterHeaderMasks(state)
+    EnsureDamageMeterHeaderMaskTools()
+    local root = _G.UIParent
+    if not root then return end
+
+    ForEachDamageMeterHeader(root, function(header)
+        if state then
+            if addonTable.ApplyOakRoundThinMaskOnly then
+                addonTable.ApplyOakRoundThinMaskOnly(header, header._hdrBg, GetFrameParentSafe(header) or header)
+            end
+        elseif addonTable.RemoveOakRoundThinMaskOnly then
+            addonTable.RemoveOakRoundThinMaskOnly(header)
+        end
+    end, 5)
+end
+
+local function ForEachDamageMeterWindow(callback)
+    local root = _G.UIParent
+    if not root then return end
+    local seen = {}
+    ForEachDamageMeterHeader(root, function(header)
+        local window = GetFrameParentSafe(header)
+        if window and not seen[window] then
+            seen[window] = true
+            callback(window)
+        end
+    end, 5)
+end
+
+local function ForEachDamageMeterChildFrame(root, callback, depth)
+    if not root or not root.GetChildren or (depth or 0) <= 0 then return end
+    local children = GetFrameChildrenSafe(root)
+    if not children then return end
+    for _, child in ipairs(children) do
+        if child then
+            callback(child)
+            ForEachDamageMeterChildFrame(child, callback, depth - 1)
+        end
+    end
+end
+
+local function RemoveDamageMeterRoundThinArtifacts()
+    ForEachDamageMeterWindow(function(window)
+        if addonTable.RemoveOakRoundThinMaskOnly then
+            pcall(addonTable.RemoveOakRoundThinMaskOnly, window)
+        end
+        ForEachDamageMeterChildFrame(window, function(frame)
+            if addonTable.HideOakRoundThinBorderFrame and frame._oakRoundThinBorderTexture then
+                pcall(addonTable.HideOakRoundThinBorderFrame, frame)
+            end
+            if addonTable.RemoveOakRoundThinMaskOnly and frame._oakRoundThinMaskOnlyEntries then
+                pcall(addonTable.RemoveOakRoundThinMaskOnly, frame)
+            end
+        end, 6)
+    end)
+end
+
+local function EnsureDamageMeterHeaderMaskHook()
+    if type(_G._EDM_Apply) ~= "function" or _G._OAK_DMHeaderMaskHooked then return end
+    local originalApply = _G._EDM_Apply
+    _G._EDM_Apply = function(...)
+        local results = { originalApply(...) }
+        if EnsureVisibilityDB().roundThinDamageMeters == true and _G.C_Timer and _G.C_Timer.After then
+            _G.C_Timer.After(0, function()
+                ApplyDamageMeterHeaderMasks(true)
+            end)
+        end
+        return unpack(results)
+    end
+    _G._OAK_DMHeaderMaskHooked = true
+end
+
+local function RefreshDamageMeterBorders()
+    EnsureDamageMeterHeaderMaskHook()
+    if _G._EDM_Apply then
+        pcall(_G._EDM_Apply)
+    elseif _G.EllesmereUI and type(_G.EllesmereUI.RefreshPage) == "function" then
+        pcall(_G.EllesmereUI.RefreshPage, _G.EllesmereUI)
+    end
+    local enabled = EnsureVisibilityDB().roundThinDamageMeters == true
+    ApplyDamageMeterHeaderMasks(enabled)
+    if not enabled then
+        RemoveDamageMeterRoundThinArtifacts()
+    end
+    if _G.C_Timer and _G.C_Timer.After then
+        _G.C_Timer.After(0, function()
+            local delayedEnabled = EnsureVisibilityDB().roundThinDamageMeters == true
+            ApplyDamageMeterHeaderMasks(delayedEnabled)
+            if not delayedEnabled then
+                RemoveDamageMeterRoundThinArtifacts()
+            end
+        end)
+    end
+end
+
+local function ApplyDamageMeterRoundThinBorders(state, profileName, skipRefresh)
+    local db = EnsureVisibilityDB()
+    db.roundThinDamageMeters = state == true
+
+    local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
+    local profiles = type(_G.EllesmereUIDB) == "table" and _G.EllesmereUIDB.profiles
+    local profile = activeProfile and profiles and profiles[activeProfile]
+    if type(profile) ~= "table" then return end
+
+    profile.addons = profile.addons or {}
+    db.roundThinDamageMeterBackups = db.roundThinDamageMeterBackups or {}
+    local allBackups = db.roundThinDamageMeterBackups
+    local profileBackup = allBackups[activeProfile]
+
+    if state and type(profileBackup) ~= "table" then
+        profileBackup = {}
+        allBackups[activeProfile] = profileBackup
+    end
+
+    local borderKey = GetOakRoundThinBorderKey()
+    local damageMeters = profile.addons.EllesmereUIDamageMeters
+    local damageSettings = type(damageMeters) == "table" and damageMeters.dm
+    if type(damageSettings) == "table" then
+        if state then
+            if type(profileBackup.profile) ~= "table" then
+                profileBackup.profile = {}
+                SaveBorderFields(profileBackup.profile, damageSettings, OAK_DAMAGE_METER_BORDER_FIELDS)
+            end
+            ApplyDamageMeterRoundThin(damageSettings, borderKey)
+        else
+            FallbackDamageMeterBorder(damageSettings)
+        end
+    end
+
+    local liveDB = type(_G._EDM_DB) == "table" and _G._EDM_DB
+    local liveSettings = liveDB and type(liveDB.profile) == "table" and liveDB.profile.dm
+    if type(liveSettings) == "table" and liveSettings ~= damageSettings then
+        if state then
+            if type(profileBackup.live) ~= "table" then
+                profileBackup.live = {}
+                SaveBorderFields(profileBackup.live, liveSettings, OAK_DAMAGE_METER_BORDER_FIELDS)
+            end
+            ApplyDamageMeterRoundThin(liveSettings, borderKey)
+        else
+            FallbackDamageMeterBorder(liveSettings)
+        end
+    end
+
+    if not state and activeProfile then
+        allBackups[activeProfile] = nil
+    end
+
+    if not skipRefresh then
+        RefreshDamageMeterBorders()
+    end
+end
+
+local function SetDamageMeterRoundThinBorders(state)
+    ApplyDamageMeterRoundThinBorders(state)
+end
+
+local function GetDamageMeterRoundThinBorders()
+    return EnsureVisibilityDB().roundThinDamageMeters == true
+end
+
+function addonTable.ApplyOakRoundThinDamageMetersIfEnabled(profileName)
+    local db = EnsureVisibilityDB()
+    if db.roundThinDamageMeters ~= true then return end
+    local activeProfile = GetActiveEllesmereProfileName(profileName)
+    if activeProfile then
+        db.roundThinDamageMeterBackups = db.roundThinDamageMeterBackups or {}
+        db.roundThinDamageMeterBackups[activeProfile] = nil
+    end
+    ApplyDamageMeterRoundThinBorders(true, profileName)
+end
+
+local function RefreshEllesmereTrackingBars()
+    local cdm = type(_G.EllesmereUICooldownManager) == "table" and _G.EllesmereUICooldownManager
+    if cdm and type(cdm.BuildTrackedBuffBars) == "function" then
+        pcall(cdm.BuildTrackedBuffBars)
+    end
+    if type(_G._ECME_Apply) == "function" then
+        pcall(_G._ECME_Apply)
+    elseif type(_G._ECME_ApplyVisibility) == "function" then
+        pcall(_G._ECME_ApplyVisibility)
+    end
+    RefreshEllesmereOptionsPage()
+end
+
+local function ForEachTrackedBuffBarSpecStore(profileName, callback)
+    local db = type(_G.EllesmereUIDB) == "table" and _G.EllesmereUIDB
+    local assignments = db and db.spellAssignments
+    if type(assignments) ~= "table" then return end
+
+    if type(assignments.specProfiles) == "table" then
+        callback("legacy", assignments.specProfiles)
+    end
+
+    local activeProfile = GetActiveEllesmereProfileName(profileName)
+    local profileStore = activeProfile
+        and type(assignments.profiles) == "table"
+        and assignments.profiles[activeProfile]
+    if type(profileStore) == "table" and type(profileStore.specProfiles) == "table" then
+        callback("profile", profileStore.specProfiles)
+    end
+end
+
+local function ApplyTrackingBarRoundThinBorders(state, profileName, skipRefresh)
+    local db = EnsureVisibilityDB()
+    db.roundThinTrackingBars = state == true
+
+    local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
+    db.roundThinTrackingBarBackups = db.roundThinTrackingBarBackups or {}
+    local allBackups = db.roundThinTrackingBarBackups
+    local profileBackup = allBackups[activeProfile]
+
+    if state and type(profileBackup) ~= "table" then
+        profileBackup = {}
+        allBackups[activeProfile] = profileBackup
+    end
+
+    local borderKey = GetOakRoundThinBorderKey()
+    ForEachTrackedBuffBarSpecStore(profileName, function(storeKey, specProfiles)
+        if state then profileBackup[storeKey] = profileBackup[storeKey] or {} end
+        for specKey, specData in pairs(specProfiles) do
+            local bars = type(specData) == "table"
+                and type(specData.trackedBuffBars) == "table"
+                and specData.trackedBuffBars.bars
+            if type(bars) == "table" then
+                if state then profileBackup[storeKey][specKey] = profileBackup[storeKey][specKey] or {} end
+                for index, settings in ipairs(bars) do
+                    if type(settings) == "table" then
+                        if state then
+                            if type(profileBackup[storeKey][specKey][index]) ~= "table" then
+                                profileBackup[storeKey][specKey][index] = {}
+                                SaveBorderFields(profileBackup[storeKey][specKey][index], settings, OAK_TRACKING_BAR_BORDER_FIELDS)
+                            end
+                            ApplyTrackingBarRoundThin(settings, borderKey)
+                        else
+                            local backup = profileBackup
+                                and profileBackup[storeKey]
+                                and profileBackup[storeKey][specKey]
+                                and profileBackup[storeKey][specKey][index]
+                            RestoreBorderFieldsOrFallback(backup, settings, OAK_TRACKING_BAR_BORDER_FIELDS, FallbackTrackingBarBorder)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    if not state then
+        allBackups[activeProfile] = nil
+    end
+
+    if not skipRefresh then
+        RefreshEllesmereTrackingBars()
+    end
+end
+
+local function SetTrackingBarRoundThinBorders(state)
+    ApplyTrackingBarRoundThinBorders(state)
+end
+
+local function GetTrackingBarRoundThinBorders()
+    return EnsureVisibilityDB().roundThinTrackingBars == true
+end
+
+function addonTable.ApplyOakRoundThinTrackingBarsIfEnabled(profileName)
+    local db = EnsureVisibilityDB()
+    if db.roundThinTrackingBars ~= true then return end
+    local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
+    db.roundThinTrackingBarBackups = db.roundThinTrackingBarBackups or {}
+    db.roundThinTrackingBarBackups[activeProfile] = nil
+    ApplyTrackingBarRoundThinBorders(true, profileName)
+end
+
+local function HideFramePPBorders(frame)
+    local PP = _G.EllesmereUI and _G.EllesmereUI.PP
+    if not frame or not PP or type(PP.GetBorders) ~= "function" then return end
+    local ppContainer = PP.GetBorders(frame)
+    if not ppContainer then return end
+    if type(PP.HideBorder) == "function" then
+        pcall(PP.HideBorder, frame)
+    end
+    if ppContainer._top then ppContainer._top:SetAlpha(0) end
+    if ppContainer._bottom then ppContainer._bottom:SetAlpha(0) end
+    if ppContainer._left then ppContainer._left:SetAlpha(0) end
+    if ppContainer._right then ppContainer._right:SetAlpha(0) end
+end
+
+local function FindFirstTextureRegion(frame)
+    if not frame or not frame.GetRegions then return nil end
+    local regions = { frame:GetRegions() }
+    for _, region in ipairs(regions) do
+        if region and region.AddMaskTexture then
+            return region
+        end
+    end
+end
+
+local function ApplyStandaloneStatusBarRoundThin(statusbar, bgTexture)
+    if not statusbar or not statusbar.GetStatusBarTexture then return false end
+    EnsureOakRoundThinRenderer()
+    if not addonTable.ApplyOakRoundThinBorderFrame then return false end
+
+    if bgTexture and bgTexture.AddMaskTexture then
+        statusbar._bg = bgTexture
+    end
+    HideFramePPBorders(statusbar)
+
+    local borderFrame = statusbar._oakRoundThinStandaloneBorder
+    if not borderFrame then
+        borderFrame = CreateFrame("Frame", nil, statusbar)
+        statusbar._oakRoundThinStandaloneBorder = borderFrame
+    end
+    borderFrame:ClearAllPoints()
+    borderFrame:SetAllPoints(statusbar)
+    borderFrame:SetFrameLevel((GetFrameLevelSafe(statusbar) or 0) + 8)
+    borderFrame:EnableMouse(false)
+
+    addonTable.ApplyOakRoundThinBorderFrame(borderFrame, 1, 0, 0, 0, 1, 0, 0, 0, 0)
+
+    local auxParent = GetFrameParentSafe(bgTexture)
+    if bgTexture and auxParent and auxParent ~= statusbar and addonTable.ApplyOakRoundThinMaskOnly then
+        statusbar._oakRoundThinStandaloneMaskParent = auxParent
+        addonTable.ApplyOakRoundThinMaskOnly(auxParent, bgTexture, statusbar)
+    end
+    return true
+end
+
+local function RemoveStandaloneStatusBarRoundThin(statusbar)
+    if not statusbar then return end
+    if statusbar._oakRoundThinStandaloneBorder and addonTable.HideOakRoundThinBorderFrame then
+        addonTable.HideOakRoundThinBorderFrame(statusbar._oakRoundThinStandaloneBorder)
+        statusbar._oakRoundThinStandaloneBorder:Hide()
+    end
+    if statusbar._oakRoundThinStandaloneMaskParent and addonTable.RemoveOakRoundThinMaskOnly then
+        addonTable.RemoveOakRoundThinMaskOnly(statusbar._oakRoundThinStandaloneMaskParent)
+    end
+    statusbar._oakRoundThinStandaloneMaskParent = nil
+end
+
+local function ForEachChildFrame(root, callback, depth)
+    if not root or not root.GetChildren or (depth or 0) <= 0 then return end
+    local children = GetFrameChildrenSafe(root)
+    if not children then return end
+    for _, child in ipairs(children) do
+        if child then
+            callback(child)
+            ForEachChildFrame(child, callback, depth - 1)
+        end
+    end
+end
+
+local function ApplyEllesmereCastbarRoundThinLive(state)
+    local root = _G.UIParent
+    if not root then return end
+    ForEachChildFrame(root, function(frame)
+        local castbar = frame.Castbar
+        if castbar and castbar.GetStatusBarTexture then
+            local bg = FindFirstTextureRegion(GetFrameParentSafe(castbar))
+            if state then
+                ApplyStandaloneStatusBarRoundThin(castbar, bg)
+            else
+                RemoveStandaloneStatusBarRoundThin(castbar)
+            end
+        end
+    end, 7)
+end
+
+local function EnsureEllesmereCastbarRoundThinHook()
+    if type(_G._EUF_ReloadFrames) ~= "function" or _G._OAK_EUFCastbarRoundThinHooked then return end
+    local originalReloadFrames = _G._EUF_ReloadFrames
+    _G._EUF_ReloadFrames = function(...)
+        local results = { originalReloadFrames(...) }
+        if EnsureVisibilityDB().roundThinCastBars == true and _G.C_Timer and _G.C_Timer.After then
+            _G.C_Timer.After(0, function()
+                ApplyEllesmereCastbarRoundThinLive(true)
+            end)
+        end
+        return unpack(results)
+    end
+    _G._OAK_EUFCastbarRoundThinHooked = true
+end
+
+local function RefreshEllesmereCastbarBorders()
+    EnsureEllesmereCastbarRoundThinHook()
+    ApplyEllesmereCastbarRoundThinLive(EnsureVisibilityDB().roundThinCastBars == true)
+    if _G.C_Timer and _G.C_Timer.After then
+        _G.C_Timer.After(0, function()
+            ApplyEllesmereCastbarRoundThinLive(EnsureVisibilityDB().roundThinCastBars == true)
+        end)
+    end
+end
+
+local function ApplyCastBarRoundThinBorders(state, profileName, skipRefresh)
+    local db = EnsureVisibilityDB()
+    db.roundThinCastBars = state == true
+
+    local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
+    local profiles = type(_G.EllesmereUIDB) == "table" and _G.EllesmereUIDB.profiles
+    local profile = activeProfile and profiles and profiles[activeProfile]
+    local borderKey = GetOakRoundThinBorderKey()
+
+    db.roundThinCastBarBackups = db.roundThinCastBarBackups or {}
+    local allBackups = db.roundThinCastBarBackups
+    local profileBackup = allBackups[activeProfile]
+    if state and type(profileBackup) ~= "table" then
+        profileBackup = {}
+        allBackups[activeProfile] = profileBackup
+    end
+
+    local resourceBars = type(profile) == "table"
+        and type(profile.addons) == "table"
+        and profile.addons.EllesmereUIResourceBars
+    local castSettings = type(resourceBars) == "table" and resourceBars.castBar
+    if type(castSettings) == "table" then
+        if state then
+            if type(profileBackup.resourceCastBar) ~= "table" then
+                profileBackup.resourceCastBar = {}
+                SaveBorderFields(profileBackup.resourceCastBar, castSettings, OAK_RESOURCE_BORDER_FIELDS)
+            end
+            ApplyResourceRoundThin(castSettings, borderKey)
+        else
+            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.resourceCastBar, castSettings, OAK_RESOURCE_BORDER_FIELDS, FallbackResourceBorder)
+        end
+    end
+
+    local liveResourceBars = type(_G._ERB_AceDB) == "table" and type(_G._ERB_AceDB.profile) == "table" and _G._ERB_AceDB.profile
+    local liveCastSettings = type(liveResourceBars) == "table" and liveResourceBars.castBar
+    if type(liveCastSettings) == "table" and liveCastSettings ~= castSettings then
+        if state then
+            if type(profileBackup.liveResourceCastBar) ~= "table" then
+                profileBackup.liveResourceCastBar = {}
+                SaveBorderFields(profileBackup.liveResourceCastBar, liveCastSettings, OAK_RESOURCE_BORDER_FIELDS)
+            end
+            ApplyResourceRoundThin(liveCastSettings, borderKey)
+        else
+            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.liveResourceCastBar, liveCastSettings, OAK_RESOURCE_BORDER_FIELDS, FallbackResourceBorder)
+        end
+    end
+
+    if not state and activeProfile then
+        allBackups[activeProfile] = nil
+    end
+
+    if not skipRefresh then
+        if type(_G._ERB_Apply) == "function" then pcall(_G._ERB_Apply) end
+        RefreshEllesmereCastbarBorders()
+        if not state then RefreshEllesmereBorderTargets() end
+    end
+end
+
+local function SetCastBarRoundThinBorders(state)
+    ApplyCastBarRoundThinBorders(state)
+end
+
+local function GetCastBarRoundThinBorders()
+    return EnsureVisibilityDB().roundThinCastBars == true
+end
+
+function addonTable.ApplyOakRoundThinCastBarsIfEnabled(profileName)
+    local db = EnsureVisibilityDB()
+    if db.roundThinCastBars ~= true then return end
+    local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
+    if activeProfile then
+        db.roundThinCastBarBackups = db.roundThinCastBarBackups or {}
+        db.roundThinCastBarBackups[activeProfile] = nil
+    end
+    ApplyCastBarRoundThinBorders(true, profileName)
+end
+
+local function ApplyBossFrameRoundThinBorders(state, profileName, skipRefresh)
+    local db = EnsureVisibilityDB()
+    db.roundThinBossFrames = state == true
+
+    local activeProfile = GetActiveEllesmereProfileName(profileName)
+    local profiles = type(_G.EllesmereUIDB) == "table" and _G.EllesmereUIDB.profiles
+    local profile = activeProfile and profiles and profiles[activeProfile]
+    if type(profile) ~= "table" then return end
+
+    profile.addons = profile.addons or {}
+    db.roundThinBossFrameBackups = db.roundThinBossFrameBackups or {}
+    local allBackups = db.roundThinBossFrameBackups
+    local profileBackup = allBackups[activeProfile]
+    if state and type(profileBackup) ~= "table" then
+        profileBackup = {}
+        allBackups[activeProfile] = profileBackup
+    end
+
+    local borderKey = GetOakRoundThinBorderKey()
+    local unitFrames = profile.addons.EllesmereUIUnitFrames
+    local settings = type(unitFrames) == "table" and unitFrames.boss
+    if type(settings) == "table" then
+        if state then
+            if type(profileBackup.profile) ~= "table" then
+                profileBackup.profile = {}
+                SaveBorderFields(profileBackup.profile, settings, OAK_UNIT_BORDER_FIELDS)
+            end
+            ApplyUnitRoundThin(settings, borderKey)
+        else
+            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.profile, settings, OAK_UNIT_BORDER_FIELDS, FallbackUnitBorder)
+        end
+    end
+
+    local unitFrameAddon = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
+    local liveUnitFrames = unitFrameAddon and type(unitFrameAddon.db) == "table" and type(unitFrameAddon.db.profile) == "table" and unitFrameAddon.db.profile
+    local liveSettings = type(liveUnitFrames) == "table" and liveUnitFrames.boss
+    if type(liveSettings) == "table" and liveSettings ~= settings then
+        if state then
+            if type(profileBackup.live) ~= "table" then
+                profileBackup.live = {}
+                SaveBorderFields(profileBackup.live, liveSettings, OAK_UNIT_BORDER_FIELDS)
+            end
+            ApplyUnitRoundThin(liveSettings, borderKey)
+        else
+            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.live, liveSettings, OAK_UNIT_BORDER_FIELDS, FallbackUnitBorder)
+        end
+    end
+
+    if not state and activeProfile then
+        allBackups[activeProfile] = nil
+    end
+
+    if not skipRefresh then
+        RefreshEllesmereBorderTargets()
+    end
+end
+
+local function SetBossFrameRoundThinBorders(state)
+    ApplyBossFrameRoundThinBorders(state)
+end
+
+local function GetBossFrameRoundThinBorders()
+    return EnsureVisibilityDB().roundThinBossFrames == true
+end
+
+function addonTable.ApplyOakRoundThinBossFramesIfEnabled(profileName)
+    local db = EnsureVisibilityDB()
+    if db.roundThinBossFrames ~= true then return end
+    local activeProfile = GetActiveEllesmereProfileName(profileName)
+    if activeProfile then
+        db.roundThinBossFrameBackups = db.roundThinBossFrameBackups or {}
+        db.roundThinBossFrameBackups[activeProfile] = nil
+    end
+    ApplyBossFrameRoundThinBorders(true, profileName)
+end
+
+local function HideDBMSquareBorder(frame)
+    local name = GetFrameNameSafe(frame)
+    if type(name) ~= "string" then return end
+    for _, suffix in ipairs({ "BarBorderTop", "BarBorderBottom", "BarBorderLeft", "BarBorderRight" }) do
+        local texture = _G[name .. suffix]
+        if texture and texture.Hide then texture:Hide() end
+    end
+end
+
+local function ApplyDBMRoundThinBar(frame)
+    local name = GetFrameNameSafe(frame)
+    if type(name) ~= "string" or not name:match("^DBT_Bar_") then return false end
+    local bar = _G[name .. "Bar"]
+    if not bar or not bar.GetStatusBarTexture then return false end
+    HideDBMSquareBorder(frame)
+    return ApplyStandaloneStatusBarRoundThin(bar, _G[name .. "BarBackground"])
+end
+
+local function ApplyBigWigsRoundThinBar(frame)
+    if not frame or not frame.candyBarBar or not frame.candyBarBar.GetStatusBarTexture then return false end
+    if frame.candyBarBackdrop and frame.candyBarBackdrop.Hide then
+        frame._oakRoundThinHiddenCandyBackdrop = true
+        frame.candyBarBackdrop:Hide()
+    end
+    return ApplyStandaloneStatusBarRoundThin(frame.candyBarBar, frame.candyBarBackground)
+end
+
+local function RemoveBigWigsRoundThinBar(frame)
+    if not frame then return end
+    RemoveStandaloneStatusBarRoundThin(frame.candyBarBar)
+    if frame._oakRoundThinHiddenCandyBackdrop and frame.candyBarBackdrop and frame.candyBarBackdrop.Show then
+        frame.candyBarBackdrop:Show()
+    end
+    frame._oakRoundThinHiddenCandyBackdrop = nil
+end
+
+local function ApplyBossModRoundThinLive(state)
+    local DBT = _G.DBT
+    if type(DBT) == "table" and type(DBT.GetBarIterator) == "function" then
+        local ok, iterator, tbl, key = pcall(DBT.GetBarIterator, DBT)
+        if ok and iterator then
+            while true do
+                local barObj
+                key, barObj = iterator(tbl, key)
+                if key == nil then break end
+                local dbmBar = key
+                if type(dbmBar) == "table" and dbmBar.frame then
+                    if state then
+                        ApplyDBMRoundThinBar(dbmBar.frame)
+                    else
+                        local frameName = GetFrameNameSafe(dbmBar.frame)
+                        RemoveStandaloneStatusBarRoundThin(type(frameName) == "string" and _G[frameName .. "Bar"] or nil)
+                    end
+                end
+            end
+        end
+    end
+
+    local root = _G.UIParent
+    if not root then return end
+    ForEachChildFrame(root, function(frame)
+        local name = GetFrameNameSafe(frame)
+        if type(name) == "string" and name:match("^DBT_Bar_") then
+            local bar = _G[name .. "Bar"]
+            if state then
+                ApplyDBMRoundThinBar(frame)
+            else
+                RemoveStandaloneStatusBarRoundThin(bar)
+            end
+        elseif frame.candyBarBar then
+            if state then
+                ApplyBigWigsRoundThinBar(frame)
+            else
+                RemoveBigWigsRoundThinBar(frame)
+            end
+        end
+    end, 7)
+end
+
+local function IsBossModRoundThinEnabled()
+    return EnsureVisibilityDB().roundThinBossModBars == true
+end
+
+local function ScheduleBossModRoundThinRefresh()
+    if _G.C_Timer and _G.C_Timer.After then
+        _G.C_Timer.After(0, function()
+            ApplyBossModRoundThinLive(IsBossModRoundThinEnabled())
+        end)
+    else
+        ApplyBossModRoundThinLive(IsBossModRoundThinEnabled())
+    end
+end
+
+local function EnsureBossModRoundThinHooks()
+    local DBT = _G.DBT
+    if type(DBT) == "table" and type(DBT.CreateBar) == "function" and not DBT._oakRoundThinCreateBarHooked then
+        local originalCreateBar = DBT.CreateBar
+        DBT.CreateBar = function(self, ...)
+            local results = { originalCreateBar(self, ...) }
+            if IsBossModRoundThinEnabled() and results[1] and results[1].frame then
+                ApplyDBMRoundThinBar(results[1].frame)
+            end
+            return unpack(results)
+        end
+        DBT._oakRoundThinCreateBarHooked = true
+    end
+    if type(DBT) == "table" and type(DBT.ApplyStyle) == "function" and not DBT._oakRoundThinApplyStyleHooked then
+        local originalApplyStyle = DBT.ApplyStyle
+        DBT.ApplyStyle = function(self, ...)
+            local results = { originalApplyStyle(self, ...) }
+            if IsBossModRoundThinEnabled() then ScheduleBossModRoundThinRefresh() end
+            return unpack(results)
+        end
+        DBT._oakRoundThinApplyStyleHooked = true
+    end
+
+    local plugin = _G.BigWigs and _G.BigWigs.GetPlugin and _G.BigWigs:GetPlugin("Bars", true)
+    if type(plugin) == "table" and type(plugin.BigWigs_StartBar) == "function" and not plugin._oakRoundThinStartBarHooked then
+        hooksecurefunc(plugin, "BigWigs_StartBar", function()
+            if IsBossModRoundThinEnabled() then ScheduleBossModRoundThinRefresh() end
+        end)
+        plugin._oakRoundThinStartBarHooked = true
+    end
+    if type(plugin) == "table" and type(plugin.EmphasizeBar) == "function" and not plugin._oakRoundThinEmphasizeHooked then
+        hooksecurefunc(plugin, "EmphasizeBar", function()
+            if IsBossModRoundThinEnabled() then ScheduleBossModRoundThinRefresh() end
+        end)
+        plugin._oakRoundThinEmphasizeHooked = true
+    end
+end
+
+local function RefreshBossModRoundThinBorders()
+    EnsureBossModRoundThinHooks()
+    ApplyBossModRoundThinLive(IsBossModRoundThinEnabled())
+    if not IsBossModRoundThinEnabled() then
+        local DBT = _G.DBT
+        if type(DBT) == "table" and type(DBT.ApplyStyle) == "function" then
+            pcall(DBT.ApplyStyle, DBT)
+        end
+    end
+end
+
+local function SetBossModRoundThinBorders(state)
+    EnsureVisibilityDB().roundThinBossModBars = state == true
+    RefreshBossModRoundThinBorders()
+end
+
+local function GetBossModRoundThinBorders()
+    return EnsureVisibilityDB().roundThinBossModBars == true
+end
+
+function addonTable.ApplyOakRoundThinBossModBarsIfEnabled()
+    if EnsureVisibilityDB().roundThinBossModBars ~= true then return end
+    RefreshBossModRoundThinBorders()
+end
+
+local function IsBlizziRoundThinEnabled()
+    return EnsureVisibilityDB().roundThinBlizziInterrupts == true
+end
+
+local function ApplyBlizziRoundThinBorderFrame(BIT, frame)
+    if not BIT or not frame then return false end
+    local UI = BIT.UI
+    if addonTable.RegisterOakMedia then
+        addonTable.RegisterOakMedia()
+    elseif addonTable.RegisterOakFonts then
+        addonTable.RegisterOakFonts()
+    end
+    if addonTable.RegisterOakRoundThinBorderRenderer then
+        addonTable.RegisterOakRoundThinBorderRenderer()
+    end
+
+    local borderFrame = frame.borderOverlay
+    if not borderFrame or not addonTable.ApplyOakRoundThinBorderFrame then return false end
+    borderFrame:ClearAllPoints()
+    borderFrame:SetAllPoints(frame)
+    if borderFrame.SetBackdrop then borderFrame:SetBackdrop(nil) end
+
+    local bitDB = BIT.db or {}
+    addonTable.ApplyOakRoundThinBorderFrame(
+        borderFrame,
+        1,
+        bitDB.borderColorR or 0,
+        bitDB.borderColorG or 0,
+        bitDB.borderColorB or 0,
+        bitDB.borderColorA or 1,
+        0, 0, 0, 0
+    )
+
+    if frame.iconBorderOverlay then
+        if frame.iconBorderOverlay.SetBackdrop then frame.iconBorderOverlay:SetBackdrop(nil) end
+        if addonTable.HideOakRoundThinBorderFrame then
+            addonTable.HideOakRoundThinBorderFrame(frame.iconBorderOverlay)
+        end
+    end
+
+    frame._effectiveBorderSize = 0
+    if frame._iconS and UI and type(UI.ApplyBarContentInset) == "function" then
+        UI:ApplyBarContentInset(frame)
+    end
+    return true
+end
+
+local function EnsureBlizziRoundThinHook()
+    local BIT = _G.BIT
+    if type(BIT) ~= "table" or type(BIT.UI) ~= "table" or type(BIT.UI.ApplyBorderToFrame) ~= "function" then return end
+    local UI = BIT.UI
+    if UI._oakRoundThinApplyBorderHooked then return end
+
+    local originalApplyBorderToFrame = UI.ApplyBorderToFrame
+    UI._oakRoundThinOriginalApplyBorderToFrame = originalApplyBorderToFrame
+    UI.ApplyBorderToFrame = function(self, frame, ...)
+        if IsBlizziRoundThinEnabled() then
+            if ApplyBlizziRoundThinBorderFrame(BIT, frame) then
+                return
+            end
+        end
+
+        if frame and frame.borderOverlay and addonTable.HideOakRoundThinBorderFrame then
+            addonTable.HideOakRoundThinBorderFrame(frame.borderOverlay)
+        end
+        return originalApplyBorderToFrame(self, frame, ...)
+    end
+    UI._oakRoundThinApplyBorderHooked = true
+end
+
+local function RefreshBlizziRoundThinBorders()
+    EnsureBlizziRoundThinHook()
+    local BIT = _G.BIT
+    if type(BIT) == "table" and type(BIT.UI) == "table" and type(BIT.UI.ApplyBorderToAll) == "function" then
+        pcall(BIT.UI.ApplyBorderToAll, BIT.UI)
+    end
+end
+
+local function SetBlizziRoundThinBorders(state)
+    EnsureVisibilityDB().roundThinBlizziInterrupts = state == true
+    RefreshBlizziRoundThinBorders()
+end
+
+local function GetBlizziRoundThinBorders()
+    return EnsureVisibilityDB().roundThinBlizziInterrupts == true
+end
+
+function addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled()
+    if EnsureVisibilityDB().roundThinBlizziInterrupts ~= true then return end
+    RefreshBlizziRoundThinBorders()
+end
+
+local function SetAllRoundedBorders(state)
+    state = state == true
+    SetEllesmereRoundThinBorders(state)
+    SetCastBarRoundThinBorders(state)
+    SetBossFrameRoundThinBorders(state)
+    SetTrackingBarRoundThinBorders(state)
+    SetBossModRoundThinBorders(state)
+    SetBlizziRoundThinBorders(state)
+    SetDamageMeterRoundThinBorders(state)
+end
+
+local function GetAllRoundedBorders()
+    return GetEllesmereRoundThinBorders()
+        and GetCastBarRoundThinBorders()
+        and GetBossFrameRoundThinBorders()
+        and GetTrackingBarRoundThinBorders()
+        and GetBossModRoundThinBorders()
+        and GetBlizziRoundThinBorders()
+        and GetDamageMeterRoundThinBorders()
+end
+
 local function RefreshEllesmereUnitFrameSettings()
     local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
     if ns and type(ns.UpdateFrameVisibility) == "function" then
@@ -675,20 +1929,29 @@ function addonTable.BuildVisibilityUI(parentFrame)
     if IsEllesmereProvider() then
         local leftX, rightX = 15, 255
         local colWidth = 225
-        local rowGap = -50
+        local rowGap = -40
 
         AddOption("Apply All", SetAllHidden, GetAllHidden, nil, 300, -23, 150)
 
         AddSection("Visibility", leftX, -92)
-        AddOption("Hide Player/Pet", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options between None and Hide without Target for Player/Pet.", leftX, -120, colWidth, true)
-        AddOption("Hide CDM", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -120, colWidth, true)
-        AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -120 + rowGap, colWidth)
-        AddOption("Hide Chat Background", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade.", rightX, -120 + rowGap, colWidth)
-        AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -120 + rowGap * 2, colWidth)
-        AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", rightX, -120 + rowGap * 2, colWidth)
+        AddOption("Hide Player/Pet", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options between None and Hide without Target for Player/Pet.", leftX, -116, colWidth, true)
+        AddOption("Hide CDM", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -116, colWidth, true)
+        AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -116 + rowGap, colWidth)
+        AddOption("Hide Chat Background", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade.", rightX, -116 + rowGap, colWidth)
+        AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -116 + rowGap * 2, colWidth)
+        AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", rightX, -116 + rowGap * 2, colWidth)
 
-        AddSection("Player Frame", leftX, -292)
-        AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -320, colWidth)
+        AddSection("Player Frame", leftX, -242)
+        AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -268, colWidth)
+        AddSection("Rounded Borders", leftX, -318)
+        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles every OakUI rounded-border option in this section.", leftX, -344, colWidth, true)
+        AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -344, colWidth, true)
+        AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -374, colWidth, true)
+        AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -374, colWidth, true)
+        AddOption("Cast Bars", SetCastBarRoundThinBorders, GetCastBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere cast bars, including unit-frame cast bars and the resource cast bar.", leftX, -404, colWidth, true)
+        AddOption("Boss Frames", SetBossFrameRoundThinBorders, GetBossFrameRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere boss frames without enabling the full EUI Frames/Bars option.", rightX, -404, colWidth, true)
+        AddOption("Tracking Bars", SetTrackingBarRoundThinBorders, GetTrackingBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere Tracking Bars. Turning it off restores their previous saved border settings.", leftX, -434, colWidth, true)
+        AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -434, colWidth, true)
 
         parentFrame.UpdateVisibilityCheckboxes = function()
             for _, cb in ipairs(checkboxes) do cb:UpdateState() end
@@ -760,6 +2023,27 @@ CleanupFrame:SetScript("OnEvent", function(self)
         local E = GetElvUI()
         if E and RestoreAccidentallyForcedGroupVisibility(E) then
             RefreshElvUIUnitFrames(E)
+        end
+        if addonTable.ApplyOakRoundThinBordersIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinBordersIfEnabled)
+        end
+        if addonTable.ApplyOakRoundThinDamageMetersIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinDamageMetersIfEnabled)
+        end
+        if addonTable.ApplyOakRoundThinTrackingBarsIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinTrackingBarsIfEnabled)
+        end
+        if addonTable.ApplyOakRoundThinCastBarsIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinCastBarsIfEnabled)
+        end
+        if addonTable.ApplyOakRoundThinBossFramesIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinBossFramesIfEnabled)
+        end
+        if addonTable.ApplyOakRoundThinBossModBarsIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinBossModBarsIfEnabled)
+        end
+        if addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled)
         end
     end)
     self:UnregisterEvent("PLAYER_LOGIN")

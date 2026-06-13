@@ -30,6 +30,11 @@ DB_Frame:SetScript("OnEvent", function(self, event, addon)
                 reputation = true, spells = true, status = true, tradeskills = true, money = true,
             }
         end
+        if addonTable.RegisterOakMedia then
+            addonTable.RegisterOakMedia()
+        elseif addonTable.RegisterOakFonts then
+            addonTable.RegisterOakFonts()
+        end
         if addonTable.EnsureFontDB then addonTable.EnsureFontDB() end
         if addonTable.BypassElvUIInstaller then addonTable.BypassElvUIInstaller() end
         self:UnregisterEvent("ADDON_LOADED")
@@ -420,7 +425,7 @@ local function CreateOakMinimapButton()
     local icon = MinimapButton:CreateTexture(nil, "BACKGROUND")
     icon:SetSize(22, 22)
     icon:SetPoint("CENTER", 0, 0)
-    icon:SetTexture("Interface\\AddOns\\OakUI_Installer\\Media\\Logo.tga")
+    icon:SetTexture("Interface\\AddOns\\OakUI_Installer\\Media\\Logo.png")
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
     MinimapButton:SetScript("OnClick", function()
