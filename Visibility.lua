@@ -601,6 +601,45 @@ local function RemoveDamageMeterRoundThinArtifacts()
     end)
 end
 
+local ApplyStandaloneStatusBarRoundThin
+local RemoveStandaloneStatusBarRoundThin
+
+local function FindDamageMeterRowStatusBar(row)
+    if not row or not row.IsObjectType or not row:IsObjectType("Button") then return nil end
+    local children = GetFrameChildrenSafe(row)
+    if not children then return nil end
+    for _, child in ipairs(children) do
+        if child and child.GetStatusBarTexture then
+            return child
+        end
+    end
+end
+
+local function FindDamageMeterRowBackground(row)
+    if not row or not row.GetRegions then return nil end
+    local regions = { row:GetRegions() }
+    for _, region in ipairs(regions) do
+        if region and region.AddMaskTexture then
+            return region
+        end
+    end
+end
+
+local function ApplyDamageMeterLiveRowBorders(state)
+    ForEachDamageMeterWindow(function(window)
+        ForEachDamageMeterChildFrame(window, function(frame)
+            local statusbar = FindDamageMeterRowStatusBar(frame)
+            if statusbar then
+                if state then
+                    ApplyStandaloneStatusBarRoundThin(statusbar, FindDamageMeterRowBackground(frame))
+                else
+                    RemoveStandaloneStatusBarRoundThin(statusbar)
+                end
+            end
+        end, 4)
+    end)
+end
+
 local function EnsureDamageMeterHeaderMaskHook()
     if type(_G._EDM_Apply) ~= "function" or _G._OAK_DMHeaderMaskHooked then return end
     local originalApply = _G._EDM_Apply
@@ -609,6 +648,7 @@ local function EnsureDamageMeterHeaderMaskHook()
         if EnsureVisibilityDB().roundThinDamageMeters == true and _G.C_Timer and _G.C_Timer.After then
             _G.C_Timer.After(0, function()
                 ApplyDamageMeterHeaderMasks(true)
+                ApplyDamageMeterLiveRowBorders(true)
             end)
         end
         return unpack(results)
@@ -618,13 +658,12 @@ end
 
 local function RefreshDamageMeterBorders()
     EnsureDamageMeterHeaderMaskHook()
-    if _G._EDM_Apply then
-        pcall(_G._EDM_Apply)
-    elseif _G.EllesmereUI and type(_G.EllesmereUI.RefreshPage) == "function" then
+    if _G.EllesmereUI and type(_G.EllesmereUI.RefreshPage) == "function" then
         pcall(_G.EllesmereUI.RefreshPage, _G.EllesmereUI)
     end
     local enabled = EnsureVisibilityDB().roundThinDamageMeters == true
     ApplyDamageMeterHeaderMasks(enabled)
+    ApplyDamageMeterLiveRowBorders(enabled)
     if not enabled then
         RemoveDamageMeterRoundThinArtifacts()
     end
@@ -632,6 +671,7 @@ local function RefreshDamageMeterBorders()
         _G.C_Timer.After(0, function()
             local delayedEnabled = EnsureVisibilityDB().roundThinDamageMeters == true
             ApplyDamageMeterHeaderMasks(delayedEnabled)
+            ApplyDamageMeterLiveRowBorders(delayedEnabled)
             if not delayedEnabled then
                 RemoveDamageMeterRoundThinArtifacts()
             end
@@ -840,7 +880,7 @@ local function FindFirstTextureRegion(frame)
     end
 end
 
-local function ApplyStandaloneStatusBarRoundThin(statusbar, bgTexture)
+ApplyStandaloneStatusBarRoundThin = function(statusbar, bgTexture)
     if not statusbar or not statusbar.GetStatusBarTexture then return false end
     EnsureOakRoundThinRenderer()
     if not addonTable.ApplyOakRoundThinBorderFrame then return false end
@@ -870,7 +910,7 @@ local function ApplyStandaloneStatusBarRoundThin(statusbar, bgTexture)
     return true
 end
 
-local function RemoveStandaloneStatusBarRoundThin(statusbar)
+RemoveStandaloneStatusBarRoundThin = function(statusbar)
     if not statusbar then return end
     if statusbar._oakRoundThinStandaloneBorder and addonTable.HideOakRoundThinBorderFrame then
         addonTable.HideOakRoundThinBorderFrame(statusbar._oakRoundThinStandaloneBorder)
