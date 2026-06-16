@@ -54,6 +54,91 @@ local function EnsureVisibilityDB()
     return OakUI_DB.visibility
 end
 
+local oakErrorFrameOriginalHandler
+local oakErrorFrameHooked
+local OAK_ALLOWED_ERROR_MESSAGES = {}
+
+local function BuildAllowedErrorMessages()
+    for key in pairs(OAK_ALLOWED_ERROR_MESSAGES) do
+        OAK_ALLOWED_ERROR_MESSAGES[key] = nil
+    end
+    local allowed = {
+        "ERR_INV_FULL",
+        "ERR_QUEST_LOG_FULL",
+        "ERR_RAID_GROUP_ONLY",
+        "ERR_PARTY_LFG_BOOT_LIMIT",
+        "ERR_PARTY_LFG_BOOT_DUNGEON_COMPLETE",
+        "ERR_PARTY_LFG_BOOT_IN_COMBAT",
+        "ERR_PARTY_LFG_BOOT_IN_PROGRESS",
+        "ERR_PARTY_LFG_BOOT_LOOT_ROLLS",
+        "ERR_PARTY_LFG_TELEPORT_IN_COMBAT",
+        "ERR_PET_SPELL_DEAD",
+        "ERR_PLAYER_DEAD",
+        "SPELL_FAILED_TARGET_NO_POCKETS",
+        "ERR_ALREADY_PICKPOCKETED",
+    }
+    for _, globalName in ipairs(allowed) do
+        local message = _G[globalName]
+        if type(message) == "string" then
+            OAK_ALLOWED_ERROR_MESSAGES[message] = true
+        end
+    end
+end
+
+local function IsAllowedErrorMessage(message)
+    if type(message) ~= "string" then return false end
+    if not next(OAK_ALLOWED_ERROR_MESSAGES) then
+        BuildAllowedErrorMessages()
+    end
+    if OAK_ALLOWED_ERROR_MESSAGES[message] then return true end
+
+    if type(ERR_PARTY_LFG_BOOT_NOT_ELIGIBLE_S) == "string" then
+        local prefix = ERR_PARTY_LFG_BOOT_NOT_ELIGIBLE_S:match("^(.-)%%s")
+        if prefix and prefix ~= "" and message:find(prefix, 1, true) then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function SetErrorMessagesHidden(state)
+    local db = EnsureVisibilityDB()
+    db.errorMessagesHidden = state == true
+
+    local frame = _G.UIErrorsFrame
+    if not frame or type(frame.GetScript) ~= "function" or type(frame.SetScript) ~= "function" then return end
+
+    if state then
+        if not oakErrorFrameHooked then
+            oakErrorFrameOriginalHandler = frame:GetScript("OnEvent")
+            oakErrorFrameHooked = true
+        end
+        frame:SetScript("OnEvent", function(self, event, id, message, ...)
+            if event == "UI_ERROR_MESSAGE" and not IsAllowedErrorMessage(message) then
+                if self.Clear then self:Clear() end
+                return
+            end
+            if oakErrorFrameOriginalHandler then
+                return oakErrorFrameOriginalHandler(self, event, id, message, ...)
+            end
+        end)
+        if frame.Clear then frame:Clear() end
+    elseif oakErrorFrameHooked then
+        frame:SetScript("OnEvent", oakErrorFrameOriginalHandler)
+        oakErrorFrameHooked = false
+        oakErrorFrameOriginalHandler = nil
+    end
+end
+
+local function GetErrorMessagesHidden()
+    return EnsureVisibilityDB().errorMessagesHidden == true
+end
+
+function addonTable.ApplyOakErrorMessageVisibility()
+    SetErrorMessagesHidden(GetErrorMessagesHidden())
+end
+
 local function GetElvUI()
     if type(_G.ElvUI) ~= "table" then return nil end
     return _G.ElvUI[1]
@@ -1980,18 +2065,19 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddOption("Hide Chat Background", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade.", rightX, -116 + rowGap, colWidth)
         AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -116 + rowGap * 2, colWidth)
         AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", rightX, -116 + rowGap * 2, colWidth)
+        AddOption("Hide Error Messages", SetErrorMessagesHidden, GetErrorMessagesHidden, "Suppresses most red UI error text from UIErrorsFrame, useful for GSE macro spam. Important errors like full bags, full quest log, dead player/pet, and LFG boot/teleport messages still show.", leftX, -116 + rowGap * 3, colWidth, true)
 
-        AddSection("Player Frame", leftX, -242)
-        AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -268, colWidth)
-        AddSection("Rounded Borders", leftX, -318)
-        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles every OakUI rounded-border option in this section.", leftX, -344, colWidth, true)
-        AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -344, colWidth, true)
-        AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -374, colWidth, true)
-        AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -374, colWidth, true)
-        AddOption("Cast Bars", SetCastBarRoundThinBorders, GetCastBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere cast bars, including unit-frame cast bars and the resource cast bar.", leftX, -404, colWidth, true)
-        AddOption("Boss Frames", SetBossFrameRoundThinBorders, GetBossFrameRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere boss frames without enabling the full EUI Frames/Bars option.", rightX, -404, colWidth, true)
-        AddOption("Tracking Bars", SetTrackingBarRoundThinBorders, GetTrackingBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere Tracking Bars. Turning it off restores their previous saved border settings.", leftX, -434, colWidth, true)
-        AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -434, colWidth, true)
+        AddSection("Player Frame", leftX, -260)
+        AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -286, colWidth)
+        AddSection("Rounded Borders", leftX, -328)
+        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles every OakUI rounded-border option in this section.", leftX, -354, colWidth, true)
+        AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -354, colWidth, true)
+        AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -384, colWidth, true)
+        AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -384, colWidth, true)
+        AddOption("Cast Bars", SetCastBarRoundThinBorders, GetCastBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere cast bars, including unit-frame cast bars and the resource cast bar.", leftX, -414, colWidth, true)
+        AddOption("Boss Frames", SetBossFrameRoundThinBorders, GetBossFrameRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere boss frames without enabling the full EUI Frames/Bars option.", rightX, -414, colWidth, true)
+        AddOption("Tracking Bars", SetTrackingBarRoundThinBorders, GetTrackingBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere Tracking Bars. Turning it off restores their previous saved border settings.", leftX, -444, colWidth, true)
+        AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -444, colWidth, true)
 
         parentFrame.UpdateVisibilityCheckboxes = function()
             for _, cb in ipairs(checkboxes) do cb:UpdateState() end
@@ -2039,6 +2125,12 @@ function addonTable.BuildVisibilityUI(parentFrame)
     d4:SetPoint("LEFT", lbl4, "RIGHT", 15, 0); d4:SetText(IsEllesmereProvider() and "- Cooldowns hide without target." or "- Toggles Ayije CDM fading."); d4:SetTextColor(0.6, 0.6, 0.6)
     table.insert(checkboxes, cb4)
 
+    local cb5, lbl5 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide Error Messages|r", SetErrorMessagesHidden, GetErrorMessagesHidden, true)
+    cb5:SetPoint("TOPLEFT", cb4, "BOTTOMLEFT", 0, -30)
+    local d5 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    d5:SetPoint("LEFT", lbl5, "RIGHT", 15, 0); d5:SetText("- Suppresses most red UI error text while keeping important errors visible."); d5:SetTextColor(0.6, 0.6, 0.6)
+    table.insert(checkboxes, cb5)
+
     parentFrame.UpdateVisibilityCheckboxes = function()
         for _, cb in ipairs(checkboxes) do cb:UpdateState() end
     end
@@ -2084,6 +2176,9 @@ CleanupFrame:SetScript("OnEvent", function(self)
         end
         if addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled then
             pcall(addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled)
+        end
+        if addonTable.ApplyOakErrorMessageVisibility then
+            pcall(addonTable.ApplyOakErrorMessageVisibility)
         end
     end)
     self:UnregisterEvent("PLAYER_LOGIN")
