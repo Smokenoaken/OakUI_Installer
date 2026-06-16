@@ -1,3 +1,7 @@
+## v2.6.2-EllesmereEdition
+
+- Updated TOC interface compatibility for World of Warcraft 12.0.7.
+
 ## v2.6.0-EllesmereEdition
 
 - Added OakUI Round Thin border styling with rounded masks for Ellesmere frames, cast bars, tracking bars, boss mod bars, Blizzi interrupt bars, and damage meters.
