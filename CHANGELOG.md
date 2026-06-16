@@ -1,3 +1,8 @@
+## v2.6.3-EllesmereEdition
+
+- Refreshed the baked Ellesmere and Blizzi profile payloads from the latest OakUI setup.
+- Added a Hide Error Messages option that suppresses most red UI error text while keeping important warnings visible.
+
 ## v2.6.2-EllesmereEdition
 
 - Updated TOC interface compatibility for World of Warcraft 12.0.7.

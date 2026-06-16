@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.2-EllesmereEdition"
+P.VERSION = "2.6.3-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -111,6 +111,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.3-EllesmereEdition",
+        date = "June 16, 2026",
+        notes = {
+            "Refreshed the baked Ellesmere and Blizzi profile payloads from the latest OakUI setup.",
+            "Added a Hide Error Messages option that suppresses most red UI error text while keeping important warnings visible.",
+        }
+    },
     {
         version = "v2.6.2-EllesmereEdition",
         date = "June 16, 2026",
