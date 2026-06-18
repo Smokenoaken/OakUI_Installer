@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.3-EllesmereEdition"
+P.VERSION = "2.6.4-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -111,6 +111,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.4-EllesmereEdition",
+        date = "June 18, 2026",
+        notes = {
+            "Added a dedicated docked Trade chat tab to the OakUI chat layout",
+            "Refreshed the baked Ellesmere profile snapshot and profile strings",
+        }
+    },
     {
         version = "v2.6.3-EllesmereEdition",
         date = "June 16, 2026",

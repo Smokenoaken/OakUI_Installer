@@ -1,3 +1,8 @@
+## v2.6.4-EllesmereEdition
+
+- Added a dedicated docked Trade chat tab to the OakUI chat layout
+- Refreshed the baked Ellesmere profile snapshot and profile strings
+
 ## v2.6.3-EllesmereEdition
 
 - Refreshed the baked Ellesmere and Blizzi profile payloads from the latest OakUI setup.
