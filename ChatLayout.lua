@@ -64,6 +64,69 @@ local function FindChatWindowByName(...)
     end
 end
 
+local function AddUniqueChannel(channelNames, channelName)
+    if not channelName or channelName == "" then
+        return
+    end
+
+    for _, existingName in ipairs(channelNames) do
+        if existingName == channelName then
+            return
+        end
+    end
+
+    table.insert(channelNames, channelName)
+end
+
+local function GetChannelShortcut(channelID)
+    if C_ChatInfo and type(C_ChatInfo.GetChannelShortcutForChannelID) == "function" then
+        return C_ChatInfo.GetChannelShortcutForChannelID(channelID)
+    end
+end
+
+local function GetTradeChannelNames()
+    local channelNames = {}
+    AddUniqueChannel(channelNames, GetChannelShortcut(2) or TRADE or "Trade")
+    AddUniqueChannel(channelNames, GetChannelShortcut(42) or GetChannelShortcut(45) or SERVICES or "Services")
+    return channelNames
+end
+
+local function AddChatChannel(frame, channelName)
+    if not frame or not channelName then
+        return
+    end
+
+    if frame.AddChannel then
+        frame:AddChannel(channelName)
+    elseif ChatFrame_AddChannel then
+        ChatFrame_AddChannel(frame, channelName)
+    end
+end
+
+local function RemoveChatChannel(frame, channelName)
+    if not frame or not channelName then
+        return
+    end
+
+    if frame.RemoveChannel then
+        frame:RemoveChannel(channelName)
+    elseif ChatFrame_RemoveChannel then
+        ChatFrame_RemoveChannel(frame, channelName)
+    end
+end
+
+local function RouteChannelsToFrame(targetFrame, channelsToRoute, ...)
+    local otherFrameCount = select("#", ...)
+
+    for _, channelName in ipairs(channelsToRoute) do
+        AddChatChannel(targetFrame, channelName)
+
+        for i = 1, otherFrameCount do
+            RemoveChatChannel(select(i, ...), channelName)
+        end
+    end
+end
+
 local scheduledChatLayoutToken = 0
 
 function addonTable.SetupChatWindows(silent, quiet, resetFirst)
@@ -162,13 +225,68 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
         "PET_BATTLE_INFO", "PING", "ACHIEVEMENT", "GUILD_ACHIEVEMENT"
     }
     SyncChatFrameGroups(lootFrame, lootWindowGroups, groupsToRemoveFromLoot)
+
+    -- 3. Find or Create Trade Tab Safely
+    local tradeWindowName = TRADE or "Trade"
+    local tradeFrame, tradeID = FindChatWindowByName(tradeWindowName, "Trade")
+
+    if not tradeFrame then
+        if type(FCF_OpenNewWindow) == "function" then
+            local frame, newID = FCF_OpenNewWindow(tradeWindowName)
+            tradeFrame = frame
+            tradeID = newID or GetChatFrameID(frame)
+
+            if not tradeFrame or not tradeID then
+                local foundFrame, foundID = FindChatWindowByName(tradeWindowName, "Trade")
+                tradeFrame = foundFrame or tradeFrame
+                tradeID = foundID or tradeID
+            end
+        end
+    end
+
+    if tradeFrame then
+        FCF_SetWindowName(tradeFrame, tradeWindowName)
+    end
+    if tradeID then
+        SetChatWindowName(tradeID, tradeWindowName)
+        if type(SetChatWindowShown) == "function" then
+            SetChatWindowShown(tradeID, true)
+        end
+    end
+
+    if tradeFrame then
+        if tradeFrame.Show then
+            tradeFrame:Show()
+        end
+
+        if type(FCF_DockFrame) == "function" then
+            FCF_DockFrame(tradeFrame, 3)
+        end
+
+        FCF_SetChatWindowFontSize(nil, tradeFrame, 14)
+        ForceTransparency(tradeFrame, tradeID)
+
+        local groupsToRemoveFromTrade = {
+            "SAY", "EMOTE", "YELL", "WHISPER", "WHISPER_INFORM", "BN_WHISPER", "BN_WHISPER_INFORM",
+            "PARTY", "PARTY_LEADER", "RAID", "RAID_LEADER", "RAID_WARNING", "INSTANCE_CHAT",
+            "INSTANCE_CHAT_LEADER", "GUILD", "OFFICER", "IGNORED", "ERRORS", "BLIZZARD_SERVICE",
+            "MONSTER_SAY", "MONSTER_EMOTE", "MONSTER_YELL", "MONSTER_WHISPER", "MONSTER_BOSS_EMOTE",
+            "MONSTER_BOSS_WHISPER", "COMBAT_XP_GAIN", "COMBAT_HONOR_GAIN", "COMBAT_FACTION_CHANGE",
+            "SKILL", "LOOT", "CURRENCY", "MONEY", "COMBAT_MISC_INFO", "SYSTEM", "PET_BATTLE_INFO",
+            "PING", "ACHIEVEMENT", "GUILD_ACHIEVEMENT"
+        }
+        SyncChatFrameGroups(tradeFrame, { "CHANNEL" }, groupsToRemoveFromTrade)
+        RouteChannelsToFrame(tradeFrame, GetTradeChannelNames(), cf1, lootFrame)
+    elseif not quiet then
+        print("|cffff0000[OakUI Error]|r Could not create the Trade chat tab. Try again after leaving combat and after the UI finishes loading.")
+    end
     
     FCF_DockUpdate()
     if addonTable.RefreshChatTabVisibility then
         addonTable.RefreshChatTabVisibility()
     end
     if not quiet then
-        print("|cff17ee15[OakUI]|r OakUI Chat layout applied! General is governed by Edit Mode, Loot is dynamically tethered to it.")
+        print("|cff17ee15[OakUI]|r OakUI Chat layout applied! General and Trade are docked below, Loot is dynamically tethered above.")
     end
 
     -- Skip the standalone popup if this was triggered by "Install All"
