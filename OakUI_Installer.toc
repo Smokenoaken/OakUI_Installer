@@ -15,6 +15,7 @@ EllesmereSnapshot.lua
 FontEngine.lua
 EllesmereSelectiveImport.lua
 InstallLogic.lua
+ProfileSync.lua
 ChatLayout.lua
 ChatFilters.lua
 ActionBarFader.lua
