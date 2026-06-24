@@ -1,3 +1,8 @@
+## v2.6.6-EllesmereEdition
+
+- Synced OakUI Healer and Tank/DPS profile swaps between EllesmereUI and Blizzi Party Tools.
+- Refreshed Blizzi Party Tools visuals after Oak-managed profile changes so profile updates apply immediately.
+
 ## v2.6.5-EllesmereEdition
 
 - Updated the Ellesmere healer install flow so class resources, power bars, cooldown anchors, and healer-specific profile data settle correctly after import.
