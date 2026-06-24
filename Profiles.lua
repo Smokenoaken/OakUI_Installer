@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.4-EllesmereEdition"
+P.VERSION = "2.6.5-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -107,6 +107,15 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.5-EllesmereEdition",
+        date = "June 24, 2026",
+        notes = {
+            "Updated the Ellesmere healer install flow so class resources, power bars, cooldown anchors, and healer-specific profile data settle correctly after import.",
+            "Improved fresh-install popup handling so OakUI setup stays front and center while suppressing retired Ellesmere/QUI onboarding prompts.",
+            "Refreshed bundled profile payloads, raw import support, and the supporter list for the current OakUI setup.",
+        }
+    },
     {
         version = "v2.6.4-EllesmereEdition",
         date = "June 18, 2026",

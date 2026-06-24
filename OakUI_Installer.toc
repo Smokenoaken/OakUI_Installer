@@ -3,7 +3,7 @@
 ## Notes: One-click profile importer for the OakUI suite.
 ## Author: Oakensoul
 ## IconTexture: Interface\AddOns\OakUI_Installer\Media\Logo.png
-## Version: 2.6.4-EllesmereEdition
+## Version: 2.6.5-EllesmereEdition
 ## X-Wago-ID: QNlzj8Ke
 ## DefaultState: enabled
 ## OptionalDeps: EllesmereUI, EllesmereUIActionBars, EllesmereUIAuraBuffReminders, EllesmereUIBags, EllesmereUIBasics, EllesmereUIBlizzardSkin, EllesmereUIChat, EllesmereUICooldownManager, EllesmereUIDamageMeters, EllesmereUIFriends, EllesmereUIMinimap, EllesmereUIMythicTimer, EllesmereUINameplates, EllesmereUIQoL, EllesmereUIQuestTracker, EllesmereUIRaidFrames, EllesmereUIResourceBars, EllesmereUIUnitFrames, ElvUI, ElvUI_Libraries, SharedMedia, DBM-Core, DBM-GUI, DBM-StatusBarTimers, BigWigs, BliZzi_Interrupts

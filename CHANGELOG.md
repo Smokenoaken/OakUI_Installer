@@ -1,3 +1,9 @@
+## v2.6.5-EllesmereEdition
+
+- Updated the Ellesmere healer install flow so class resources, power bars, cooldown anchors, and healer-specific profile data settle correctly after import.
+- Improved fresh-install popup handling so OakUI setup stays front and center while suppressing retired Ellesmere/QUI onboarding prompts.
+- Refreshed bundled profile payloads, raw import support, and the supporter list for the current OakUI setup.
+
 ## v2.6.4-EllesmereEdition
 
 - Added a dedicated docked Trade chat tab to the OakUI chat layout
