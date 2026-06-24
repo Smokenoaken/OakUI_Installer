@@ -9,6 +9,103 @@ local MakeFlatCheckbox = addonTable.MakeFlatCheckbox
 local SkinScrollbar = addonTable.SkinScrollbar
 local ShowCopyBox = addonTable.ShowCopyBox
 
+local function GetCharacterInstallKey()
+    local name = UnitName("player") or "Unknown"
+    local realm = GetNormalizedRealmName and GetNormalizedRealmName() or GetRealmName() or "Unknown"
+    return name .. "-" .. realm
+end
+
+local function IsCurrentOakInstallIncomplete()
+    if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return true end
+    local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
+    return not state or state.completed ~= true
+end
+
+local ELLESMERE_OAKUI_MODULES = {
+    "EllesmereUIActionBars",
+    "EllesmereUIAuraBuffReminders",
+    "EllesmereUIBags",
+    "EllesmereUIBlizzardSkin",
+    "EllesmereUIChat",
+    "EllesmereUICooldownManager",
+    "EllesmereUIDamageMeters",
+    "EllesmereUIFriends",
+    "EllesmereUIMinimap",
+    "EllesmereUIMythicTimer",
+    "EllesmereUIQoL",
+    "EllesmereUIQuestTracker",
+    "EllesmereUIRaidFrames",
+    "EllesmereUIResourceBars",
+    "EllesmereUIUnitFrames",
+}
+
+local function IsAddonInstalled(folder)
+    if not C_AddOns or not C_AddOns.GetAddOnInfo then return false end
+    local name, _, _, _, reason = C_AddOns.GetAddOnInfo(folder)
+    return name ~= nil and reason ~= "MISSING"
+end
+
+local function SetAddonEnabledForOakUI(folder, enabled)
+    if not C_AddOns or not IsAddonInstalled(folder) then return end
+    if enabled then
+        if C_AddOns.EnableAddOn then
+            pcall(C_AddOns.EnableAddOn, folder)
+        end
+    else
+        if C_AddOns.DisableAddOn then
+            local ok = pcall(C_AddOns.DisableAddOn, folder, UnitName("player"))
+            if not ok then
+                pcall(C_AddOns.DisableAddOn, folder)
+            end
+        end
+    end
+end
+
+local function HideEllesmereFirstInstallPopup()
+    if _G.EUIFirstInstallPopup and _G.EUIFirstInstallPopup.Hide then
+        _G.EUIFirstInstallPopup:Hide()
+    end
+    if _G.EUIFirstInstallDimmer and _G.EUIFirstInstallDimmer.Hide then
+        _G.EUIFirstInstallDimmer:Hide()
+    end
+end
+
+local function HideEllesmereIncompatibleAddonPopup()
+    local popup = _G.EUIConfirmPopup
+    local title = popup and popup._title and popup._title.GetText and popup._title:GetText()
+    if title ~= "Incompatible Addon Detected" then return end
+
+    if popup._dimmer and popup._dimmer.Hide then
+        popup._dimmer:Hide()
+    end
+    if popup.Hide then
+        popup:Hide()
+    end
+end
+
+local function ClaimEllesmereFirstInstallForOakUI()
+    if P.BASE_UI_PROVIDER ~= "Ellesmere" or not IsAddonInstalled("EllesmereUI") then return end
+
+    local wasFresh = type(_G.EllesmereUIDB) ~= "table" or _G.EllesmereUIDB.firstInstallPopupShown ~= true
+    _G.EllesmereUIDB = _G.EllesmereUIDB or {}
+    _G.EllesmereUIDB.firstInstallPopupShown = true
+    _G.EllesmereUIDB.bagsUserChosen = true
+
+    if wasFresh or IsCurrentOakInstallIncomplete() then
+        _G._EUI_ConflictCheckRan = true
+        HideEllesmereIncompatibleAddonPopup()
+    end
+
+    if wasFresh then
+        for _, folder in ipairs(ELLESMERE_OAKUI_MODULES) do
+            SetAddonEnabledForOakUI(folder, true)
+        end
+        SetAddonEnabledForOakUI("EllesmereUINameplates", false)
+    end
+
+    HideEllesmereFirstInstallPopup()
+end
+
 local DB_Frame = CreateFrame("Frame")
 DB_Frame:RegisterEvent("ADDON_LOADED")
 DB_Frame:RegisterEvent("PLAYER_LOGIN")
@@ -17,7 +114,6 @@ DB_Frame:SetScript("OnEvent", function(self, event, addon)
         if not OakUI_DB then OakUI_DB = {} end
         if not OakUI_DB.install then OakUI_DB.install = { characters = {} } end
         if not OakUI_DB.install.characters then OakUI_DB.install.characters = {} end
-        if OakUI_DB.hideBaseMigrationNotice == nil then OakUI_DB.hideBaseMigrationNotice = false end
         if not OakUI_DB.minimap then OakUI_DB.minimap = { hide = false, angle = -45 } end
         if OakUI_DB.minimap.hide == nil then OakUI_DB.minimap.hide = false end
         if not OakUI_DB.minimap.angle then OakUI_DB.minimap.angle = -45 end
@@ -37,6 +133,7 @@ DB_Frame:SetScript("OnEvent", function(self, event, addon)
         end
         if addonTable.EnsureFontDB then addonTable.EnsureFontDB() end
         if addonTable.BypassElvUIInstaller then addonTable.BypassElvUIInstaller() end
+        ClaimEllesmereFirstInstallForOakUI()
         self:UnregisterEvent("ADDON_LOADED")
     end
 end)
@@ -46,7 +143,9 @@ end)
 -- ==========================================
 local UI = CreateFrame("Frame", "OakUIProfileManager", UIParent, "BackdropTemplate")
 UI:SetSize(700, 520); UI:SetPoint("CENTER"); UI:Hide(); 
-UI:SetFrameStrata("DIALOG")
+UI:SetFrameStrata("FULLSCREEN_DIALOG")
+UI:SetFrameLevel(900)
+UI:SetToplevel(true)
 UI:SetMovable(true); UI:EnableMouse(true); 
 UI:SetResizable(true); UI:SetResizeBounds(700, 520, 1400, 1000) 
 UI:RegisterForDrag("LeftButton")
@@ -265,77 +364,6 @@ end
 local JoinPatreonBtn = MakeFlatButton(SupportersView, "Support on Patreon", 200, 30); JoinPatreonBtn:SetPoint("BOTTOM", SupportersView, "BOTTOM", 0, 15)
 JoinPatreonBtn:SetScript("OnClick", function() ShowCopyBox("https://www.patreon.com/Oakensoul", "Press CTRL+C to copy the Patreon link:") end)
 
--- BASE UI MIGRATION NOTICE
-local MigrationNotice = CreateFrame("Frame", "OakUI_BaseMigrationNotice", UIParent, "BackdropTemplate")
-MigrationNotice:SetSize(500, 310)
-MigrationNotice:SetPoint("CENTER")
-MigrationNotice:SetFrameStrata("FULLSCREEN_DIALOG")
-MigrationNotice:Hide()
-MigrationNotice:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 })
-MigrationNotice:SetBackdropColor(0.137, 0.141, 0.172, 1)
-MigrationNotice:SetBackdropBorderColor(r, g, b, 1)
-
-local MigrationTitle = MigrationNotice:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-MigrationTitle:SetPoint("TOP", MigrationNotice, "TOP", 0, -18)
-MigrationTitle:SetText(cWrap .. "OAK UI Has Moved On From QUI|r")
-
-local MigrationText = MigrationNotice:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-MigrationText:SetPoint("TOPLEFT", MigrationNotice, "TOPLEFT", 24, -55)
-MigrationText:SetPoint("TOPRIGHT", MigrationNotice, "TOPRIGHT", -24, -55)
-MigrationText:SetJustifyH("LEFT")
-local baseProvider = P.BASE_UI_PROVIDER or "ElvUI"
-local addonSummary
-if baseProvider == "Ellesmere" then
-    addonSummary = "- EllesmereUI\n- Platynator\n- XIV_Databar Continued\n- DBM, BigWigs, and Blizzi Party Tools are optional"
-else
-    addonSummary = "- ElvUI\n- Ayije CDM\n- Chonky Character Sheet\n- MPlusTimer\n- Platynator\n- Details! Damage Meter\n- XIV_Databar Continued\n- DBM, BigWigs, and Blizzi Party Tools are optional"
-end
-MigrationText:SetText("This version of OAK UI no longer uses QUI as its base.\n\nCurrent OAK setup uses:\n" .. addonSummary)
-
-local DontShowAgain = CreateFrame("Button", nil, MigrationNotice)
-DontShowAgain:SetSize(20, 20)
-DontShowAgain:SetPoint("BOTTOMLEFT", MigrationNotice, "BOTTOMLEFT", 28, 58)
-local DontShowBorder = DontShowAgain:CreateTexture(nil, "BACKGROUND")
-DontShowBorder:SetAllPoints()
-DontShowBorder:SetColorTexture(0.3, 0.32, 0.38, 1)
-local DontShowInner = DontShowAgain:CreateTexture(nil, "ARTWORK")
-DontShowInner:SetPoint("TOPLEFT", 2, -2)
-DontShowInner:SetPoint("BOTTOMRIGHT", -2, 2)
-local DontShowLabel = MigrationNotice:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-DontShowLabel:SetPoint("LEFT", DontShowAgain, "RIGHT", 10, 0)
-DontShowLabel:SetText("Do not show this again")
-DontShowAgain.checked = false
-DontShowAgain.UpdateState = function(self)
-    if self.checked then
-        DontShowInner:SetColorTexture(r, g, b, 1)
-    else
-        DontShowInner:SetColorTexture(0.137, 0.141, 0.172, 1)
-    end
-end
-DontShowAgain:SetScript("OnClick", function(self)
-    self.checked = not self.checked
-    self:UpdateState()
-end)
-DontShowAgain:UpdateState()
-
-local MigrationOK = MakeFlatButton(MigrationNotice, "Got It", 110, 28)
-MigrationOK:SetPoint("BOTTOMRIGHT", MigrationNotice, "BOTTOMRIGHT", -24, 20)
-MigrationOK.Text:SetTextColor(r, g, b)
-MigrationOK:SetScript("OnClick", function()
-    if DontShowAgain.checked then
-        if not OakUI_DB then OakUI_DB = {} end
-        OakUI_DB.hideBaseMigrationNotice = true
-    end
-    MigrationNotice:Hide()
-end)
-
-local function ShowBaseMigrationNotice()
-    if OakUI_DB and OakUI_DB.hideBaseMigrationNotice then return end
-    DontShowAgain.checked = false
-    DontShowAgain:UpdateState()
-    MigrationNotice:Show()
-end
-
 -- ==========================================
 -- NAVIGATION MENU
 -- ==========================================
@@ -465,8 +493,18 @@ local GlobalReloadBtn = MakeFlatButton(LeftPane, "Reload UI", 160, 30)
 GlobalReloadBtn:SetPoint("BOTTOM", LeftPane, "BOTTOM", 0, 10)
 GlobalReloadBtn:SetScript("OnClick", function() ReloadUI() end)
 
+local function BringInstallerToFront()
+    ClaimEllesmereFirstInstallForOakUI()
+    HideEllesmereFirstInstallPopup()
+    HideEllesmereIncompatibleAddonPopup()
+    UI:SetFrameStrata("FULLSCREEN_DIALOG")
+    UI:SetFrameLevel(900)
+    if UI.Raise then UI:Raise() end
+end
+
 function addonTable.OpenInstaller(tab)
     UI:Show()
+    BringInstallerToFront()
     if tab == "installer" then
         InstallerNavBtn:Click()
     elseif tab == "ellesmere" then
@@ -474,12 +512,11 @@ function addonTable.OpenInstaller(tab)
     else
         HomeNavBtn:Click()
     end
-end
-
-local function GetCharacterInstallKey()
-    local name = UnitName("player") or "Unknown"
-    local realm = GetNormalizedRealmName and GetNormalizedRealmName() or GetRealmName() or "Unknown"
-    return name .. "-" .. realm
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0, BringInstallerToFront)
+        C_Timer.After(0.6, BringInstallerToFront)
+        C_Timer.After(1.5, BringInstallerToFront)
+    end
 end
 
 function addonTable.MarkInstallerSeen()
@@ -512,6 +549,7 @@ DB_Frame:HookScript("OnEvent", function(self, event)
     if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
 
     CreateOakMinimapButton()
+    ClaimEllesmereFirstInstallForOakUI()
     if HideMinimapCheck and HideMinimapCheck.UpdateState then HideMinimapCheck:UpdateState() end
     if addonTable.BypassElvUIInstaller then
         addonTable.BypassElvUIInstaller()
@@ -526,7 +564,6 @@ DB_Frame:HookScript("OnEvent", function(self, event)
             if addonTable.OpenInstaller then
                 addonTable.OpenInstaller("home")
                 addonTable.MarkInstallerSeen()
-                ShowBaseMigrationNotice()
             end
         end)
     end

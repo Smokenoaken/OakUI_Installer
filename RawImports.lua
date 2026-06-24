@@ -32,12 +32,14 @@ function addonTable.BuildRawImportsUI(parentFrame)
     local imports = {
         { name = "Blizzard Edit Mode", var = P.EDITMODE_PROFILE, desc = "Copy this string and import it in Blizzard Edit Mode (Escape > Edit Mode > Layout dropdown > Import)." },
         { name = "Ellesmere UI Profile", var = P.ELLESMERE_PROFILE, desc = "Manual fallback string for the Ellesmere UI profile." },
+        { name = "Ellesmere UI Profile (Healer)", var = P.ELLESMERE_PROFILE_HEALS, desc = "Manual fallback string for the Ellesmere UI healer profile." },
     }
     table.insert(imports, { name = "Platynator", var = P.PLATYNATOR_PROFILE, desc = "Import this into the Platynator profiles tab." })
     table.insert(imports, { name = "XIV_Databar Continued", var = P.XIV_PROFILE, desc = "Import this into the XIV_Databar profiles section." })
     table.insert(imports, { name = "DBM", var = P.DBM_PROFILE, desc = "Import this into DBM profile settings." })
     table.insert(imports, { name = "BigWigs", var = P.BIGWIGS_PROFILE, desc = "Import this into BigWigs profile settings." })
     table.insert(imports, { name = "Blizzi Party Tools", var = P.BLIZZI_PARTY_TOOLS_PROFILE, desc = "Import this into Blizzi Party Tools profile import." })
+    table.insert(imports, { name = "Blizzi Party Tools (Healer)", var = P.BLIZZI_PARTY_TOOLS_HEALS_PROFILE, desc = "Import this into Blizzi Party Tools profile import for the healer setup." })
 
     local activeEditBoxes = {} 
     local yOffset = -10

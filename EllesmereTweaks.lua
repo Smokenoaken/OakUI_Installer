@@ -444,6 +444,49 @@ local function HasVisiblePowerBar()
     return true
 end
 
+local function IsOakHealerProfileActive()
+    if not IsEllesmereProvider() then return false end
+    local healerName = addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("heals") or "OakUI Healer"
+    return _G.EllesmereUIDB and _G.EllesmereUIDB.activeProfile == healerName
+end
+
+local function NormalizeOakHealerClassResourceAnchor()
+    if InCombatLockdown and InCombatLockdown() then return end
+    if not IsOakHealerProfileActive() then return end
+
+    local EUI = _G.EllesmereUI
+    local resourceProfile = GetResourceBarsProfile()
+    local secondary = type(resourceProfile) == "table" and resourceProfile.secondary
+    local anchors = _G.EllesmereUIDB and _G.EllesmereUIDB.unlockAnchors
+    local widthMatch = _G.EllesmereUIDB and _G.EllesmereUIDB.unlockWidthMatch
+    local changed = false
+
+    if type(secondary) == "table" then
+        if secondary.anchorTo ~= "erb_powerbar" then secondary.anchorTo = "erb_powerbar"; changed = true end
+        if secondary.anchorPosition ~= "top" then secondary.anchorPosition = "top"; changed = true end
+        if secondary.anchorOffsetX ~= 0 then secondary.anchorOffsetX = 0; changed = true end
+        if secondary.anchorOffsetY ~= 0 then secondary.anchorOffsetY = 0; changed = true end
+    end
+    if type(anchors) == "table" and anchors.ERB_ClassResource ~= nil then
+        anchors.ERB_ClassResource = nil
+        changed = true
+    end
+    if type(widthMatch) == "table" and widthMatch.ERB_ClassResource ~= nil then
+        widthMatch.ERB_ClassResource = nil
+        changed = true
+    end
+
+    if EUI and type(EUI.ApplyAllWidthHeightMatches) == "function" then
+        pcall(EUI.ApplyAllWidthHeightMatches)
+    end
+    if changed and _G._ERB_Apply then
+        pcall(_G._ERB_Apply)
+    end
+    if EUI and type(EUI.ReapplyOwnAnchor) == "function" and _G.ERB_SecondaryFrame then
+        pcall(EUI.ReapplyOwnAnchor, "CDM_buffs")
+    end
+end
+
 local function SaveResourcePoint(frame)
     if resourceSavedPoint or not frame or frame:GetNumPoints() == 0 then return end
     resourceSavedPoint = { frame:GetPoint(1) }
@@ -470,6 +513,7 @@ function addonTable.RefreshEllesmereResourceAnchor(force)
     if resourceFrame then
         RestoreResourcePoint(resourceFrame)
     end
+    NormalizeOakHealerClassResourceAnchor()
 end
 
 local TOOLTIP_ANCHOR_KEY = "OakUI_Tooltip"
@@ -649,6 +693,8 @@ local function ScheduleLayoutRefresh()
     ScheduleRefresh("visibilityInit", 0.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     ScheduleRefresh("visibilityLate", 1.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
+    ScheduleRefresh("resourceHealer", 0.75, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
+    ScheduleRefresh("resourceHealerLate", 2.1, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
     ScheduleRefresh("tooltip", 0.2, addonTable.RefreshEllesmereTooltipAnchor, 1)
     ScheduleRefresh("specialActionBars", 0.3, addonTable.RefreshEllesmereSpecialActionBarVisibility, 1)
 end

@@ -238,6 +238,39 @@ local function CopyProfileKeys(targetProfile, sourceProfile, keys)
     end
 end
 
+local function ApplyRootUnlockLayoutFromProfile(db, profile)
+    local layout = type(profile) == "table" and profile.unlockLayout
+    if type(db) ~= "table" or type(layout) ~= "table" then return end
+
+    db.unlockAnchors = DeepCopy(layout.anchors or {})
+    db.unlockWidthMatch = DeepCopy(layout.widthMatch or {})
+    db.unlockHeightMatch = DeepCopy(layout.heightMatch or {})
+    db.phantomBounds = DeepCopy(layout.phantomBounds or {})
+end
+
+local function NormalizeHealerResourceLayout(profile)
+    if type(profile) ~= "table" then return end
+
+    local layout = profile.unlockLayout
+    if type(layout) == "table" then
+        if type(layout.anchors) == "table" then
+            layout.anchors.ERB_ClassResource = nil
+        end
+        if type(layout.widthMatch) == "table" then
+            layout.widthMatch.ERB_ClassResource = nil
+        end
+    end
+
+    local resourceBars = profile.addons and profile.addons.EllesmereUIResourceBars
+    local secondary = type(resourceBars) == "table" and resourceBars.secondary
+    if type(secondary) == "table" then
+        secondary.anchorTo = "erb_powerbar"
+        secondary.anchorPosition = "top"
+        secondary.anchorOffsetX = 0
+        secondary.anchorOffsetY = 0
+    end
+end
+
 local function CopyAddon(targetProfile, sourceProfile, folder)
     local srcAddons = sourceProfile.addons
     if type(srcAddons) ~= "table" or type(srcAddons[folder]) ~= "table" then return false end
@@ -699,6 +732,21 @@ local function RefreshEllesmere()
     if addonTable.RefreshEllesmereVisibilityTweaks then
         pcall(addonTable.RefreshEllesmereVisibilityTweaks)
     end
+    if addonTable.RefreshEllesmereResourceAnchor then
+        pcall(addonTable.RefreshEllesmereResourceAnchor, true)
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0.75, function()
+                if addonTable.RefreshEllesmereResourceAnchor then
+                    pcall(addonTable.RefreshEllesmereResourceAnchor, true)
+                end
+            end)
+            C_Timer.After(2.1, function()
+                if addonTable.RefreshEllesmereResourceAnchor then
+                    pcall(addonTable.RefreshEllesmereResourceAnchor, true)
+                end
+            end)
+        end
+    end
 end
 
 function addonTable.ApplyOakEllesmereSnapshot(profileName, role, selection, quiet)
@@ -783,10 +831,26 @@ function addonTable.ApplyOakEllesmereSnapshot(profileName, role, selection, quie
         end
     end
 
+    if role == "heals" then
+        NormalizeHealerResourceLayout(targetProfile)
+    end
+
+    if SelectionIncludes(selection, "layout") then
+        ApplyRootUnlockLayoutFromProfile(db, targetProfile)
+    end
+
     db.activeProfile = profileName
     if db.lastNonSpecProfile ~= nil then db.lastNonSpecProfile = profileName end
     RepointEllesmereProfile(profileName)
     RefreshEllesmere()
+    if addonTable.MarkEllesmereCDMAutoRepopulateProfile then
+        addonTable.MarkEllesmereCDMAutoRepopulateProfile(profileName)
+    end
+    if addonTable.ScheduleEllesmereCDMRepopulate
+        and (SelectionIncludes(selection, "cdmBars") or SelectionIncludes(selection, "cdmSpells"))
+    then
+        addonTable.ScheduleEllesmereCDMRepopulate(profileName, "snapshot")
+    end
 
     if not quiet then
         print("|cff17ee15[OakUI]|r Applied Ellesmere snapshot '" .. tostring(sourceName) .. "' to profile '" .. tostring(profileName) .. "'.")

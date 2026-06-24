@@ -78,6 +78,8 @@ end
 local CopyFrame = CreateFrame("Frame", "OakUI_StandaloneCopyFrame", UIParent, "BackdropTemplate")
 CopyFrame:SetSize(450, 160); CopyFrame:SetPoint("CENTER"); 
 CopyFrame:SetFrameStrata("FULLSCREEN_DIALOG"); CopyFrame:Hide() -- FIX: Elevated to float over OakUI Main
+CopyFrame:SetFrameLevel(1100)
+CopyFrame:SetToplevel(true)
 CopyFrame:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 }); CopyFrame:SetBackdropColor(0.137, 0.141, 0.172, 1); CopyFrame:SetBackdropBorderColor(r, g, b, 1) 
 local CopyTitle = CopyFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); CopyTitle:SetPoint("TOP", 0, -15); CopyTitle:SetText(cWrap .. "Action Required|r")
 local CopyDesc = CopyFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); CopyDesc:SetPoint("TOP", CopyTitle, "BOTTOM", 0, -15); CopyDesc:SetWidth(410); CopyDesc:SetJustifyH("CENTER")
@@ -88,12 +90,14 @@ local CloseCopyBtn = addonTable.MakeFlatButton(CopyFrame, "Close", 100, 26); Clo
 function addonTable.ShowCopyBox(text, instructions)
     if not text or text == "" then text = "No string found!" end
     CopyDesc:SetText(instructions or "Press CTRL+C to copy the string below:")
-    EditBox:SetText(text); CopyFrame:Show(); EditBox:ClearFocus()
+    EditBox:SetText(text); CopyFrame:Show(); if CopyFrame.Raise then CopyFrame:Raise() end; EditBox:ClearFocus()
 end
 
 local ProfilePromptFrame = CreateFrame("Frame", "OakUI_ProfilePromptFrame", UIParent, "BackdropTemplate")
 ProfilePromptFrame:SetSize(400, 220); ProfilePromptFrame:SetPoint("CENTER", UIParent, "CENTER"); 
 ProfilePromptFrame:SetFrameStrata("FULLSCREEN_DIALOG"); ProfilePromptFrame:Hide() -- FIX: Elevated to float over OakUI Main
+ProfilePromptFrame:SetFrameLevel(1100)
+ProfilePromptFrame:SetToplevel(true)
 ProfilePromptFrame:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 }); ProfilePromptFrame:SetBackdropColor(0.137, 0.141, 0.172, 1); ProfilePromptFrame:SetBackdropBorderColor(r, g, b, 1)
 local PromptTitle = ProfilePromptFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); PromptTitle:SetPoint("TOP", 0, -15); PromptTitle:SetText(cWrap .. "Profile Installation|r")
 local PendingRole = "dps"
@@ -124,6 +128,8 @@ local CancelBtn = addonTable.MakeFlatButton(ProfilePromptFrame, "Cancel", 100, 2
 local ReloadPromptFrame = CreateFrame("Frame", "OakUI_ReloadPromptFrame", UIParent, "BackdropTemplate")
 ReloadPromptFrame:SetSize(420, 160); ReloadPromptFrame:SetPoint("CENTER", UIParent, "CENTER"); 
 ReloadPromptFrame:SetFrameStrata("TOOLTIP"); ReloadPromptFrame:Hide() -- TOOLTIP is highest possible
+ReloadPromptFrame:SetFrameLevel(1100)
+ReloadPromptFrame:SetToplevel(true)
 ReloadPromptFrame:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 }); ReloadPromptFrame:SetBackdropColor(0.137, 0.141, 0.172, 1); ReloadPromptFrame:SetBackdropBorderColor(r, g, b, 1)
 local ReloadTitle = ReloadPromptFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); ReloadTitle:SetPoint("TOP", 0, -15); ReloadTitle:SetText(cWrap .. "OAK UI|r")
 local ReloadDesc = ReloadPromptFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); ReloadDesc:SetPoint("TOP", ReloadTitle, "BOTTOM", 0, -15); ReloadDesc:SetJustifyH("CENTER")
@@ -141,6 +147,7 @@ function addonTable.ShowReloadPrompt(message, buttonText, buttonFunc)
         end
     end)
     ReloadPromptFrame:Show()
+    if ReloadPromptFrame.Raise then ReloadPromptFrame:Raise() end
 end
 
 local function ShowCompletionPrompt()
@@ -148,6 +155,7 @@ local function ShowCompletionPrompt()
     DoReloadBtn.Text:SetText("Reload UI")
     DoReloadBtn:SetScript("OnClick", function() ReloadUI() end)
     ReloadPromptFrame:Show()
+    if ReloadPromptFrame.Raise then ReloadPromptFrame:Raise() end
 end
 
 -- ==========================================
@@ -268,5 +276,5 @@ function addonTable.ShowProfilePrompt(isAll, addonList, singleAddon, singleFunc,
         ProfilePromptFrame:SetHeight(180)
         PromptEditBox:SetText("OakUI")
     end
-    ProfilePromptFrame:Show(); PromptEditBox:HighlightText(); PromptEditBox:SetFocus()
+    ProfilePromptFrame:Show(); if ProfilePromptFrame.Raise then ProfilePromptFrame:Raise() end; PromptEditBox:HighlightText(); PromptEditBox:SetFocus()
 end
