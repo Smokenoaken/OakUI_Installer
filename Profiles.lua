@@ -26,7 +26,6 @@ P.BLIZZI_PARTY_TOOLS_HEALS_PROFILE = [[!BIT!S33cCor556tYKzsqRIMbyxeqb1AfrS79lwen
 -- UPDATE PATREON/KO-FI SUPPORTERS HERE!
 P.PATREONS = {
     "Thomas Valhøj",
-    "Justin Komosky",
     "psykotedy",
     "Brian Ehlers",
     "mglass",
@@ -66,8 +65,8 @@ P.PATREONS = {
     "Edrick Nickerson",
     "B 87",
     "Nalu Rider",
-    "Mae",
     "Mark Hart",
+    "Khalifa Almajid",
     "Andrew Steltz",
     "Clayton Johnson",
     "Scott Mortell",
@@ -77,7 +76,6 @@ P.PATREONS = {
     "Sparrowhawk Sr",
     "Chris Garland",
     "Josh Cooper",
-    "Christopher Ciolino",
     "Chris Nelms",
     "Bryan Erickson",
     "Chris Kerrigan",
@@ -96,11 +94,11 @@ P.PATREONS = {
     "PhoenixLD",
     "Edward Leung",
     "Paul T",
-    "Hermez",
     "Alexey Fedorov",
     "Roland",
     "Sridhar Mantha",
-    "Bryan"
+    "Bryan",
+    "Ryan McDonald",
 }
 
 -- ==========================================

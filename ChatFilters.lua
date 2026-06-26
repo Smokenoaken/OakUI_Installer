@@ -27,6 +27,20 @@ end})
 
 local pfx = "|cff888888+|r "
 
+local function IsSecretValue(value)
+    if type(issecretvalue) ~= "function" then return false end
+    local ok, isSecret = pcall(issecretvalue, value)
+    return ok and isSecret == true
+end
+
+local function HasSecretChatArg(msg, author, ...)
+    if IsSecretValue(msg) or IsSecretValue(author) then return true end
+    for i = 1, select("#", ...) do
+        if IsSecretValue(select(i, ...)) then return true end
+    end
+    return false
+end
+
 local function SanitizeLootPlayerName(player)
     if type(player) ~= "string" or player == "" then
         return nil
@@ -100,6 +114,8 @@ end
 -- ENGINE: CHAT FILTERS
 -- ==========================================
 local function FilterChannels(self, event, msg, author, ...)
+    if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
+
     local db = GetDB()
     if db.channels then
         msg = string.gsub(msg, "%["..string.match(CHAT_PARTY_LEADER_GET, "%[(.-)%]").."%]", "PL")
@@ -121,6 +137,8 @@ local function FilterChannels(self, event, msg, author, ...)
 end
 
 local function FilterSystem(self, event, msg, author, ...)
+    if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
+
     local db = GetDB()
     if db.status then
         if msg == MARKED_AFK then return false, "|cff888888You are now AFK.|r", author, ... end
@@ -171,6 +189,8 @@ local function FilterSystem(self, event, msg, author, ...)
 end
 
 local function FilterReputation(self, event, msg, author, ...)
+    if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
+
     if not GetDB().reputation then return false, msg, author, ... end
     local isWarband = false
     local faction, val = string.match(msg, P[FACTION_STANDING_INCREASED])
@@ -192,6 +212,8 @@ end
 -- SURGICAL LOOT PARSER
 -- ==========================================
 local function FilterLoot(self, event, msg, author, ...)
+    if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
+
     if not GetDB().loot then return false, msg, author, ... end
     
     if event == "CHAT_MSG_CURRENCY" then
@@ -221,6 +243,8 @@ local function FilterLoot(self, event, msg, author, ...)
 end
 
 local function FilterMoney(self, event, msg, author, ...)
+    if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
+
     if not GetDB().money then return false, msg, author, ... end
     local coinText = FormatMoneyText(msg)
     if coinText then return false, pfx .. coinText, author, ... end

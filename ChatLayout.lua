@@ -3,6 +3,30 @@ local addonName, addonTable = ...
 -- ==========================================
 -- FEATURE: AUTO-SETUP CHAT WINDOWS
 -- ==========================================
+local OAK_LOOT_GROUPS = {
+    "COMBAT_XP_GAIN", "COMBAT_HONOR_GAIN", "COMBAT_FACTION_CHANGE", "SKILL",
+    "LOOT", "CURRENCY", "MONEY", "COMBAT_MISC_INFO", "SYSTEM", "PET_BATTLE_INFO",
+    "PING", "ACHIEVEMENT", "GUILD_ACHIEVEMENT"
+}
+
+local function BaseClearAllPoints(frame)
+    if not frame then return end
+    local fn = frame.ClearAllPointsBase or frame.ClearAllPoints
+    if fn then pcall(fn, frame) end
+end
+
+local function BaseSetPoint(frame, ...)
+    if not frame then return end
+    local fn = frame.SetPointBase or frame.SetPoint
+    if fn then pcall(fn, frame, ...) end
+end
+
+local function BaseSetSize(frame, width, height)
+    if not frame then return end
+    local fn = frame.SetSizeBase or frame.SetSize
+    if fn then pcall(fn, frame, width, height) end
+end
+
 local function ForceTransparency(frame, numID)
     if frame then
         FCF_SetWindowColor(frame, 0, 0, 0)
@@ -127,8 +151,6 @@ local function RouteChannelsToFrame(targetFrame, channelsToRoute, ...)
     end
 end
 
-local scheduledChatLayoutToken = 0
-
 function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     -- 1. Setup General Window (ChatFrame1)
     if resetFirst and type(FCF_ResetChatWindows) == "function" then
@@ -154,20 +176,9 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     FCF_SetChatWindowFontSize(nil, cf1, 14)
     ForceTransparency(cf1, 1)
     
-    local generalGroups = { 
-        "SAY", "EMOTE", "YELL", "WHISPER", "WHISPER_INFORM", "BN_WHISPER", "BN_WHISPER_INFORM",
-        "PARTY", "PARTY_LEADER", "RAID", "RAID_LEADER", "RAID_WARNING", "INSTANCE_CHAT",
-        "INSTANCE_CHAT_LEADER", "GUILD", "OFFICER", "IGNORED", "ERRORS", "CHANNEL",
-        "BLIZZARD_SERVICE", "MONSTER_SAY", "MONSTER_EMOTE", "MONSTER_YELL", "MONSTER_WHISPER",
-        "MONSTER_BOSS_EMOTE", "MONSTER_BOSS_WHISPER"
-    }
-    local lootGroups = {
-        "COMBAT_XP_GAIN", "COMBAT_HONOR_GAIN", "COMBAT_FACTION_CHANGE", "SKILL",
-        "LOOT", "CURRENCY", "MONEY", "COMBAT_MISC_INFO", "SYSTEM", "PET_BATTLE_INFO",
-        "PING", "ACHIEVEMENT", "GUILD_ACHIEVEMENT"
-    }
-    -- Avoid wiping Blizzard's temporary whisper routing state from the primary frame.
-    SyncChatFrameGroups(cf1, generalGroups, lootGroups)
+    -- Leave protected/player/monster chat routing under Blizzard control.
+    -- Touch only OakUI's low-risk loot/system groups during layout import.
+    SyncChatFrameGroups(cf1, nil, OAK_LOOT_GROUPS)
 
     -- 2. Find or Create Loot Window Safely
     local lootWindowName = LOOT or "Loot"
@@ -203,28 +214,16 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
 
     FCF_UnDockFrame(lootFrame)
     lootFrame:SetUserPlaced(true)
-    lootFrame:ClearAllPoints()
+    BaseClearAllPoints(lootFrame)
 
-    lootFrame:SetPoint("BOTTOMLEFT", cf1, "TOPLEFT", 0, 32)
-    lootFrame:SetSize(cf1:GetWidth(), 180)
+    BaseSetPoint(lootFrame, "BOTTOMLEFT", cf1, "TOPLEFT", 0, 32)
+    BaseSetSize(lootFrame, cf1:GetWidth(), 180)
 
     FCF_SavePositionAndDimensions(lootFrame)
     FCF_SetChatWindowFontSize(nil, lootFrame, 14)
     ForceTransparency(lootFrame, lootID)
 
-    local groupsToRemoveFromLoot = {
-        "SAY", "EMOTE", "YELL", "WHISPER", "WHISPER_INFORM", "BN_WHISPER", "BN_WHISPER_INFORM",
-        "PARTY", "PARTY_LEADER", "RAID", "RAID_LEADER", "RAID_WARNING", "INSTANCE_CHAT",
-        "INSTANCE_CHAT_LEADER", "GUILD", "OFFICER", "IGNORED", "ERRORS",
-        "BLIZZARD_SERVICE", "MONSTER_SAY", "MONSTER_EMOTE", "MONSTER_YELL", "MONSTER_WHISPER",
-        "MONSTER_BOSS_EMOTE", "MONSTER_BOSS_WHISPER"
-    }
-    local lootWindowGroups = {
-        "COMBAT_XP_GAIN", "COMBAT_HONOR_GAIN", "COMBAT_FACTION_CHANGE", "SKILL",
-        "LOOT", "CURRENCY", "MONEY", "COMBAT_MISC_INFO", "SYSTEM", "CHANNEL",
-        "PET_BATTLE_INFO", "PING", "ACHIEVEMENT", "GUILD_ACHIEVEMENT"
-    }
-    SyncChatFrameGroups(lootFrame, lootWindowGroups, groupsToRemoveFromLoot)
+    SyncChatFrameGroups(lootFrame, OAK_LOOT_GROUPS, nil)
 
     -- 3. Find or Create Trade Tab Safely
     local tradeWindowName = TRADE or "Trade"
@@ -266,16 +265,7 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
         FCF_SetChatWindowFontSize(nil, tradeFrame, 14)
         ForceTransparency(tradeFrame, tradeID)
 
-        local groupsToRemoveFromTrade = {
-            "SAY", "EMOTE", "YELL", "WHISPER", "WHISPER_INFORM", "BN_WHISPER", "BN_WHISPER_INFORM",
-            "PARTY", "PARTY_LEADER", "RAID", "RAID_LEADER", "RAID_WARNING", "INSTANCE_CHAT",
-            "INSTANCE_CHAT_LEADER", "GUILD", "OFFICER", "IGNORED", "ERRORS", "BLIZZARD_SERVICE",
-            "MONSTER_SAY", "MONSTER_EMOTE", "MONSTER_YELL", "MONSTER_WHISPER", "MONSTER_BOSS_EMOTE",
-            "MONSTER_BOSS_WHISPER", "COMBAT_XP_GAIN", "COMBAT_HONOR_GAIN", "COMBAT_FACTION_CHANGE",
-            "SKILL", "LOOT", "CURRENCY", "MONEY", "COMBAT_MISC_INFO", "SYSTEM", "PET_BATTLE_INFO",
-            "PING", "ACHIEVEMENT", "GUILD_ACHIEVEMENT"
-        }
-        SyncChatFrameGroups(tradeFrame, { "CHANNEL" }, groupsToRemoveFromTrade)
+        SyncChatFrameGroups(tradeFrame, { "CHANNEL" }, OAK_LOOT_GROUPS)
         RouteChannelsToFrame(tradeFrame, GetTradeChannelNames(), cf1, lootFrame)
     elseif not quiet then
         print("|cffff0000[OakUI Error]|r Could not create the Trade chat tab. Try again after leaving combat and after the UI finishes loading.")
@@ -307,40 +297,17 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
 end
 
 function addonTable.ScheduleChatWindowsAfterEllesmereProfile(silent)
-    local didApply = false
     local ok, result = pcall(addonTable.SetupChatWindows, silent, false, true)
-    if ok then
-        didApply = result == true
-    else
+    if not ok then
         print("|cffff0000[OakUI Error]|r Chat layout failed: " .. tostring(result))
     end
-
-    if not C_Timer or type(C_Timer.After) ~= "function" then
-        return didApply
-    end
-
-    scheduledChatLayoutToken = scheduledChatLayoutToken + 1
-    local token = scheduledChatLayoutToken
-    C_Timer.After(0.8, function()
-        if token ~= scheduledChatLayoutToken then return end
-
-        local ok, result = pcall(addonTable.SetupChatWindows, true, didApply, false)
-        if not ok then
-            print("|cffff0000[OakUI Error]|r Chat layout retry failed: " .. tostring(result))
-        elseif result == true and not didApply then
-            print("|cff17ee15[OakUI]|r OakUI Chat layout applied after waiting for the UI to settle.")
-        end
-    end)
-    return didApply
+    return ok and result == true
 end
 
 -- ==========================================
 -- CHAT TAB VISIBILITY CONTROL
 -- ==========================================
 local lootTabAlphaFrame = CreateFrame("Frame")
-local lootTabAlphaElapsed = 0
-local lootTabAlphaHookedDock = false
-local lootTabAlphaHookedChat = false
 
 local function GetLootChatFrame()
     return FindChatWindowByName(LOOT or "Loot", "Loot")
@@ -374,23 +341,7 @@ local function SyncLootTabAlpha(alpha)
     end
 end
 
-local function HookEllesmereChatAlpha()
-    if not lootTabAlphaHookedDock and _G.GeneralDockManager and _G.GeneralDockManager.SetAlpha then
-        lootTabAlphaHookedDock = true
-        hooksecurefunc(_G.GeneralDockManager, "SetAlpha", function(_, alpha)
-            SyncLootTabAlpha(alpha)
-        end)
-    end
-    if not lootTabAlphaHookedChat and _G.ChatFrame1 and _G.ChatFrame1.SetAlpha then
-        lootTabAlphaHookedChat = true
-        hooksecurefunc(_G.ChatFrame1, "SetAlpha", function(_, alpha)
-            SyncLootTabAlpha(alpha)
-        end)
-    end
-end
-
 addonTable.RefreshChatTabVisibility = function()
-    HookEllesmereChatAlpha()
     SyncLootTabAlpha()
 end
 
@@ -399,9 +350,3 @@ lootTabAlphaFrame:RegisterEvent("UPDATE_CHAT_WINDOWS")
 lootTabAlphaFrame:RegisterEvent("UPDATE_FLOATING_CHAT_WINDOWS")
 lootTabAlphaFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 lootTabAlphaFrame:SetScript("OnEvent", addonTable.RefreshChatTabVisibility)
-lootTabAlphaFrame:SetScript("OnUpdate", function(_, elapsed)
-    lootTabAlphaElapsed = lootTabAlphaElapsed + elapsed
-    if lootTabAlphaElapsed < 0.05 then return end
-    lootTabAlphaElapsed = 0
-    SyncLootTabAlpha()
-end)

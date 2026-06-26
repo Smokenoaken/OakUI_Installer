@@ -175,6 +175,35 @@ local function RegisterOakRoundThinBorderRenderer()
         AddStatusBarMaskGroup(groups, bar.altBar, seenStatusBars, anchorOverride)
     end
 
+    local function AddStatusBarFillMaskGroup(groups, bar, seenStatusBars, anchorOverride)
+        if not bar or not bar.GetStatusBarTexture then return end
+        if seenStatusBars then
+            if seenStatusBars[bar] then return end
+            seenStatusBars[bar] = true
+        end
+
+        local targets = {}
+        AddMaskTarget(targets, bar:GetStatusBarTexture())
+        AddMaskTarget(targets, bar.bg)
+        AddMaskTarget(targets, bar.BG)
+        AddMaskTarget(targets, bar._bg)
+        AddMaskTarget(targets, bar._modernBase)
+        AddMaskGroup(groups, bar, anchorOverride or bar, targets)
+    end
+
+    local function AddHealthPredictionMaskGroups(groups, prediction, seenStatusBars, anchorOverride)
+        if type(prediction) ~= "table" then return end
+        local absorb = prediction.damageAbsorb or prediction.DamageAbsorb
+        local healAbsorb = prediction.healAbsorb or prediction.HealAbsorb
+
+        AddStatusBarFillMaskGroup(groups, absorb, seenStatusBars, anchorOverride)
+        if absorb then
+            AddStatusBarFillMaskGroup(groups, absorb._forward, seenStatusBars, anchorOverride)
+            AddStatusBarFillMaskGroup(groups, absorb._healAbsorb, seenStatusBars, anchorOverride)
+        end
+        AddStatusBarFillMaskGroup(groups, healAbsorb, seenStatusBars, anchorOverride)
+    end
+
     local function AddChildStatusBarMaskGroups(groups, frame, seenStatusBars, depth, anchorOverride)
         if not frame or not frame.GetChildren or (depth or 0) <= 0 then return end
         local children = GetFrameChildrenSafe(frame)
@@ -220,6 +249,7 @@ local function RegisterOakRoundThinBorderRenderer()
         AddStatusBarMaskGroup(groups, owner._healAbsorbBar, seenStatusBars, borderFrame)
         AddStatusBarMaskGroup(groups, owner._healPredBar, seenStatusBars, borderFrame)
         AddStatusBarMaskGroup(groups, owner._reducedMaxHealthBar, seenStatusBars, borderFrame)
+        AddHealthPredictionMaskGroups(groups, owner.HealthPrediction, seenStatusBars, owner.Health or owner._health or borderFrame)
         AddChildStatusBarMaskGroups(groups, owner, seenStatusBars, 2, borderFrame)
 
         return groups
