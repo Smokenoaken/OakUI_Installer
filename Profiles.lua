@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.6-EllesmereEdition"
+P.VERSION = "2.6.7-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -105,6 +105,16 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.7-EllesmereEdition",
+        date = "June 26, 2026",
+        notes = {
+            "Updated baked Ellesmere settings from the latest OakUI WTF snapshot.",
+            "Improved chat layout import safety for protected chat state.",
+            "Applied OakUI rounded masks to Ellesmere absorb overlays.",
+            "Updated the supporter list.",
+        }
+    },
     {
         version = "v2.6.6-EllesmereEdition",
         date = "June 24, 2026",

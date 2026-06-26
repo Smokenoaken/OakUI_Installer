@@ -1,3 +1,10 @@
+## v2.6.7-EllesmereEdition
+
+- Updated baked Ellesmere settings from the latest OakUI WTF snapshot.
+- Improved chat layout import safety for protected chat state.
+- Applied OakUI rounded masks to Ellesmere absorb overlays.
+- Updated the supporter list.
+
 ## v2.6.6-EllesmereEdition
 
 - Synced OakUI Healer and Tank/DPS profile swaps between EllesmereUI and Blizzi Party Tools.
