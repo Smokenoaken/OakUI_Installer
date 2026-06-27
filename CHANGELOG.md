@@ -1,3 +1,8 @@
+## v2.6.8-EllesmereEdition
+
+- Fixed a Blizzard chat history taint error triggered by protected chat events.
+- Improved OakUI rounded border masking for raid-frame absorb shields.
+
 ## v2.6.7-EllesmereEdition
 
 - Updated baked Ellesmere settings from the latest OakUI WTF snapshot.

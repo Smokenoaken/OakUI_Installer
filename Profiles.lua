@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.7-EllesmereEdition"
+P.VERSION = "2.6.8-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -105,6 +105,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.8-EllesmereEdition",
+        date = "June 27, 2026",
+        notes = {
+            "Fixed a Blizzard chat history taint error triggered by protected chat events.",
+            "Improved OakUI rounded border masking for raid-frame absorb shields.",
+        }
+    },
     {
         version = "v2.6.7-EllesmereEdition",
         date = "June 26, 2026",
