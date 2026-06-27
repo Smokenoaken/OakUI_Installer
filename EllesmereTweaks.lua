@@ -300,7 +300,6 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
     UpdatePlayerVisibilityWatcher()
 end
 
-local chatFadeHooked = {}
 local originalResetIdleTimer
 local chatFadeApplied
 
@@ -335,25 +334,9 @@ local function ApplyChatLineFadeToFrame(chatFrame)
         chatFrame:SetFading(false)
     end
 
-    if not chatFadeHooked[chatFrame] then
-        chatFadeHooked[chatFrame] = true
-        if hooksecurefunc then
-            hooksecurefunc(chatFrame, "SetFading", function(self, fading)
-                if ChatLineFadeEnabled() and fading == false then
-                    C_Timer.After(0, function()
-                        ApplyChatLineFadeToFrame(self)
-                    end)
-                end
-            end)
-            hooksecurefunc(chatFrame, "AddMessage", function(self)
-                if ChatLineFadeEnabled() then
-                    C_Timer.After(0, function()
-                        ApplyChatLineFadeToFrame(self)
-                    end)
-                end
-            end)
-        end
-    end
+    -- Do not hook ChatFrame:AddMessage or other chat-frame methods here.
+    -- Retail chat history carries protected tokens for whispers/monster speech,
+    -- and addon hooks in that delivery path can taint Blizzard's HistoryKeeper.
 end
 
 local function ApplyChatLineFade()

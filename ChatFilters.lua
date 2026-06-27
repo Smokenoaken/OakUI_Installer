@@ -257,8 +257,6 @@ engine:SetScript("OnEvent", function()
     -- Player chat events carry protected history tokens in current Retail builds.
     -- Returning modified args from an addon taints Blizzard's HistoryKeeper path.
     ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", FilterSystem)
-    ChatFrame_AddMessageEventFilter("CHAT_MSG_ACHIEVEMENT", FilterSystem)
-    ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD_ACHIEVEMENT", FilterSystem)
     ChatFrame_AddMessageEventFilter("CHAT_MSG_COMBAT_XP_GAIN", FilterSystem)
     ChatFrame_AddMessageEventFilter("CHAT_MSG_COMBAT_FACTION_CHANGE", FilterReputation)
     ChatFrame_AddMessageEventFilter("CHAT_MSG_LOOT", FilterLoot)

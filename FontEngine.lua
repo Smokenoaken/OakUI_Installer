@@ -211,9 +211,8 @@ local function RegisterOakRoundThinBorderRenderer()
         for _, child in ipairs(children) do
             if child and child.IsObjectType and child:IsObjectType("StatusBar") then
                 AddStatusBarMaskGroup(groups, child, seenStatusBars, anchorOverride)
-            else
-                AddChildStatusBarMaskGroups(groups, child, seenStatusBars, depth - 1, anchorOverride)
             end
+            AddChildStatusBarMaskGroups(groups, child, seenStatusBars, depth - 1, anchorOverride)
         end
     end
 
@@ -250,7 +249,7 @@ local function RegisterOakRoundThinBorderRenderer()
         AddStatusBarMaskGroup(groups, owner._healPredBar, seenStatusBars, borderFrame)
         AddStatusBarMaskGroup(groups, owner._reducedMaxHealthBar, seenStatusBars, borderFrame)
         AddHealthPredictionMaskGroups(groups, owner.HealthPrediction, seenStatusBars, owner.Health or owner._health or borderFrame)
-        AddChildStatusBarMaskGroups(groups, owner, seenStatusBars, 2, borderFrame)
+        AddChildStatusBarMaskGroups(groups, owner, seenStatusBars, 5, borderFrame)
 
         return groups
     end
