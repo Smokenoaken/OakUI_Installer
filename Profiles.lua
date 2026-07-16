@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.9-EllesmereEdition"
+P.VERSION = "2.6.10-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -105,6 +105,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.10-EllesmereEdition",
+        date = "July 16, 2026",
+        notes = {
+            "Added separate Ellesmere Import options for Nameplates and DataBars",
+            "Stripped character gold, warband gold, and DataBars money caches from baked Ellesmere settings",
+        }
+    },
     {
         version = "v2.6.9-EllesmereEdition",
         date = "July 16, 2026",

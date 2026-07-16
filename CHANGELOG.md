@@ -1,3 +1,8 @@
+## v2.6.10-EllesmereEdition
+
+- Added separate Ellesmere Import options for Nameplates and DataBars
+- Stripped character gold, warband gold, and DataBars money caches from baked Ellesmere settings
+
 ## v2.6.9-EllesmereEdition
 
 - Added an Ellesmere Tweaks option for OakUI rounded borders on Ellesmere nameplates and nameplate cast bars
