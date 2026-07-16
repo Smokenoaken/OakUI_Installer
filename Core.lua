@@ -32,6 +32,7 @@ local ELLESMERE_OAKUI_MODULES = {
     "EllesmereUIFriends",
     "EllesmereUIMinimap",
     "EllesmereUIMythicTimer",
+    "EllesmereUINameplates",
     "EllesmereUIQoL",
     "EllesmereUIQuestTracker",
     "EllesmereUIRaidFrames",
@@ -100,7 +101,6 @@ local function ClaimEllesmereFirstInstallForOakUI()
         for _, folder in ipairs(ELLESMERE_OAKUI_MODULES) do
             SetAddonEnabledForOakUI(folder, true)
         end
-        SetAddonEnabledForOakUI("EllesmereUINameplates", false)
     end
 
     HideEllesmereFirstInstallPopup()

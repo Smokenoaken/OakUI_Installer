@@ -211,6 +211,11 @@ local OAK_TRACKING_BAR_BORDER_FIELDS = {
     "borderClassColor", "borderTexture", "borderTextureOffset", "borderTextureOffsetY",
     "borderTextureShiftX", "borderTextureShiftY", "borderBehind", "borderThickness",
 }
+local OAK_NAMEPLATE_BORDER_FIELDS = {
+    "customBorderEnabled", "customBorderTexture", "customBorderSize", "customBorderColor",
+    "customBorderAlpha", "customBorderBehind", "customBorderOffset", "customBorderOffsetY",
+    "customBorderShiftX", "customBorderShiftY", "castBorderSize", "castBorderColor",
+}
 local OAK_RESOURCE_BORDER_KEYS = { "health", "primary", "secondary", "castBar", "totemBar" }
 local OAK_UNIT_FRAME_KEYS = { "player", "target", "targettarget", "pet", "totPet", "focus", "focustarget", "boss" }
 
@@ -417,6 +422,40 @@ local function FallbackTrackingBarBorder(settings)
     FallbackResourceBorder(settings)
     settings.borderClassColor = false
     settings.borderThickness = "thin"
+end
+
+local function ApplyNameplateRoundThin(settings, borderKey)
+    if type(settings) ~= "table" then return end
+    settings.customBorderEnabled = true
+    settings.customBorderTexture = borderKey
+    settings.customBorderSize = 1
+    settings.customBorderColor = { r = 0, g = 0, b = 0 }
+    settings.customBorderAlpha = 1
+    settings.customBorderBehind = false
+    settings.customBorderOffset = nil
+    settings.customBorderOffsetY = nil
+    settings.customBorderShiftX = nil
+    settings.customBorderShiftY = nil
+    settings.castBorderSize = 0
+    settings.castBorderColor = { r = 0, g = 0, b = 0 }
+end
+
+local function FallbackNameplateBorder(settings)
+    if type(settings) ~= "table" then return end
+    if IsOakRoundThinBorderValue(settings.customBorderTexture) then
+        settings.customBorderEnabled = false
+        settings.customBorderTexture = "solid"
+        settings.customBorderSize = 1
+        settings.customBorderColor = settings.customBorderColor or { r = 0, g = 0, b = 0 }
+        settings.customBorderAlpha = settings.customBorderAlpha or 1
+        settings.customBorderBehind = false
+        settings.customBorderOffset = nil
+        settings.customBorderOffsetY = nil
+        settings.customBorderShiftX = nil
+        settings.customBorderShiftY = nil
+    end
+    settings.castBorderSize = settings.castBorderSize or 0
+    settings.castBorderColor = settings.castBorderColor or { r = 0, g = 0, b = 0 }
 end
 
 local function RefreshEllesmereBorderTargets()
@@ -1137,6 +1176,244 @@ function addonTable.ApplyOakRoundThinCastBarsIfEnabled(profileName)
     ApplyCastBarRoundThinBorders(true, profileName)
 end
 
+local function ApplyNameplateCastbarRoundThinToPlate(plate, state)
+    if type(plate) ~= "table" then return end
+    local castbar = plate.cast or plate.Castbar or plate.castbar
+    if not castbar or not castbar.GetStatusBarTexture then return end
+    if state then
+        ApplyStandaloneStatusBarRoundThin(castbar, plate.castBG or plate.castBg or FindFirstTextureRegion(castbar))
+    else
+        RemoveStandaloneStatusBarRoundThin(castbar)
+    end
+end
+
+local function ApplyNameplateHealthBackgroundRoundThinToPlate(plate, state)
+    if type(plate) ~= "table" or not plate.health then return end
+
+    local health = plate.health
+    local squareBg = plate.healthBG or plate.healthBg or plate.HealthBG
+    local roundedBg = health._oakRoundThinNameplateBackground
+
+    if state then
+        EnsureOakRoundThinRenderer()
+
+        if roundedBg then roundedBg:Hide() end
+        if squareBg and squareBg.Show then squareBg:Show() end
+        if plate._oakRoundThinMaskedHealthBG and health._oakRoundThinMaskOnlyEntries then return end
+
+        local masked = squareBg and addonTable.ApplyOakRoundThinMaskOnly and addonTable.ApplyOakRoundThinMaskOnly(health, squareBg, health)
+        if masked then
+            plate._oakRoundThinMaskedHealthBG = true
+            plate._oakRoundThinHiddenHealthBG = nil
+        elseif squareBg and squareBg.Show then
+            squareBg:Show()
+            plate._oakRoundThinMaskedHealthBG = nil
+            plate._oakRoundThinHiddenHealthBG = nil
+        end
+    else
+        if addonTable.RemoveOakRoundThinMaskOnly then
+            addonTable.RemoveOakRoundThinMaskOnly(health)
+        end
+        if roundedBg then roundedBg:Hide() end
+        if (plate._oakRoundThinHiddenHealthBG or plate._oakRoundThinMaskedHealthBG) and squareBg and squareBg.Show then
+            squareBg:Show()
+        end
+        plate._oakRoundThinHiddenHealthBG = nil
+        plate._oakRoundThinMaskedHealthBG = nil
+    end
+end
+
+local function ApplyNameplateRoundThinToPlate(plate, state)
+    ApplyNameplateHealthBackgroundRoundThinToPlate(plate, state)
+    ApplyNameplateCastbarRoundThinToPlate(plate, state)
+end
+
+local function ApplyEllesmereNameplateRoundThinToUnit(unit, state)
+    if not unit then return false end
+    local ns = type(_G.EllesmereNameplates_NS) == "table" and _G.EllesmereNameplates_NS
+    if not ns then return false end
+
+    local plate = (type(ns.plates) == "table" and ns.plates[unit])
+        or (type(ns.friendlyPlates) == "table" and ns.friendlyPlates[unit])
+    if not plate and type(ns.friendlyPlates) == "table" then
+        for _, candidate in pairs(ns.friendlyPlates) do
+            if candidate and candidate.unit and UnitIsUnit and UnitIsUnit(candidate.unit, unit) then
+                plate = candidate
+                break
+            end
+        end
+    end
+    if not plate then return false end
+
+    ApplyNameplateRoundThinToPlate(plate, state)
+    return true
+end
+
+local function ApplyEllesmereNameplateRoundThinLive(state, skipSettingsRefresh)
+    local ns = type(_G.EllesmereNameplates_NS) == "table" and _G.EllesmereNameplates_NS
+    if not ns then return end
+
+    if state == true and type(ns.db) == "table" and type(ns.db.profile) == "table" then
+        ApplyNameplateRoundThin(ns.db.profile, GetOakRoundThinBorderKey())
+    end
+
+    if not skipSettingsRefresh and type(ns.RefreshAllSettings) == "function" then
+        pcall(ns.RefreshAllSettings)
+    elseif not skipSettingsRefresh and type(_G._ENP_RefreshAllSettings) == "function" then
+        pcall(_G._ENP_RefreshAllSettings)
+    elseif not skipSettingsRefresh then
+        if type(ns.RefreshBorder) == "function" then pcall(ns.RefreshBorder) end
+        if type(ns.RefreshBorderColor) == "function" then pcall(ns.RefreshBorderColor) end
+    end
+
+    for _, collection in ipairs({ ns.plates, ns.friendlyPlates }) do
+        if type(collection) == "table" then
+            for _, plate in pairs(collection) do
+                ApplyNameplateRoundThinToPlate(plate, state)
+            end
+        end
+    end
+end
+
+local function EnsureEllesmereNameplateRoundThinHook()
+    local ns = type(_G.EllesmereNameplates_NS) == "table" and _G.EllesmereNameplates_NS
+    if not ns or ns._oakRoundThinNameplateHooked then return end
+
+    ns._oakRoundThinNameplateHooked = true
+
+    local eventFrame = CreateFrame("Frame")
+    eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+    eventFrame:RegisterEvent("UNIT_SPELLCAST_START")
+    eventFrame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
+    eventFrame:RegisterEvent("UNIT_SPELLCAST_EMPOWER_START")
+    eventFrame:RegisterEvent("UNIT_SPELLCAST_STOP")
+    eventFrame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
+    eventFrame:RegisterEvent("UNIT_SPELLCAST_EMPOWER_STOP")
+    eventFrame:SetScript("OnEvent", function(_, event, unit)
+        if EnsureVisibilityDB().roundThinNameplates ~= true then return end
+        if unit and eventFrame._oakRoundThinUnits and eventFrame._oakRoundThinUnits[unit] then return end
+        eventFrame._oakRoundThinUnits = eventFrame._oakRoundThinUnits or {}
+        if unit then
+            eventFrame._oakRoundThinUnits[unit] = true
+        elseif eventFrame._oakRoundThinRefreshPending then
+            return
+        else
+            eventFrame._oakRoundThinRefreshPending = true
+        end
+
+        if _G.C_Timer and _G.C_Timer.After then
+            _G.C_Timer.After(0, function()
+                if unit then
+                    eventFrame._oakRoundThinUnits[unit] = nil
+                    if not ApplyEllesmereNameplateRoundThinToUnit(unit, true) and event == "NAME_PLATE_UNIT_ADDED" then
+                        ApplyEllesmereNameplateRoundThinLive(true, true)
+                    end
+                else
+                    eventFrame._oakRoundThinRefreshPending = nil
+                    ApplyEllesmereNameplateRoundThinLive(true, true)
+                end
+            end)
+        else
+            if unit then
+                eventFrame._oakRoundThinUnits[unit] = nil
+                if not ApplyEllesmereNameplateRoundThinToUnit(unit, true) and event == "NAME_PLATE_UNIT_ADDED" then
+                    ApplyEllesmereNameplateRoundThinLive(true, true)
+                end
+            else
+                eventFrame._oakRoundThinRefreshPending = nil
+                ApplyEllesmereNameplateRoundThinLive(true, true)
+            end
+        end
+    end)
+    ns._oakRoundThinNameplateEventFrame = eventFrame
+end
+
+local function RefreshEllesmereNameplateBorders()
+    EnsureEllesmereNameplateRoundThinHook()
+    local enabled = EnsureVisibilityDB().roundThinNameplates == true
+    ApplyEllesmereNameplateRoundThinLive(enabled)
+    if _G.C_Timer and _G.C_Timer.After then
+        _G.C_Timer.After(0, function()
+            ApplyEllesmereNameplateRoundThinLive(EnsureVisibilityDB().roundThinNameplates == true, true)
+        end)
+    end
+    RefreshEllesmereOptionsPage()
+end
+
+local function ApplyNameplateRoundThinBorders(state, profileName, skipRefresh)
+    local db = EnsureVisibilityDB()
+    db.roundThinNameplates = state == true
+
+    local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
+    local profiles = type(_G.EllesmereUIDB) == "table" and _G.EllesmereUIDB.profiles
+    local profile = activeProfile and profiles and profiles[activeProfile]
+    local borderKey = GetOakRoundThinBorderKey()
+
+    db.roundThinNameplateBackups = db.roundThinNameplateBackups or {}
+    local allBackups = db.roundThinNameplateBackups
+    local profileBackup = allBackups[activeProfile]
+    if state and type(profileBackup) ~= "table" then
+        profileBackup = {}
+        allBackups[activeProfile] = profileBackup
+    end
+
+    local nameplates = type(profile) == "table"
+        and type(profile.addons) == "table"
+        and profile.addons.EllesmereUINameplates
+    if type(nameplates) == "table" then
+        if state then
+            if type(profileBackup.profile) ~= "table" then
+                profileBackup.profile = {}
+                SaveBorderFields(profileBackup.profile, nameplates, OAK_NAMEPLATE_BORDER_FIELDS)
+            end
+            ApplyNameplateRoundThin(nameplates, borderKey)
+        else
+            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.profile, nameplates, OAK_NAMEPLATE_BORDER_FIELDS, FallbackNameplateBorder)
+        end
+    end
+
+    local ns = type(_G.EllesmereNameplates_NS) == "table" and _G.EllesmereNameplates_NS
+    local liveSettings = ns and type(ns.db) == "table" and type(ns.db.profile) == "table" and ns.db.profile
+    if type(liveSettings) == "table" and liveSettings ~= nameplates then
+        if state then
+            if type(profileBackup.live) ~= "table" then
+                profileBackup.live = {}
+                SaveBorderFields(profileBackup.live, liveSettings, OAK_NAMEPLATE_BORDER_FIELDS)
+            end
+            ApplyNameplateRoundThin(liveSettings, borderKey)
+        else
+            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.live, liveSettings, OAK_NAMEPLATE_BORDER_FIELDS, FallbackNameplateBorder)
+        end
+    end
+
+    if not state and activeProfile then
+        allBackups[activeProfile] = nil
+    end
+
+    if not skipRefresh then
+        RefreshEllesmereNameplateBorders()
+    end
+end
+
+local function SetNameplateRoundThinBorders(state)
+    ApplyNameplateRoundThinBorders(state)
+end
+
+local function GetNameplateRoundThinBorders()
+    return EnsureVisibilityDB().roundThinNameplates == true
+end
+
+function addonTable.ApplyOakRoundThinNameplatesIfEnabled(profileName)
+    local db = EnsureVisibilityDB()
+    if db.roundThinNameplates ~= true then return end
+    local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
+    if activeProfile then
+        db.roundThinNameplateBackups = db.roundThinNameplateBackups or {}
+        db.roundThinNameplateBackups[activeProfile] = nil
+    end
+    ApplyNameplateRoundThinBorders(true, profileName)
+end
+
 local function ApplyBossFrameRoundThinBorders(state, profileName, skipRefresh)
     local db = EnsureVisibilityDB()
     db.roundThinBossFrames = state == true
@@ -1465,6 +1742,7 @@ local function SetAllRoundedBorders(state)
     state = state == true
     SetEllesmereRoundThinBorders(state)
     SetCastBarRoundThinBorders(state)
+    SetNameplateRoundThinBorders(state)
     SetBossFrameRoundThinBorders(state)
     SetTrackingBarRoundThinBorders(state)
     SetBossModRoundThinBorders(state)
@@ -1475,6 +1753,7 @@ end
 local function GetAllRoundedBorders()
     return GetEllesmereRoundThinBorders()
         and GetCastBarRoundThinBorders()
+        and GetNameplateRoundThinBorders()
         and GetBossFrameRoundThinBorders()
         and GetTrackingBarRoundThinBorders()
         and GetBossModRoundThinBorders()
@@ -2054,30 +2333,32 @@ function addonTable.BuildVisibilityUI(parentFrame)
     if IsEllesmereProvider() then
         local leftX, rightX = 15, 255
         local colWidth = 225
-        local rowGap = -40
+        local rowGap = -34
+        local roundedRowGap = -26
 
         AddOption("Apply All", SetAllHidden, GetAllHidden, nil, 300, -23, 150)
 
-        AddSection("Visibility", leftX, -92)
-        AddOption("Hide Player/Pet", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options between None and Hide without Target for Player/Pet.", leftX, -116, colWidth, true)
-        AddOption("Hide CDM", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -116, colWidth, true)
-        AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -116 + rowGap, colWidth)
-        AddOption("Hide Chat Background", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade.", rightX, -116 + rowGap, colWidth)
-        AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -116 + rowGap * 2, colWidth)
-        AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", rightX, -116 + rowGap * 2, colWidth)
-        AddOption("Hide Error Messages", SetErrorMessagesHidden, GetErrorMessagesHidden, "Suppresses most red UI error text from UIErrorsFrame, useful for GSE macro spam. Important errors like full bags, full quest log, dead player/pet, and LFG boot/teleport messages still show.", leftX, -116 + rowGap * 3, colWidth, true)
+        AddSection("Visibility", leftX, -84)
+        AddOption("Hide Player/Pet", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options between None and Hide without Target for Player/Pet.", leftX, -106, colWidth, true)
+        AddOption("Hide CDM", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -106, colWidth, true)
+        AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -106 + rowGap, colWidth)
+        AddOption("Hide Chat Background", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade.", rightX, -106 + rowGap, colWidth)
+        AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -106 + rowGap * 2, colWidth)
+        AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", rightX, -106 + rowGap * 2, colWidth)
+        AddOption("Hide Error Messages", SetErrorMessagesHidden, GetErrorMessagesHidden, "Suppresses most red UI error text from UIErrorsFrame, useful for GSE macro spam. Important errors like full bags, full quest log, dead player/pet, and LFG boot/teleport messages still show.", leftX, -106 + rowGap * 3, colWidth, true)
 
-        AddSection("Player Frame", leftX, -260)
-        AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -286, colWidth)
-        AddSection("Rounded Borders", leftX, -328)
-        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles every OakUI rounded-border option in this section.", leftX, -354, colWidth, true)
-        AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -354, colWidth, true)
-        AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -384, colWidth, true)
-        AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -384, colWidth, true)
-        AddOption("Cast Bars", SetCastBarRoundThinBorders, GetCastBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere cast bars, including unit-frame cast bars and the resource cast bar.", leftX, -414, colWidth, true)
-        AddOption("Boss Frames", SetBossFrameRoundThinBorders, GetBossFrameRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere boss frames without enabling the full EUI Frames/Bars option.", rightX, -414, colWidth, true)
-        AddOption("Tracking Bars", SetTrackingBarRoundThinBorders, GetTrackingBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere Tracking Bars. Turning it off restores their previous saved border settings.", leftX, -444, colWidth, true)
-        AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -444, colWidth, true)
+        AddSection("Player Frame", leftX, -228)
+        AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -250, colWidth)
+        AddSection("Rounded Borders", leftX, -288)
+        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles every OakUI rounded-border option in this section.", leftX, -312, colWidth, true)
+        AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -312, colWidth, true)
+        AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -312 + roundedRowGap, colWidth, true)
+        AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -312 + roundedRowGap, colWidth, true)
+        AddOption("Cast Bars", SetCastBarRoundThinBorders, GetCastBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere cast bars, including unit-frame cast bars and the resource cast bar.", leftX, -312 + roundedRowGap * 2, colWidth, true)
+        AddOption("Boss Frames", SetBossFrameRoundThinBorders, GetBossFrameRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere boss frames without enabling the full EUI Frames/Bars option.", rightX, -312 + roundedRowGap * 2, colWidth, true)
+        AddOption("Nameplates", SetNameplateRoundThinBorders, GetNameplateRoundThinBorders, "Applies OakUI rounded masking to Ellesmere nameplates and their cast bars. Nameplate cast bars use OakUI's standalone rounded status-bar renderer because Ellesmere does not expose the same custom-border path there.", leftX, -312 + roundedRowGap * 3, colWidth, true)
+        AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -312 + roundedRowGap * 3, colWidth, true)
+        AddOption("Tracking Bars", SetTrackingBarRoundThinBorders, GetTrackingBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere Tracking Bars. Turning it off restores their previous saved border settings.", leftX, -312 + roundedRowGap * 4, colWidth, true)
 
         parentFrame.UpdateVisibilityCheckboxes = function()
             for _, cb in ipairs(checkboxes) do cb:UpdateState() end
@@ -2167,6 +2448,9 @@ CleanupFrame:SetScript("OnEvent", function(self)
         end
         if addonTable.ApplyOakRoundThinCastBarsIfEnabled then
             pcall(addonTable.ApplyOakRoundThinCastBarsIfEnabled)
+        end
+        if addonTable.ApplyOakRoundThinNameplatesIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinNameplatesIfEnabled)
         end
         if addonTable.ApplyOakRoundThinBossFramesIfEnabled then
             pcall(addonTable.ApplyOakRoundThinBossFramesIfEnabled)

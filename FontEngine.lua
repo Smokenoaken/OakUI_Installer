@@ -125,14 +125,47 @@ local function RegisterOakRoundThinBorderRenderer()
         return value
     end
 
+    local function GetWidgetMethod(widget, methodName)
+        local ok, method = pcall(function()
+            return widget and widget[methodName]
+        end)
+        if ok and type(method) == "function" then
+            return method
+        end
+        return nil
+    end
+
+    local function CallWidgetMethodSafe(widget, methodName, ...)
+        local method = GetWidgetMethod(widget, methodName)
+        if not method then return false, nil end
+        local ok, result = pcall(method, widget, ...)
+        if ok then return true, result end
+        return false, nil
+    end
+
+    local function IsWidgetForbidden(widget)
+        local ok, forbidden = CallWidgetMethodSafe(widget, "IsForbidden")
+        return ok and forbidden
+    end
+
+    local function GetWidgetObjectTypeResult(widget, objectType)
+        local ok, isType = CallWidgetMethodSafe(widget, "IsObjectType", objectType)
+        return ok, ok and isType
+    end
+
+    local function IsWidgetObjectType(widget, objectType)
+        local _, isType = GetWidgetObjectTypeResult(widget, objectType)
+        return isType
+    end
+
     local function AddMaskTarget(targets, texture)
-        if texture and texture.AddMaskTexture then
+        if texture and GetWidgetMethod(texture, "AddMaskTexture") then
             targets[texture] = true
         end
     end
 
     local function AddMaskGroup(groups, maskParent, anchorFrame, targets)
-        if not maskParent or not anchorFrame or not maskParent.CreateMaskTexture or not targets or not next(targets) then return end
+        if not maskParent or not anchorFrame or not GetWidgetMethod(maskParent, "CreateMaskTexture") or not targets or not next(targets) then return end
         groups[#groups + 1] = {
             maskParent = maskParent,
             anchorFrame = anchorFrame,
@@ -141,23 +174,25 @@ local function RegisterOakRoundThinBorderRenderer()
     end
 
     local function GetFrameChildrenSafe(frame)
-        if not frame or type(frame.GetChildren) ~= "function" then return nil end
-        local ok, children = pcall(function()
-            return { frame:GetChildren() }
-        end)
+        if not frame or IsWidgetForbidden(frame) then return nil end
+        local method = GetWidgetMethod(frame, "GetChildren")
+        if not method then return nil end
+        local ok, children = pcall(function() return { method(frame) } end)
         if ok then return children end
         return nil
     end
 
     local function AddStatusBarMaskGroup(groups, bar, seenStatusBars, anchorOverride)
-        if not bar or not bar.GetStatusBarTexture then return end
+        if not bar or IsWidgetForbidden(bar) then return end
+        local ok, statusBarTexture = CallWidgetMethodSafe(bar, "GetStatusBarTexture")
+        if not ok then return end
         if seenStatusBars then
             if seenStatusBars[bar] then return end
             seenStatusBars[bar] = true
         end
 
         local targets = {}
-        AddMaskTarget(targets, bar:GetStatusBarTexture())
+        AddMaskTarget(targets, statusBarTexture)
         AddMaskTarget(targets, bar.bg)
         AddMaskTarget(targets, bar.BG)
         AddMaskTarget(targets, bar._bg)
@@ -176,14 +211,16 @@ local function RegisterOakRoundThinBorderRenderer()
     end
 
     local function AddStatusBarFillMaskGroup(groups, bar, seenStatusBars, anchorOverride)
-        if not bar or not bar.GetStatusBarTexture then return end
+        if not bar or IsWidgetForbidden(bar) then return end
+        local ok, statusBarTexture = CallWidgetMethodSafe(bar, "GetStatusBarTexture")
+        if not ok then return end
         if seenStatusBars then
             if seenStatusBars[bar] then return end
             seenStatusBars[bar] = true
         end
 
         local targets = {}
-        AddMaskTarget(targets, bar:GetStatusBarTexture())
+        AddMaskTarget(targets, statusBarTexture)
         AddMaskTarget(targets, bar.bg)
         AddMaskTarget(targets, bar.BG)
         AddMaskTarget(targets, bar._bg)
@@ -205,14 +242,17 @@ local function RegisterOakRoundThinBorderRenderer()
     end
 
     local function AddChildStatusBarMaskGroups(groups, frame, seenStatusBars, depth, anchorOverride)
-        if not frame or not frame.GetChildren or (depth or 0) <= 0 then return end
+        if not frame or (depth or 0) <= 0 then return end
         local children = GetFrameChildrenSafe(frame)
         if not children then return end
         for _, child in ipairs(children) do
-            if child and child.IsObjectType and child:IsObjectType("StatusBar") then
+            local objectTypeOk, isStatusBar = GetWidgetObjectTypeResult(child, "StatusBar")
+            if isStatusBar then
                 AddStatusBarMaskGroup(groups, child, seenStatusBars, anchorOverride)
             end
-            AddChildStatusBarMaskGroups(groups, child, seenStatusBars, depth - 1, anchorOverride)
+            if objectTypeOk and child and not IsWidgetForbidden(child) then
+                AddChildStatusBarMaskGroups(groups, child, seenStatusBars, depth - 1, anchorOverride)
+            end
         end
     end
 
@@ -235,7 +275,7 @@ local function RegisterOakRoundThinBorderRenderer()
         AddMaskTarget(ownerTargets, owner.iconBg)
         AddMaskGroup(groups, owner, borderFrame, ownerTargets)
 
-        if owner.IsObjectType and owner:IsObjectType("StatusBar") then
+        if IsWidgetObjectType(owner, "StatusBar") then
             AddStatusBarMaskGroup(groups, owner, seenStatusBars, borderFrame)
         end
         AddStatusBarMaskGroup(groups, owner._sb, seenStatusBars, borderFrame)

@@ -57,11 +57,11 @@ function addonTable.BuildInstallerUI(parentFrame)
         end
     end, requiresReload = true, manual = true, includeInAll = true }
     local FlagshipAddons = {
-        { name = "Ellesmere UI Profile", folder = baseFolder, url = baseUrl, func = Inj.BaseUI, requiresReload = true, hasRoles = true },
+        { name = "Ellesmere UI Profile", folder = baseFolder, url = baseUrl, func = Inj.BaseUI, requiresReload = true, hasRoles = true, includeInAll = true },
         editModeAddon,
         chatLayoutAddon,
-        { name = "Platynator", folder = "Platynator", url = "https://www.curseforge.com/wow/addons/platynator", func = Inj.Platynator },
-        { name = "XIV_Databar Continued", folder = "XIV_Databar_Continued", url = "https://www.curseforge.com/wow/addons/xiv-databar-continued", func = Inj.XIV },
+        { name = "Platynator (Optional)", folder = "Platynator", url = "https://www.curseforge.com/wow/addons/platynator", func = Inj.Platynator, requiresReload = false },
+        { name = "XIV_Databar Continued (Optional)", folder = "XIV_Databar_Continued", url = "https://www.curseforge.com/wow/addons/xiv-databar-continued", func = Inj.XIV, requiresReload = false },
         { name = "DBM (Optional)", folder = "DBM-Core", url = "https://www.curseforge.com/wow/addons/deadly-boss-mods", func = Inj.DBM, requiresReload = false },
         { name = "BigWigs (Optional)", folder = "BigWigs", url = "https://www.curseforge.com/wow/addons/big-wigs", func = Inj.BigWigs, requiresReload = false },
         { name = "Blizzi Party Tools (Optional)", folder = "BliZzi_Interrupts", url = "https://www.curseforge.com/wow/addons/blizzi-party-tools", func = Inj.BlizziPartyTools, requiresReload = false },

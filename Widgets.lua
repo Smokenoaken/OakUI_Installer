@@ -202,7 +202,7 @@ function Inj.ExecuteInstallAll(addonList, profileName, role, callback)
             end
         end
         
-        if isReady and (not addon.manual or addon.includeInAll) then
+        if isReady and addon.includeInAll then
             local success, err = pcall(addon.func, profileName, role)
             if not success then
                 print("|cffff0000[OakUI] Error installing " .. addon.name .. ":|r " .. tostring(err))

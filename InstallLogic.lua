@@ -32,7 +32,6 @@ function addonTable.Injectors.Platynator(profileName, role)
             print("|cffff0000[OakUI Error]|r Platynator import failed.")
             return
         end
-        addonTable.DisableEllesmereNameplatesForPlatynator(false)
     end
 end
 
@@ -143,6 +142,43 @@ local function ApplyBaseActionBarCVars()
     if MultiActionBar_Update then MultiActionBar_Update() end
 end
 
+local function SetCVarSafe(name, value)
+    if C_CVar and C_CVar.SetCVar then
+        pcall(C_CVar.SetCVar, name, tostring(value))
+    elseif SetCVar then
+        pcall(SetCVar, name, value)
+    end
+end
+
+local function ApplyBaseNameplateCVars()
+    SetCVarSafe("nameplateShowAll", 1)
+    SetCVarSafe("nameplateShowEnemies", 1)
+
+    local hyperframeSettings = _G.HF_SETTINGS
+    if type(hyperframeSettings) ~= "table" then return end
+
+    for key in pairs(hyperframeSettings) do
+        if type(key) == "string" and key:match("_nameplateShowAll$") then
+            hyperframeSettings[key] = true
+        elseif type(key) == "string" and key:match("_nameplateShowAllDisable$") then
+            hyperframeSettings[key] = true
+        end
+    end
+end
+
+local nameplateCVarFrame = CreateFrame("Frame")
+nameplateCVarFrame:RegisterEvent("PLAYER_LOGIN")
+nameplateCVarFrame:RegisterEvent("ADDON_LOADED")
+nameplateCVarFrame:SetScript("OnEvent", function(_, event, addon)
+    if event == "ADDON_LOADED" and addon ~= "Hyperframe" then return end
+
+    if C_Timer and type(C_Timer.After) == "function" then
+        C_Timer.After(1, ApplyBaseNameplateCVars)
+    else
+        ApplyBaseNameplateCVars()
+    end
+end)
+
 local function GetElvUICore()
     local E = _G.ElvUI and _G.ElvUI[1]
     if not E and type(_G.ElvUI) == "table" then
@@ -189,43 +225,6 @@ function addonTable.BypassElvUIInstaller()
     local E = GetElvUICore()
     HideElvUIInstaller(E)
     DisablePlatynatorConflictWarning(E)
-end
-
-local function IsAddonInstalled(folder)
-    if not C_AddOns or not C_AddOns.GetAddOnInfo then return false end
-    local name, _, _, _, reason = C_AddOns.GetAddOnInfo(folder)
-    return name ~= nil and reason ~= "MISSING"
-end
-
-local function IsAddonEnabledOrLoaded(folder)
-    if not IsAddonInstalled(folder) then return false end
-    if C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(folder) then return true end
-    if C_AddOns.GetAddOnEnableState then
-        return (C_AddOns.GetAddOnEnableState(folder, UnitName("player")) or 0) > 0
-    end
-    return true
-end
-
-function addonTable.DisableEllesmereNameplatesForPlatynator(quiet)
-    if not IsAddonEnabledOrLoaded("Platynator") or not IsAddonEnabledOrLoaded("EllesmereUINameplates") then
-        return false
-    end
-
-    local disabled = false
-    if C_AddOns.DisableAddOn then
-        local ok = pcall(C_AddOns.DisableAddOn, "EllesmereUINameplates", UnitName("player"))
-        if not ok then
-            ok = pcall(C_AddOns.DisableAddOn, "EllesmereUINameplates")
-        end
-        disabled = ok
-    end
-
-    if disabled and not quiet and not addonTable._platynatorNameplateNoticeShown then
-        addonTable._platynatorNameplateNoticeShown = true
-        print("|cff17ee15[OakUI]|r Platynator detected; EllesmereUI Nameplates will be disabled after reload.")
-    end
-
-    return disabled
 end
 
 local function RefreshEllesmereAfterProfileImport()
@@ -479,23 +478,6 @@ local function ApplyEllesmereProfileSupplement(profileName)
     end
 end
 
-local platynatorConflictFrame = CreateFrame("Frame")
-platynatorConflictFrame:RegisterEvent("PLAYER_LOGIN")
-platynatorConflictFrame:RegisterEvent("ADDON_LOADED")
-platynatorConflictFrame:SetScript("OnEvent", function(_, event, addon)
-    if event == "ADDON_LOADED" and addon ~= "Platynator" and addon ~= "EllesmereUINameplates" then
-        return
-    end
-
-    if C_Timer and type(C_Timer.After) == "function" then
-        C_Timer.After(1, function()
-            addonTable.DisableEllesmereNameplatesForPlatynator(true)
-        end)
-    else
-        addonTable.DisableEllesmereNameplatesForPlatynator(true)
-    end
-end)
-
 function addonTable.Injectors.Ellesmere(profileName, role)
     if not C_AddOns.IsAddOnLoaded("EllesmereUI") then return end
 
@@ -556,13 +538,18 @@ function addonTable.Injectors.Ellesmere(profileName, role)
                 print("|cffff0000[OakUI Error]|r Cast Bar round thin borders failed: " .. tostring(castBorderErr))
             end
         end
+        if addonTable.ApplyOakRoundThinNameplatesIfEnabled then
+            local nameplateBorderOk, nameplateBorderErr = pcall(addonTable.ApplyOakRoundThinNameplatesIfEnabled, profileName)
+            if not nameplateBorderOk then
+                print("|cffff0000[OakUI Error]|r Nameplate round thin borders failed: " .. tostring(nameplateBorderErr))
+            end
+        end
         if addonTable.ApplyOakRoundThinBossFramesIfEnabled then
             local bossBorderOk, bossBorderErr = pcall(addonTable.ApplyOakRoundThinBossFramesIfEnabled, profileName)
             if not bossBorderOk then
                 print("|cffff0000[OakUI Error]|r Boss Frame round thin borders failed: " .. tostring(bossBorderErr))
             end
         end
-        pcall(addonTable.DisableEllesmereNameplatesForPlatynator, false)
         RefreshEllesmereAfterProfileImport()
         if addonTable.MarkEllesmereCDMAutoRepopulateProfile then
             addonTable.MarkEllesmereCDMAutoRepopulateProfile(profileName)
@@ -854,7 +841,7 @@ function addonTable.Injectors.ExecuteInstallAll(addonList, profileName, role, ca
             end
         end
 
-        if isReady and (not addon.manual or addon.includeInAll) then
+        if isReady and addon.includeInAll then
             -- Pass the role dynamically to the injector function
             addon.func(profileName, role)
             if addon.rowBtn then
