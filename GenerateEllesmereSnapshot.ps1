@@ -12,6 +12,85 @@ if ($content -notmatch "^\s*EllesmereUIDB\s*=") {
 }
 
 $snapshot = $content -replace "^\s*EllesmereUIDB\s*=", "P.ELLESMERE_SNAPSHOT ="
+
+# Do not package account or character wealth data in OakUI baked settings.
+# Ellesmere's live DB owns these values per user; baked imports must never carry
+# Oakensoul/OakUI character gold, warband gold, or DataBars money caches.
+function Clear-LuaTableAssignment {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Text,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Key
+    )
+
+    $needle = "[`"$Key`"] = {"
+    $builder = [System.Text.StringBuilder]::new()
+    $index = 0
+
+    while ($index -lt $Text.Length) {
+        $start = $Text.IndexOf($needle, $index, [System.StringComparison]::Ordinal)
+        if ($start -lt 0) {
+            [void]$builder.Append($Text.Substring($index))
+            break
+        }
+
+        [void]$builder.Append($Text.Substring($index, $start - $index))
+        $pos = $start + $needle.Length - 1
+        $depth = 0
+        $inString = $false
+        $escaped = $false
+
+        while ($pos -lt $Text.Length) {
+            $ch = $Text[$pos]
+            if ($inString) {
+                if ($escaped) {
+                    $escaped = $false
+                } elseif ($ch -eq '\') {
+                    $escaped = $true
+                } elseif ($ch -eq '"') {
+                    $inString = $false
+                }
+            } else {
+                if ($ch -eq '"') {
+                    $inString = $true
+                } elseif ($ch -eq '{') {
+                    $depth++
+                } elseif ($ch -eq '}') {
+                    $depth--
+                    if ($depth -eq 0) {
+                        $pos++
+                        if ($pos -lt $Text.Length -and $Text[$pos] -eq ',') { $pos++ }
+                        break
+                    }
+                }
+            }
+            $pos++
+        }
+
+        $index = $pos
+    }
+
+    return $builder.ToString()
+}
+
+function Clear-LuaScalarAssignment {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Text,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Key
+    )
+
+    return [regex]::Replace($Text, "(?m)^\[`"$([regex]::Escape($Key))`"\]\s*=\s*[^,\r\n]+,\r?\n", "")
+}
+
+$snapshot = Clear-LuaTableAssignment -Text $snapshot -Key "characterGold"
+$snapshot = Clear-LuaTableAssignment -Text $snapshot -Key "warbandGold"
+$snapshot = Clear-LuaTableAssignment -Text $snapshot -Key "characters"
+$snapshot = Clear-LuaScalarAssignment -Text $snapshot -Key "currentMoney"
 $generatedAt = Get-Date -Format "yyyy-MM-dd HH:mm:ss K"
 $escapedInput = ($resolvedInput.ProviderPath -replace "\\", "\\")
 
@@ -31,6 +110,24 @@ end
 
 do
     local snapshot = P.ELLESMERE_SNAPSHOT
+    if type(snapshot) == "table" then
+        snapshot.characterGold = nil
+        snapshot.warbandGold = nil
+    end
+
+    local function OakUI_EllesmereSnapshotStripWealth(node)
+        if type(node) ~= "table" then return end
+        node.characterGold = nil
+        node.warbandGold = nil
+        node.characters = nil
+        node.currentMoney = nil
+        for _, value in pairs(node) do
+            OakUI_EllesmereSnapshotStripWealth(value)
+        end
+    end
+
+    OakUI_EllesmereSnapshotStripWealth(snapshot and snapshot.profiles)
+
     local profiles = snapshot and snapshot.profiles
     if type(profiles) == "table" then
         local tank = profiles["OakUI Tank/DPS"] or profiles["OakUI-Tank/DPS"] or profiles.OakUI

@@ -28,6 +28,7 @@ local ELLESMERE_OAKUI_MODULES = {
     "EllesmereUIBlizzardSkin",
     "EllesmereUIChat",
     "EllesmereUICooldownManager",
+    "EllesmereUIDataBars",
     "EllesmereUIDamageMeters",
     "EllesmereUIFriends",
     "EllesmereUIMinimap",

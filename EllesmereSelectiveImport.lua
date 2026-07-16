@@ -27,6 +27,7 @@ local MODULES = {
     { key = "mythic", folder = "EllesmereUIMythicTimer", display = "Mythic+ Timer" },
     { key = "meters", folder = "EllesmereUIDamageMeters", display = "Damage Meters" },
     { key = "friends", folder = "EllesmereUIFriends", display = "Friends List" },
+    { key = "databars", folder = "EllesmereUIDataBars", display = "DataBars" },
     { key = "dragonriding", folder = "EllesmereUIDragonRiding", display = "Dragonriding" },
 }
 
@@ -140,6 +141,16 @@ local CATEGORY_TREE = {
     },
     { id = "timersWidgets", label = "Timers / Widgets", description = "M+ timer, quest tracker, aura reminders, and utility widgets.", recommended = true },
     { id = "chat", label = "Chat", description = "Chat frame skinning, formatting, and utility options.", recommended = true },
+    {
+        id = "nameplatesDataBars",
+        label = "Nameplates / DataBars",
+        description = "Ellesmere nameplate and DataBars module settings.",
+        recommended = true,
+        children = {
+            { id = "nameplatesOnly", label = "Nameplates", description = "Only Ellesmere nameplate styling and behavior.", recommended = true },
+            { id = "dataBarsOnly", label = "DataBars", description = "Only Ellesmere DataBars styling and behavior.", recommended = true },
+        },
+    },
     { id = "qol", label = "QoL / Automation", description = "Automation helpers, popup blocker, consumables, and utility toggles.", recommended = true },
     { id = "skinning", label = "Skinning / Blizzard UI", description = "Bags, nameplates, character sheet, and Blizzard skinning options.", recommended = true },
 }
@@ -275,7 +286,20 @@ local function CopyAddon(targetProfile, sourceProfile, folder)
     local srcAddons = sourceProfile.addons
     if type(srcAddons) ~= "table" or type(srcAddons[folder]) ~= "table" then return false end
     targetProfile.addons = targetProfile.addons or {}
-    targetProfile.addons[folder] = DeepCopy(srcAddons[folder])
+    local copy = DeepCopy(srcAddons[folder])
+    if folder == "EllesmereUIDataBars" then
+        copy.characters = nil
+        copy.currentMoney = nil
+        local function ClearMoneyFields(node)
+            if type(node) ~= "table" then return end
+            node.currentMoney = nil
+            for _, value in pairs(node) do
+                ClearMoneyFields(value)
+            end
+        end
+        ClearMoneyFields(copy)
+    end
+    targetProfile.addons[folder] = copy
     return true
 end
 
@@ -647,6 +671,13 @@ local function ApplySelectionCategory(id, db, snapshot, targetProfile, sourcePro
         end
     elseif id == "chat" then
         CopyAddon(targetProfile, sourceProfile, "EllesmereUIChat")
+    elseif id == "nameplatesDataBars" then
+        CopyAddon(targetProfile, sourceProfile, "EllesmereUINameplates")
+        CopyAddon(targetProfile, sourceProfile, "EllesmereUIDataBars")
+    elseif id == "nameplatesOnly" then
+        CopyAddon(targetProfile, sourceProfile, "EllesmereUINameplates")
+    elseif id == "dataBarsOnly" then
+        CopyAddon(targetProfile, sourceProfile, "EllesmereUIDataBars")
     elseif id == "qol" then
         CopyAddon(targetProfile, sourceProfile, "EllesmereUIQoL")
         CopyRootKeys(db, snapshot, {
@@ -661,9 +692,8 @@ local function ApplySelectionCategory(id, db, snapshot, targetProfile, sourcePro
         CopyRootKeys(db, snapshot, {
             "bagCategoryOrder", "bagCategoryState", "bagDefaultGroupsSeeded",
             "bagDisabledCategories", "bagPinnedItems", "bagSidebarCollapsed",
-            "bagVisualOrder", "bagsPosition", "bagsVisible", "characterGold",
-            "currencyOrder", "statSectionsOrder", "themedCharacterSheet",
-            "warbandGold",
+            "bagVisualOrder", "bagsPosition", "bagsVisible", "currencyOrder",
+            "statSectionsOrder", "themedCharacterSheet",
         })
     end
 end
