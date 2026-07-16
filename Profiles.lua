@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.10-EllesmereEdition"
+P.VERSION = "2.6.11-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -105,6 +105,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.11-EllesmereEdition",
+        date = "July 16, 2026",
+        notes = {
+            "Republished the baked Ellesmere privacy fix for CurseForge packaging",
+        }
+    },
     {
         version = "v2.6.10-EllesmereEdition",
         date = "July 16, 2026",

@@ -1,3 +1,7 @@
+## v2.6.11-EllesmereEdition
+
+- Republished the baked Ellesmere privacy fix for CurseForge packaging
+
 ## v2.6.10-EllesmereEdition
 
 - Added separate Ellesmere Import options for Nameplates and DataBars
