@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.8-EllesmereEdition"
+P.VERSION = "2.6.9-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -105,6 +105,20 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.9-EllesmereEdition",
+        date = "July 16, 2026",
+        notes = {
+            "Added an Ellesmere Tweaks option for OakUI rounded borders on Ellesmere nameplates and nameplate cast bars",
+            "Fixed OakUI rounded nameplates to mask Ellesmere's live background texture instead of replacing it",
+            "Prevented Hyperframe from turning off Blizzard's always-show and enemy nameplate CVars",
+            "Reduced OakUI rounded nameplate refresh work during active nameplate spellcast events",
+            "Made Ellesmere UI the only required addon while keeping optional Platynator and XIV profile imports available",
+            "Limited Install All Profiles to the required Ellesmere setup while leaving optional profile imports manual",
+            "Stopped OakUI from disabling EllesmereUI Nameplates when Platynator is installed",
+            "Enabled EllesmereUI Nameplates during OakUI's Ellesmere first-run module setup",
+        }
+    },
     {
         version = "v2.6.8-EllesmereEdition",
         date = "June 27, 2026",
