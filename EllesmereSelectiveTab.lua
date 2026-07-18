@@ -67,10 +67,35 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
         return false
     end
 
+    local function HasSelectableAncestor(id)
+        local parentID = parentByID[id]
+        while parentID do
+            local parentNode = allNodes[parentID]
+            if parentNode and not parentNode.header then return true end
+            parentID = parentByID[parentID]
+        end
+        return false
+    end
+
+    local function HasRecommendedSelectableAncestor(id)
+        local parentID = parentByID[id]
+        while parentID do
+            local parentNode = allNodes[parentID]
+            if parentNode and parentNode.recommended and not parentNode.header then return true end
+            parentID = parentByID[parentID]
+        end
+        return false
+    end
+
     local function SetNodeSelected(id, value, silent)
+        local node = allNodes[id]
+        if node and node.header then return end
         selected[id] = value and true or false
         if selected[id] and parentByID[id] then
-            selected[parentByID[id]] = false
+            local parentNode = allNodes[parentByID[id]]
+            if not (parentNode and parentNode.header) then
+                selected[parentByID[id]] = false
+            end
         end
         if not silent then
             for rowID, row in pairs(rows) do
@@ -85,10 +110,14 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
         for id in pairs(allNodes) do selected[id] = false end
 
         if mode == "all" then
-            for id in pairs(allNodes) do selected[id] = true end
+            for id, node in pairs(allNodes) do
+                if not node.header and not HasSelectableAncestor(id) then
+                    selected[id] = true
+                end
+            end
         elseif mode == "recommended" then
             for _, node in pairs(allNodes) do
-                if node.recommended and not parentByID[node.id] then
+                if node.recommended and not node.header and not HasRecommendedSelectableAncestor(node.id) then
                     selected[node.id] = true
                 end
             end
@@ -104,7 +133,8 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
         local out = {}
         local count = 0
         local function Collect(node, parentSelected)
-            if selected[node.id] and not parentSelected then
+            local nodeSelected = selected[node.id] and not node.header
+            if nodeSelected and not parentSelected then
                 out[node.id] = true
                 count = count + 1
                 parentSelected = true
@@ -126,7 +156,7 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
     Desc:SetPoint("TOPLEFT", Title, "BOTTOMLEFT", 0, -6)
     Desc:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, -10)
     Desc:SetJustifyH("LEFT")
-    Desc:SetText("Apply the baked OakUI Ellesmere snapshot in full, or choose precise sections from the saved Ellesmere modules.")
+    Desc:SetText("Apply OakUI's saved Ellesmere data by profile section or by individual Ellesmere addon.")
 
     local RoleRow = CreateFrame("Frame", nil, parentFrame)
     RoleRow:SetPoint("TOPLEFT", Desc, "BOTTOMLEFT", 0, -10)
@@ -169,7 +199,7 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
     Note:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, 0)
     Note:SetJustifyH("LEFT")
     Note:SetTextColor(0.62, 0.62, 0.62)
-    Note:SetText("Parent checkboxes import a whole section. Indented child rows import specific subtabs only. Recommended leaves Theme / Fonts / Colors and Layout / Positions unchecked.")
+    Note:SetText("Parent checkboxes import a whole addon. Indented rows import specific sections only. Recommended leaves shared Theme, Layout, and Click Cast unchecked.")
 
     local ScrollFrame = CreateFrame("ScrollFrame", "OakUI_EllesmereSelectiveScroll", parentFrame, "UIPanelScrollFrameTemplate")
     scrollChild = CreateFrame("Frame", nil, ScrollFrame)
@@ -182,7 +212,8 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
     local function CreateRow(parent, node, depth, yOffset)
         local row = CreateFrame("Frame", nil, parent)
         local indent = depth * 18
-        row:SetHeight(30)
+        local isHeader = node.header == true
+        row:SetHeight(isHeader and 32 or 30)
         row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, yOffset)
         row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, yOffset)
 
@@ -195,7 +226,7 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
         inner:SetPoint("TOPLEFT", 2, -2)
         inner:SetPoint("BOTTOMRIGHT", -2, 2)
 
-        local title = row:CreateFontString(nil, "OVERLAY", depth == 0 and "GameFontNormalSmall" or "GameFontHighlightSmall")
+        local title = row:CreateFontString(nil, "OVERLAY", (isHeader or depth == 0) and "GameFontNormalSmall" or "GameFontHighlightSmall")
         title:SetJustifyH("LEFT")
         title:SetJustifyV("TOP")
         title:SetText(node.label or node.id)
@@ -213,9 +244,10 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
 
             if width < 500 then
                 local left = 5 + indent
-                local textLeft = left + 24
+                local textLeft = isHeader and left or (left + 24)
                 local textWidth = math.max(170, width - textLeft - 8)
 
+                cb:SetShown(not isHeader)
                 cb:SetPoint("TOPLEFT", row, "TOPLEFT", left, -5)
                 title:SetPoint("TOPLEFT", row, "TOPLEFT", textLeft, -3)
                 title:SetWidth(textWidth)
@@ -224,21 +256,26 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
 
                 local titleHeight = math.max(12, title:GetStringHeight() or 12)
                 local descHeight = math.max(12, desc:GetStringHeight() or 12)
-                row:SetHeight(math.max(34, titleHeight + descHeight + 10))
+                row:SetHeight(math.max(isHeader and 38 or 34, titleHeight + descHeight + 10))
             else
                 local left = 5 + indent
-                local titleWidth = math.max(100, math.min(185 - indent, width * 0.33))
-                local descLeft = math.max(218, left + 24 + titleWidth + 18)
+                local titleWidth = math.max(100, math.min(isHeader and 205 or (185 - indent), width * 0.33))
+                local descLeft = isHeader and math.max(218, left + titleWidth + 22) or math.max(218, left + 24 + titleWidth + 18)
                 local descWidth = math.max(180, width - descLeft - 8)
 
+                cb:SetShown(not isHeader)
                 cb:SetPoint("LEFT", row, "LEFT", left, 0)
-                title:SetPoint("LEFT", cb, "RIGHT", 8, 0)
+                if isHeader then
+                    title:SetPoint("LEFT", row, "LEFT", left, 0)
+                else
+                    title:SetPoint("LEFT", cb, "RIGHT", 8, 0)
+                end
                 title:SetWidth(titleWidth)
                 desc:SetPoint("TOPLEFT", row, "TOPLEFT", descLeft, -5)
                 desc:SetWidth(descWidth)
 
                 local descHeight = math.max(12, desc:GetStringHeight() or 12)
-                row:SetHeight(math.max(28, descHeight + 10))
+                row:SetHeight(math.max(isHeader and 32 or 28, descHeight + 10))
             end
         end
         row.Layout(scrollChild and scrollChild:GetWidth())
@@ -253,6 +290,13 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
             end
         end
         row.SetDisabled = function(disabled)
+            if isHeader then
+                row:SetAlpha(1)
+                cb:EnableMouse(false)
+                title:SetTextColor(r, g, b, 1)
+                desc:SetTextColor(0.62, 0.62, 0.62, 1)
+                return
+            end
             local alpha = disabled and 0.42 or 1
             row:SetAlpha(alpha)
             cb:EnableMouse(not disabled)
@@ -261,9 +305,13 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
             title:SetTextColor(tr, tg, tb, 1)
             desc:SetTextColor(disabled and 0.42 or 0.62, disabled and 0.44 or 0.62, disabled and 0.48 or 0.62, 1)
         end
-        cb:SetScript("OnClick", function()
-            SetNodeSelected(node.id, not checked)
-        end)
+        if isHeader then
+            cb:EnableMouse(false)
+        else
+            cb:SetScript("OnClick", function()
+                SetNodeSelected(node.id, not checked)
+            end)
+        end
         row.SetChecked(selected[node.id])
         row.SetDisabled(HasSelectedAncestor(node.id))
         rows[node.id] = row

@@ -376,127 +376,11 @@ function addonTable.RefreshEllesmereChatLineFade()
     chatFadeApplied = ChatLineFadeEnabled()
 end
 
-local resourceWasCompacted
-local resourceSavedPoint
-
-local function GetResourceBarsProfile()
-    if type(_G._ERB_AceDB) == "table" and type(_G._ERB_AceDB.profile) == "table" then
-        return _G._ERB_AceDB.profile
-    end
-    return GetEllesmereAddonProfile("EllesmereUIResourceBars")
-end
-
-local function DisableEllesmereClassResourceAnchor()
-    local profile = GetResourceBarsProfile()
-    local secondary = profile and profile.secondary
-    if type(secondary) == "table" then
-        secondary.anchorTo = "none"
-        secondary.anchorPosition = secondary.anchorPosition or "center"
-        secondary.anchorOffsetX = 0
-        secondary.anchorOffsetY = 0
-        secondary.offsetX = secondary.offsetX or 0
-    end
-
-    if type(_G.EllesmereUIDB) == "table" and type(_G.EllesmereUIDB.unlockAnchors) == "table" then
-        _G.EllesmereUIDB.unlockAnchors.ERB_ClassResource = nil
-    end
-end
-
-local function HasClassResource()
-    if type(_G._ERB_GetSecondaryResource) ~= "function" then
-        return _G.ERB_SecondaryFrame ~= nil
-    end
-    local ok, resource = pcall(_G._ERB_GetSecondaryResource)
-    return ok and resource ~= nil
-end
-
-local function HasVisiblePowerBar()
-    if type(_G._ERB_GetPrimaryPowerType) == "function" then
-        local ok, powerType = pcall(_G._ERB_GetPrimaryPowerType)
-        if ok then return powerType ~= nil end
-    end
-
-    local frame = _G.ERB_PrimaryBar
-    if not frame then return false end
-    if frame.IsShown and not frame:IsShown() then return false end
-    if frame.GetAlpha then
-        local ok, alpha = pcall(frame.GetAlpha, frame)
-        if ok and alpha and alpha <= 0.01 then return false end
-    end
-    if frame.GetHeight and frame:GetHeight() <= 1 then return false end
-    return true
-end
-
-local function IsOakHealerProfileActive()
-    if not IsEllesmereProvider() then return false end
-    local healerName = addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("heals") or "OakUI Healer"
-    return _G.EllesmereUIDB and _G.EllesmereUIDB.activeProfile == healerName
-end
-
-local function NormalizeOakHealerClassResourceAnchor()
-    if InCombatLockdown and InCombatLockdown() then return end
-    if not IsOakHealerProfileActive() then return end
-
-    local EUI = _G.EllesmereUI
-    local resourceProfile = GetResourceBarsProfile()
-    local secondary = type(resourceProfile) == "table" and resourceProfile.secondary
-    local anchors = _G.EllesmereUIDB and _G.EllesmereUIDB.unlockAnchors
-    local widthMatch = _G.EllesmereUIDB and _G.EllesmereUIDB.unlockWidthMatch
-    local changed = false
-
-    if type(secondary) == "table" then
-        if secondary.anchorTo ~= "erb_powerbar" then secondary.anchorTo = "erb_powerbar"; changed = true end
-        if secondary.anchorPosition ~= "top" then secondary.anchorPosition = "top"; changed = true end
-        if secondary.anchorOffsetX ~= 0 then secondary.anchorOffsetX = 0; changed = true end
-        if secondary.anchorOffsetY ~= 0 then secondary.anchorOffsetY = 0; changed = true end
-    end
-    if type(anchors) == "table" and anchors.ERB_ClassResource ~= nil then
-        anchors.ERB_ClassResource = nil
-        changed = true
-    end
-    if type(widthMatch) == "table" and widthMatch.ERB_ClassResource ~= nil then
-        widthMatch.ERB_ClassResource = nil
-        changed = true
-    end
-
-    if EUI and type(EUI.ApplyAllWidthHeightMatches) == "function" then
-        pcall(EUI.ApplyAllWidthHeightMatches)
-    end
-    if changed and _G._ERB_Apply then
-        pcall(_G._ERB_Apply)
-    end
-    if EUI and type(EUI.ReapplyOwnAnchor) == "function" and _G.ERB_SecondaryFrame then
-        pcall(EUI.ReapplyOwnAnchor, "CDM_buffs")
-    end
-end
-
-local function SaveResourcePoint(frame)
-    if resourceSavedPoint or not frame or frame:GetNumPoints() == 0 then return end
-    resourceSavedPoint = { frame:GetPoint(1) }
-end
-
-local function RestoreResourcePoint(frame)
-    if not resourceWasCompacted or not frame then return end
-    resourceWasCompacted = nil
-    if resourceSavedPoint and resourceSavedPoint[1] then
-        frame:ClearAllPoints()
-        frame:SetPoint(unpack(resourceSavedPoint))
-    end
-end
-
-local lastResourceSignature
-
 function addonTable.RefreshEllesmereResourceAnchor(force)
     if InCombatLockdown and InCombatLockdown() then return end
 
-    local resourceFrame = _G.ERB_SecondaryFrame
     local db = EnsureVisibilityDB()
     db.compactClassResource = false
-    lastResourceSignature = nil
-    if resourceFrame then
-        RestoreResourcePoint(resourceFrame)
-    end
-    NormalizeOakHealerClassResourceAnchor()
 end
 
 local TOOLTIP_ANCHOR_KEY = "OakUI_Tooltip"
@@ -675,17 +559,11 @@ local function ScheduleLayoutRefresh()
     ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     ScheduleRefresh("visibilityInit", 0.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     ScheduleRefresh("visibilityLate", 1.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
-    ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
-    ScheduleRefresh("resourceHealer", 0.75, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
-    ScheduleRefresh("resourceHealerLate", 2.1, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
     ScheduleRefresh("tooltip", 0.2, addonTable.RefreshEllesmereTooltipAnchor, 1)
     ScheduleRefresh("specialActionBars", 0.3, addonTable.RefreshEllesmereSpecialActionBarVisibility, 1)
 end
 
 local function ScheduleDeprecatedResourceCleanup()
-    ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
-    ScheduleRefresh("resourceSpec", 0.9, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
-    ScheduleRefresh("resourceSpecLate", 2.1, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
     ScheduleRefresh("tooltipSpec", 0.2, addonTable.RefreshEllesmereTooltipAnchor, 1)
 end
 
@@ -694,9 +572,6 @@ frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("UNIT_HEALTH")
 frame:RegisterEvent("UNIT_MAXHEALTH")
-frame:RegisterEvent("UNIT_POWER_UPDATE")
-frame:RegisterEvent("UNIT_POWER_FREQUENT")
-frame:RegisterEvent("UNIT_MAXPOWER")
 frame:RegisterEvent("UNIT_PET")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 frame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
@@ -708,7 +583,7 @@ frame:RegisterEvent("LFG_QUEUE_STATUS_UPDATE")
 frame:RegisterEvent("LFG_ROLE_CHECK_UPDATE")
 frame:RegisterEvent("LFG_PROPOSAL_UPDATE")
 frame:SetScript("OnEvent", function(_, event, unit)
-    if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_POWER_UPDATE" or event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" then
+    if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" then
         if unit ~= "player" and unit ~= "pet" then return end
     end
 
@@ -722,8 +597,6 @@ frame:SetScript("OnEvent", function(_, event, unit)
         ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     elseif event == "PLAYER_SPECIALIZATION_CHANGED" or event == "ACTIVE_TALENT_GROUP_CHANGED" or event == "UPDATE_SHAPESHIFT_FORM" then
         ScheduleDeprecatedResourceCleanup()
-    elseif event == "UNIT_POWER_UPDATE" or event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" then
-        ScheduleRefresh("resource", 0.15, function() addonTable.RefreshEllesmereResourceAnchor(true) end, 0.75)
     elseif event == "UPDATE_EXTRA_ACTIONBAR" or event == "LFG_UPDATE" or event == "LFG_QUEUE_STATUS_UPDATE" or event == "LFG_ROLE_CHECK_UPDATE" or event == "LFG_PROPOSAL_UPDATE" then
         ScheduleRefresh("specialActionBars", 0, addonTable.RefreshEllesmereSpecialActionBarVisibility, 0.25)
     end

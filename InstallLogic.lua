@@ -315,13 +315,26 @@ local function ShouldRepopulateBar(barData)
 end
 
 local function RepopulateSpecStoreFromBlizzard(specStore, profile, specKey)
-    local specData = specStore and specStore[specKey]
-    if type(specData) ~= "table" or type(specData.barSpells) ~= "table" then return false end
-
+    if type(specStore) ~= "table" or not specKey then return false end
+    local specData = specStore[specKey]
     local changed = false
+    if type(specData) ~= "table" then
+        specData = {}
+        specStore[specKey] = specData
+        changed = true
+    end
+    if type(specData.barSpells) ~= "table" then
+        specData.barSpells = {}
+        changed = true
+    end
+
     local function repopulateBar(barKey)
         local spellData = specData.barSpells[barKey]
-        if type(spellData) ~= "table" then return end
+        if type(spellData) ~= "table" then
+            spellData = {}
+            specData.barSpells[barKey] = spellData
+            changed = true
+        end
         changed = FilterCDMSpellList(spellData, spellData.assignedSpells) or changed
         changed = FilterCDMSpellSet(spellData, spellData.removedSpells) or changed
     end
@@ -373,7 +386,11 @@ function addonTable.RepopulateEllesmereCDMFromBlizzard(profileName, reason, quie
 
     if type(_G._ECME_LoadSpecProfile) == "function" then
         pcall(_G._ECME_LoadSpecProfile, specKey)
-    elseif type(_G._ECME_Apply) == "function" then
+    end
+    if _G.EllesmereUI and type(_G.EllesmereUI.CDMReconcileActiveSpecSpells) == "function" then
+        pcall(_G.EllesmereUI.CDMReconcileActiveSpecSpells)
+    end
+    if type(_G._ECME_Apply) == "function" then
         pcall(_G._ECME_Apply)
     end
 
@@ -504,16 +521,6 @@ function addonTable.Injectors.Ellesmere(profileName, role)
     elseif not success then
         print("|cffff0000[OakUI Error]|r EllesmereUI import failed: " .. tostring(err))
     else
-        local supplementOk, supplementErr = pcall(ApplyEllesmereProfileSupplement, profileName)
-        if not supplementOk then
-            print("|cffff0000[OakUI Error]|r Ellesmere supplement failed: " .. tostring(supplementErr))
-        end
-        if addonTable.ApplyOakEllesmereSnapshotAll then
-            local snapshotOk, snapshotErr = pcall(addonTable.ApplyOakEllesmereSnapshotAll, profileName, role, true)
-            if not snapshotOk then
-                print("|cffff0000[OakUI Error]|r Ellesmere snapshot failed: " .. tostring(snapshotErr))
-            end
-        end
         if addonTable.ApplyOakRoundThinBordersIfEnabled then
             local borderOk, borderErr = pcall(addonTable.ApplyOakRoundThinBordersIfEnabled, profileName)
             if not borderOk then
