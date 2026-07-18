@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.11-EllesmereEdition"
+P.VERSION = "2.6.12-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -106,6 +106,15 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.12-EllesmereEdition",
+        date = "July 17, 2026",
+        notes = {
+            "Updated the OakUI Healer and Tank/DPS profiles for EllesmereUI and BliZzi to enable anchoring for more elements, making layout adjustments easier across UI Scale and resolution changes.",
+            "Documented that OakUI is authored at 1440p with UI Scale 0.64, and that Blizzard Edit Mode does not auto-scale, so different resolutions or UI scales may still need manual adjustment.",
+            "Switched to relying on EllesmereUI's selective import/profile strings and stopped baking personal WTF settings because EUI's profile strings now cover the needed setup.",
+        }
+    },
     {
         version = "v2.6.11-EllesmereEdition",
         date = "July 16, 2026",
