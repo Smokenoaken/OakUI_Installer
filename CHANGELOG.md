@@ -1,3 +1,7 @@
+## v2.6.14-EllesmereEdition
+
+- Updated the OakUI Tank/DPS EllesmereUI profile string with the latest layout adjustments.
+
 ## v2.6.13-EllesmereEdition
 
 - Updated OakUI Tank/DPS and Healer EllesmereUI and Blizzi profile strings with the latest layout refinements, including Healer raid frames, cast bar, and dragon riding bar adjustments.

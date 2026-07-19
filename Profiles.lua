@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.13-EllesmereEdition"
+P.VERSION = "2.6.14-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -107,6 +107,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.14-EllesmereEdition",
+        date = "July 19, 2026",
+        notes = {
+            "Updated the OakUI Tank/DPS EllesmereUI profile string with the latest layout adjustments.",
+        }
+    },
     {
         version = "v2.6.13-EllesmereEdition",
         date = "July 19, 2026",
