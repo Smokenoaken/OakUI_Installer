@@ -248,6 +248,63 @@ local function GetActiveEllesmereProfileName()
     return _G.EllesmereUIDB and _G.EllesmereUIDB.activeProfile
 end
 
+local function ForEachKnownSpec(callback)
+    if type(callback) ~= "function" then return end
+    if type(GetSpecializationInfoForClassID) == "function" then
+        for classID = 1, 20 do
+            for specIndex = 1, 4 do
+                local specID, _, _, _, role = GetSpecializationInfoForClassID(classID, specIndex)
+                if specID and role then
+                    callback(specID, role)
+                end
+            end
+        end
+        return
+    end
+
+    local specIndex = GetSpecialization and GetSpecialization()
+    local specID, _, _, _, role = specIndex and GetSpecializationInfo and GetSpecializationInfo(specIndex)
+    if specID and role then
+        callback(specID, role)
+    end
+end
+
+function addonTable.AssignOakEllesmereProfilesToSpecs(dpsProfileName, healerProfileName)
+    if type(_G.EllesmereUIDB) ~= "table" then return false end
+    local db = _G.EllesmereUIDB
+    db.specProfiles = db.specProfiles or {}
+
+    for specID, profileName in pairs(db.specProfiles) do
+        if profileName == dpsProfileName or profileName == healerProfileName then
+            db.specProfiles[specID] = nil
+        end
+    end
+
+    ForEachKnownSpec(function(specID, role)
+        if role == "HEALER" and healerProfileName and healerProfileName ~= "" then
+            db.specProfiles[specID] = healerProfileName
+        elseif dpsProfileName and dpsProfileName ~= "" then
+            db.specProfiles[specID] = dpsProfileName
+        end
+    end)
+
+    local currentSpec = GetCurrentEllesmereSpecKey()
+    local currentProfile = currentSpec and db.specProfiles[tonumber(currentSpec) or currentSpec]
+    if currentProfile and db.profiles and db.profiles[currentProfile] then
+        db.activeProfile = currentProfile
+    elseif dpsProfileName and db.profiles and db.profiles[dpsProfileName] then
+        db.activeProfile = dpsProfileName
+    end
+    if db.activeProfile then
+        db.lastNonSpecProfile = db.activeProfile
+    end
+
+    if _G.EllesmereUI and type(_G.EllesmereUI.RefreshAllAddons) == "function" then
+        pcall(_G.EllesmereUI.RefreshAllAddons, _G.EllesmereUI)
+    end
+    return true
+end
+
 local function IsOakEllesmereProfile(profileName)
     if not profileName or profileName == "" then return false end
     if addonTable.GetOakEllesmereRoleProfileName then
@@ -438,65 +495,9 @@ cdmSpecWatcher:SetScript("OnEvent", function(_, event, unit)
     end
 end)
 
-local function DeepCopyTable(src, seen)
-    if type(src) ~= "table" then return src end
-    if seen and seen[src] then return seen[src] end
-    seen = seen or {}
-    local copy = {}
-    seen[src] = copy
-    for k, v in pairs(src) do
-        copy[DeepCopyTable(k, seen)] = DeepCopyTable(v, seen)
-    end
-    return copy
-end
-
-local function DeepMergeTable(dst, src)
-    if type(dst) ~= "table" or type(src) ~= "table" then return end
-    for k, v in pairs(src) do
-        if type(v) == "table" and type(dst[k]) == "table" then
-            DeepMergeTable(dst[k], v)
-        else
-            dst[k] = DeepCopyTable(v)
-        end
-    end
-end
-
-local function ApplyEllesmereProfileSupplement(profileName)
-    local supplement = P.ELLESMERE_PROFILE_SUPPLEMENT
-    if type(supplement) ~= "table" or type(_G.EllesmereUIDB) ~= "table" then return end
-
-    local db = _G.EllesmereUIDB
-    profileName = profileName or db.activeProfile or "OakUI"
-    db.profiles = db.profiles or {}
-    db.profiles[profileName] = db.profiles[profileName] or {}
-    local profile = db.profiles[profileName]
-    profile.addons = profile.addons or {}
-
-    if type(supplement.addons) == "table" then
-        for addonKey, addonProfile in pairs(supplement.addons) do
-            profile.addons[addonKey] = profile.addons[addonKey] or {}
-            DeepMergeTable(profile.addons[addonKey], addonProfile)
-        end
-    end
-
-    local specProfiles = supplement.spellAssignments and supplement.spellAssignments.specProfiles
-    if type(specProfiles) == "table" then
-        db.spellAssignments = db.spellAssignments or {}
-        db.spellAssignments.specProfiles = db.spellAssignments.specProfiles or {}
-        db.spellAssignments.profiles = db.spellAssignments.profiles or {}
-        db.spellAssignments.profiles[profileName] = db.spellAssignments.profiles[profileName] or {}
-        db.spellAssignments.profiles[profileName].specProfiles = db.spellAssignments.profiles[profileName].specProfiles or {}
-        for specID, specData in pairs(specProfiles) do
-            db.spellAssignments.specProfiles[specID] = db.spellAssignments.specProfiles[specID] or {}
-            DeepMergeTable(db.spellAssignments.specProfiles[specID], specData)
-            db.spellAssignments.profiles[profileName].specProfiles[specID] = db.spellAssignments.profiles[profileName].specProfiles[specID] or {}
-            DeepMergeTable(db.spellAssignments.profiles[profileName].specProfiles[specID], specData)
-        end
-    end
-end
-
 function addonTable.Injectors.Ellesmere(profileName, role)
     if not C_AddOns.IsAddOnLoaded("EllesmereUI") then return end
+    profileName = profileName or "OakUI"
 
     ApplyBaseActionBarCVars()
     if addonTable.RegisterOakFonts then
@@ -521,6 +522,12 @@ function addonTable.Injectors.Ellesmere(profileName, role)
     elseif not success then
         print("|cffff0000[OakUI Error]|r EllesmereUI import failed: " .. tostring(err))
     else
+        if type(_G.EllesmereUIDB) == "table" and addonTable.ApplyOakEllesmereUIScale then
+            addonTable.ApplyOakEllesmereUIScale(_G.EllesmereUIDB)
+        end
+        if type(_G.EllesmereUIDB) == "table" and addonTable.ApplyOakEllesmereLayoutAdjustments then
+            addonTable.ApplyOakEllesmereLayoutAdjustments(_G.EllesmereUIDB, profileName)
+        end
         if addonTable.ApplyOakRoundThinBordersIfEnabled then
             local borderOk, borderErr = pcall(addonTable.ApplyOakRoundThinBordersIfEnabled, profileName)
             if not borderOk then
@@ -795,7 +802,12 @@ function addonTable.Injectors.EditMode()
         end
     end
 
-    local importOk, importLayoutInfo = pcall(C_EditMode.ConvertStringToLayoutInfo, GetOakEditModeString())
+    local editModeString = GetOakEditModeString()
+    if addonTable.ApplyOakEditModeLayoutAdjustmentsString then
+        editModeString = addonTable.ApplyOakEditModeLayoutAdjustmentsString(editModeString)
+    end
+
+    local importOk, importLayoutInfo = pcall(C_EditMode.ConvertStringToLayoutInfo, editModeString)
     if not importOk or type(importLayoutInfo) ~= "table" then
         print("|cffff0000[OakUI Error]|r Could not convert the OakUI Edit Mode layout string.")
         return false

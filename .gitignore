@@ -2,6 +2,7 @@
 .chrome-profile/
 .edge-profile/
 dist/
+dist-test/
 
 # Generated documentation/export files
 *.pdf
@@ -14,4 +15,3 @@ desktop.ini
 *.tmp
 *.bak
 *.swp
-

@@ -160,36 +160,37 @@ function addonTable.BuildFontsUI(parentFrame)
     local db = addonTable.EnsureFontDB()
     local selectedKey = addonTable.FontSections[1].key
 
-    local title = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-    title:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -18)
+    local title = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -16)
     title:SetJustifyH("LEFT")
     title:SetText(cWrap .. "Custom Fonts|r")
 
     local desc = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+    desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     desc:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, 0)
+    desc:SetFontObject("GameFontHighlightSmall")
     desc:SetJustifyH("LEFT")
     desc:SetText("Uses LibSharedMedia fonts when available. Combat and floating name font changes require a full game restart or relog.")
 
-    CreateLabel(parentFrame, "Default Font", 15, -82)
+    CreateLabel(parentFrame, "Default Font", 15, -72)
     local defaultFont = CreateDropdown(parentFrame, 175, addonTable.GetFontChoices, function(value)
         db.global.font = value
     end)
-    defaultFont:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -100)
+    defaultFont:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -90)
     defaultFont:SetValue(db.global.font)
 
-    CreateLabel(parentFrame, "Font Size", 205, -82)
+    CreateLabel(parentFrame, "Font Size", 205, -72)
     local defaultSize = CreateSizeBox(parentFrame, function(value)
         db.global.size = math.max(8, math.min(64, value or 14))
     end)
-    defaultSize:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 205, -100)
+    defaultSize:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 205, -90)
     defaultSize:SetText(tostring(db.global.size or 14))
 
-    CreateLabel(parentFrame, "Font Outline", 275, -82)
+    CreateLabel(parentFrame, "Font Outline", 275, -72)
     local defaultOutline = CreateDropdown(parentFrame, 125, function() return OUTLINES end, function(value)
         db.global.outline = value
     end)
-    defaultOutline:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 275, -100)
+    defaultOutline:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 275, -90)
     defaultOutline:SetValue(db.global.outline or "NONE")
 
     local replaceBlizz = CreateCheckbox(parentFrame, "Replace Blizzard Fonts", function(self)
@@ -197,14 +198,14 @@ function addonTable.BuildFontsUI(parentFrame)
         self:SetCheckedState(db.replaceBlizzardFonts)
         if addonTable.ApplyOakFonts then addonTable.ApplyOakFonts() end
     end)
-    replaceBlizz:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -136)
+    replaceBlizz:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -124)
     replaceBlizz:SetCheckedState(db.replaceBlizzardFonts)
 
     local applyAll = addonTable.MakeFlatButton(parentFrame, "Apply Font To All", 135, 26)
-    applyAll:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 315, -136)
+    applyAll:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 315, -124)
 
     local list = CreateFrame("Frame", nil, parentFrame, "BackdropTemplate")
-    list:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -172)
+    list:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -156)
     list:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMLEFT", 15, 45)
     list:SetWidth(205)
     list:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
@@ -229,7 +230,7 @@ function addonTable.BuildFontsUI(parentFrame)
     detail:SetBackdropColor(0.08, 0.08, 0.09, 1)
     detail:SetBackdropBorderColor(0.25, 0.25, 0.28, 1)
 
-    local sectionTitle = detail:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    local sectionTitle = detail:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     sectionTitle:SetPoint("TOPLEFT", detail, "TOPLEFT", 14, -14)
 
     local enable = CreateCheckbox(detail, "Enable", function(self)

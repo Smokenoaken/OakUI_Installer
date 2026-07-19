@@ -10,9 +10,8 @@
 ## SavedVariables: OakUI_DB
 Profiles.lua
 ExternalProfiles.lua
-EllesmereSupplement.lua
-EllesmereSnapshot.lua
 FontEngine.lua
+LayoutTransform.lua
 EllesmereSelectiveImport.lua
 InstallLogic.lua
 ProfileSync.lua

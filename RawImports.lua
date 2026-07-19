@@ -6,21 +6,22 @@ function addonTable.BuildRawImportsUI(parentFrame)
     local MakeFlatButton = addonTable.MakeFlatButton
     local SkinScrollbar = addonTable.SkinScrollbar 
 
-    local RawTitle = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-    RawTitle:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -20)
+    local RawTitle = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    RawTitle:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -16)
     RawTitle:SetJustifyH("LEFT")
     RawTitle:SetText(cWrap .. "Raw Imports|r")
 
     local RawDesc = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    RawDesc:SetPoint("TOPLEFT", RawTitle, "BOTTOMLEFT", 0, -10)
+    RawDesc:SetPoint("TOPLEFT", RawTitle, "BOTTOMLEFT", 0, -6)
     RawDesc:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, -10) -- Dynamic stretch
+    RawDesc:SetFontObject("GameFontHighlightSmall")
     RawDesc:SetJustifyH("LEFT")
     RawDesc:SetText("Manual fallback strings if the auto-installer fails.")
 
     local ScrollFrame = CreateFrame("ScrollFrame", "OakUI_RawImportsScroll", parentFrame, "UIPanelScrollFrameTemplate")
     local ScrollChild = CreateFrame("Frame", nil, ScrollFrame)
     ScrollFrame:SetScrollChild(ScrollChild)
-    ScrollFrame:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -80)
+    ScrollFrame:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -62)
     ScrollFrame:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -30, 20) 
     
     -- Dynamically stretch child width
@@ -45,23 +46,23 @@ function addonTable.BuildRawImportsUI(parentFrame)
     local yOffset = -10
     
     for i, data in ipairs(imports) do
-        local title = ScrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        local title = ScrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         title:SetPoint("TOPLEFT", ScrollChild, "TOPLEFT", 5, yOffset)
         title:SetText(data.name)
         title:SetTextColor(1, 0.82, 0)
         
         -- Lock description vertical spacing so resizing doesn't cause overlap bugs
         local desc = ScrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -5)
+        desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -3)
         desc:SetPoint("TOPRIGHT", ScrollChild, "TOPRIGHT", -15, 0) -- Stretches text to window
         desc:SetJustifyH("LEFT")
         desc:SetText(data.desc)
         desc:SetTextColor(0.8, 0.8, 0.8)
         
-        yOffset = yOffset - 40 -- Fixed gap between title and box
+        yOffset = yOffset - 34
 
         local boxBg = CreateFrame("Frame", nil, ScrollChild, "BackdropTemplate")
-        boxBg:SetHeight(80)
+        boxBg:SetHeight(70)
         -- Dynamic stretch!
         boxBg:SetPoint("TOPLEFT", ScrollChild, "TOPLEFT", 5, yOffset)
         boxBg:SetPoint("TOPRIGHT", ScrollChild, "TOPRIGHT", -5, yOffset)
@@ -89,9 +90,9 @@ function addonTable.BuildRawImportsUI(parentFrame)
 
         table.insert(activeEditBoxes, editBox)
 
-        yOffset = yOffset - 90
+        yOffset = yOffset - 78
 
-        local btn = MakeFlatButton(ScrollChild, "SELECT ALL", 100, 24)
+        local btn = MakeFlatButton(ScrollChild, "SELECT ALL", 94, 22)
         btn:SetPoint("TOPLEFT", ScrollChild, "TOPLEFT", 5, yOffset)
         btn:SetScript("OnClick", function()
             for _, box in ipairs(activeEditBoxes) do
@@ -107,7 +108,7 @@ function addonTable.BuildRawImportsUI(parentFrame)
         helper:SetText("then press Ctrl-C to copy")
         helper:SetTextColor(0.5, 0.5, 0.5)
 
-        yOffset = yOffset - 40 
+        yOffset = yOffset - 32
     end
     
     ScrollChild:SetHeight(math.abs(yOffset))

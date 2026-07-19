@@ -143,18 +143,18 @@ end)
 -- MAIN UI FRAMEWORK 
 -- ==========================================
 local UI = CreateFrame("Frame", "OakUIProfileManager", UIParent, "BackdropTemplate")
-UI:SetSize(700, 520); UI:SetPoint("CENTER"); UI:Hide(); 
+UI:SetSize(820, 520); UI:SetPoint("CENTER"); UI:Hide();
 UI:SetFrameStrata("FULLSCREEN_DIALOG")
 UI:SetFrameLevel(900)
 UI:SetToplevel(true)
 UI:SetMovable(true); UI:EnableMouse(true); 
-UI:SetResizable(true); UI:SetResizeBounds(700, 520, 1400, 1000) 
+UI:SetResizable(true); UI:SetResizeBounds(820, 520, 1400, 1000)
 UI:RegisterForDrag("LeftButton")
 UI:SetScript("OnDragStart", UI.StartMoving); UI:SetScript("OnDragStop", UI.StopMovingOrSizing)
 UI:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 })
 UI:SetBackdropColor(0.106, 0.106, 0.129, 1); UI:SetBackdropBorderColor(r, g, b, 1)
 
-local TitleBar = CreateFrame("Frame", nil, UI); TitleBar:SetSize(700, 30); TitleBar:SetPoint("TOPLEFT", UI, "TOPLEFT", 0, 0); TitleBar:SetPoint("TOPRIGHT", UI, "TOPRIGHT", 0, 0)
+local TitleBar = CreateFrame("Frame", nil, UI); TitleBar:SetSize(820, 30); TitleBar:SetPoint("TOPLEFT", UI, "TOPLEFT", 0, 0); TitleBar:SetPoint("TOPRIGHT", UI, "TOPRIGHT", 0, 0)
 local tbBg = TitleBar:CreateTexture(nil, "BACKGROUND"); tbBg:SetAllPoints(); tbBg:SetColorTexture(0.137, 0.141, 0.172, 1)
 local TitleText = TitleBar:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); TitleText:SetPoint("LEFT", TitleBar, "LEFT", 15, 0); TitleText:SetText(cWrap .. "OAK UI|r Profile Manager")
 
@@ -189,21 +189,197 @@ local WelcomeText = HomeView:CreateFontString(nil, "OVERLAY", "GameFontNormalHug
 local SubText = HomeView:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); SubText:SetPoint("TOP", WelcomeText, "BOTTOM", 0, -20); SubText:SetPoint("LEFT", HomeView, "LEFT", 20, 0); SubText:SetPoint("RIGHT", HomeView, "RIGHT", -20, 0); SubText:SetJustifyH("CENTER")
 SubText:SetText("Welcome to the OAK Flagship Suite.\n\n" .. cWrap .. "Note:|r The primary OAK profiles are built around a 1440p display with a UI Scale of 0.64.")
 
-local QuickInstallBtn = MakeFlatButton(HomeView, "Quick Install", 160, 32)
-QuickInstallBtn:SetPoint("TOP", SubText, "BOTTOM", 0, -25)
+local QuickInstallFrame = CreateFrame("Frame", "OakUI_QuickInstallFrame", UI, "BackdropTemplate")
+QuickInstallFrame:SetSize(560, 470)
+QuickInstallFrame:SetPoint("CENTER", UI, "CENTER", 0, 0)
+QuickInstallFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+QuickInstallFrame:SetFrameLevel(1200)
+QuickInstallFrame:SetToplevel(true)
+QuickInstallFrame:Hide()
+QuickInstallFrame:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 })
+QuickInstallFrame:SetBackdropColor(0.106, 0.106, 0.129, 1)
+QuickInstallFrame:SetBackdropBorderColor(r, g, b, 1)
+
+local QuickState = { role = "both", autoAssign = true, layoutKey = "native", dpsProfile = "OakUI Tank/DPS", healsProfile = "OakUI Healer" }
+local QuickTitle = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+QuickTitle:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -16)
+QuickTitle:SetText(cWrap .. "Quick Install|r")
+
+local QuickWarning = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+QuickWarning:SetPoint("TOPLEFT", QuickTitle, "BOTTOMLEFT", 0, -8)
+QuickWarning:SetPoint("TOPRIGHT", QuickInstallFrame, "TOPRIGHT", -18, -8)
+QuickWarning:SetJustifyH("LEFT")
+QuickWarning:SetText(cWrap .. "THIS INSTALL IS FOR IF YOU KNOW WHAT YOU'RE DOING|r\nIt installs everything exactly as Oak has it, then prompts you to reload.")
+
+local QuickClose = MakeFlatButton(QuickInstallFrame, "X", 26, 24)
+QuickClose:SetPoint("TOPRIGHT", QuickInstallFrame, "TOPRIGHT", -10, -10)
+QuickClose:SetScript("OnClick", function() QuickInstallFrame:Hide() end)
+
+local function MakeQuickChoice(parent, listName, label, x, y, width, height, getter, setter)
+    local btn = MakeFlatButton(parent, label, width, height)
+    btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    parent[listName] = parent[listName] or {}
+    parent[listName][#parent[listName] + 1] = btn
+    btn.UpdateState = function(self)
+        local selected = getter()
+        self.bg:SetColorTexture(selected and r or 0.2, selected and g or 0.22, selected and b or 0.28, selected and 0.35 or 1)
+        self.Text:SetTextColor(selected and r or 1, selected and g or 1, selected and b or 1)
+    end
+    btn:SetScript("OnClick", function(self)
+        setter()
+        for _, other in ipairs(parent[listName]) do
+            if other.UpdateState then other:UpdateState() end
+        end
+    end)
+    btn:SetScript("OnEnter", function(self)
+        if not getter() then self.bg:SetColorTexture(0.3, 0.32, 0.38, 1) end
+    end)
+    btn:SetScript("OnLeave", function(self)
+        self:UpdateState()
+    end)
+    btn:UpdateState()
+    return btn
+end
+
+local RoleLabel = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+RoleLabel:SetPoint("TOPLEFT", QuickWarning, "BOTTOMLEFT", 0, -18)
+RoleLabel:SetText(cWrap .. "Profiles|r")
+MakeQuickChoice(QuickInstallFrame, "_roleChoices", "Tank/DPS", 18, -104, 120, 28, function() return QuickState.role == "dps" end, function() QuickState.role = "dps" end)
+MakeQuickChoice(QuickInstallFrame, "_roleChoices", "Healer", 148, -104, 120, 28, function() return QuickState.role == "heals" end, function() QuickState.role = "heals" end)
+MakeQuickChoice(QuickInstallFrame, "_roleChoices", "Both Specs", 278, -104, 120, 28, function() return QuickState.role == "both" end, function() QuickState.role = "both" end)
+
+local DpsProfileLabel = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+DpsProfileLabel:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -140)
+DpsProfileLabel:SetText("Tank/DPS Profile")
+local DpsProfileBox = CreateFrame("EditBox", nil, QuickInstallFrame, "InputBoxTemplate")
+DpsProfileBox:SetSize(220, 22)
+DpsProfileBox:SetPoint("TOPLEFT", DpsProfileLabel, "BOTTOMLEFT", 4, -4)
+DpsProfileBox:SetAutoFocus(false)
+DpsProfileBox:SetText(QuickState.dpsProfile)
+DpsProfileBox:SetScript("OnTextChanged", function(self)
+    QuickState.dpsProfile = tostring(self:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", "")
+end)
+
+local HealerProfileLabel = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+HealerProfileLabel:SetPoint("LEFT", DpsProfileLabel, "RIGHT", 154, 0)
+HealerProfileLabel:SetText("Healer Profile")
+local HealerProfileBox = CreateFrame("EditBox", nil, QuickInstallFrame, "InputBoxTemplate")
+HealerProfileBox:SetSize(220, 22)
+HealerProfileBox:SetPoint("TOPLEFT", HealerProfileLabel, "BOTTOMLEFT", 4, -4)
+HealerProfileBox:SetAutoFocus(false)
+HealerProfileBox:SetText(QuickState.healsProfile)
+HealerProfileBox:SetScript("OnTextChanged", function(self)
+    QuickState.healsProfile = tostring(self:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", "")
+end)
+
+local AutoAssignRow = CreateFrame("Button", nil, QuickInstallFrame)
+AutoAssignRow:SetSize(360, 24)
+AutoAssignRow:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -184)
+local AutoBox = AutoAssignRow:CreateTexture(nil, "BACKGROUND")
+AutoBox:SetSize(18, 18)
+AutoBox:SetPoint("LEFT", AutoAssignRow, "LEFT", 0, 0)
+AutoBox:SetColorTexture(0.3, 0.32, 0.38, 1)
+local AutoInner = AutoAssignRow:CreateTexture(nil, "ARTWORK")
+AutoInner:SetPoint("TOPLEFT", AutoBox, "TOPLEFT", 2, -2)
+AutoInner:SetPoint("BOTTOMRIGHT", AutoBox, "BOTTOMRIGHT", -2, 2)
+local AutoLabel = AutoAssignRow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+AutoLabel:SetPoint("LEFT", AutoBox, "RIGHT", 8, 0)
+AutoLabel:SetText("Use EUI spec swapping for healer specs")
+local function UpdateAutoAssign()
+    if QuickState.autoAssign then
+        AutoInner:SetColorTexture(r, g, b, 1)
+    else
+        AutoInner:SetColorTexture(0.137, 0.141, 0.172, 1)
+    end
+end
+AutoAssignRow:SetScript("OnClick", function()
+    QuickState.autoAssign = not QuickState.autoAssign
+    UpdateAutoAssign()
+end)
+UpdateAutoAssign()
+
+local LayoutLabel = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+LayoutLabel:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -224)
+LayoutLabel:SetText(cWrap .. "Resolution / UI Scale|r")
+for index, preset in ipairs(addonTable.GetOakLayoutPresets and addonTable.GetOakLayoutPresets() or {}) do
+    local col = (index - 1) % 2
+    local row = math.floor((index - 1) / 2)
+    local btn = MakeQuickChoice(QuickInstallFrame, "_layoutChoices", preset.label, 18 + (col * 260), -250 - (row * 44), 250, 38, function()
+        return QuickState.layoutKey == preset.key
+    end, function()
+        QuickState.layoutKey = preset.key
+    end)
+    btn.Text:ClearAllPoints()
+    btn.Text:SetPoint("TOPLEFT", btn, "TOPLEFT", 8, -4)
+    btn.Text:SetJustifyH("LEFT")
+    local desc = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    desc:SetPoint("TOPLEFT", btn.Text, "BOTTOMLEFT", 0, -1)
+    desc:SetPoint("TOPRIGHT", btn, "TOPRIGHT", -8, -1)
+    desc:SetJustifyH("LEFT")
+    desc:SetTextColor(0.72, 0.72, 0.72)
+    desc:SetText(preset.desc)
+end
+
+local QuickInstallApply = MakeFlatButton(QuickInstallFrame, "Install Everything", 160, 30)
+QuickInstallApply:SetPoint("BOTTOMRIGHT", QuickInstallFrame, "BOTTOMRIGHT", -18, 16)
+QuickInstallApply.Text:SetTextColor(r, g, b)
+QuickInstallApply:SetScript("OnClick", function()
+    if not addonTable.ApplyOakQuickInstall then
+        print("|cffff0000[OakUI]|r Quick Install is not ready yet. Open the Main Installer once and try again.")
+        return
+    end
+    QuickInstallFrame:Hide()
+    addonTable.ApplyOakQuickInstall({
+        dps = QuickState.role ~= "heals",
+        heals = QuickState.role ~= "dps",
+        dpsProfile = QuickState.dpsProfile ~= "" and QuickState.dpsProfile or "OakUI Tank/DPS",
+        healsProfile = QuickState.healsProfile ~= "" and QuickState.healsProfile or "OakUI Healer",
+        autoAssign = QuickState.role == "both" and QuickState.autoAssign,
+        layoutKey = QuickState.layoutKey,
+    })
+end)
+local QuickCancel = MakeFlatButton(QuickInstallFrame, "Cancel", 100, 30)
+QuickCancel:SetPoint("RIGHT", QuickInstallApply, "LEFT", -10, 0)
+QuickCancel:SetScript("OnClick", function() QuickInstallFrame:Hide() end)
+
+QuickInstallFrame:SetScript("OnShow", function(self)
+    if DpsProfileBox:GetText() == "" then DpsProfileBox:SetText("OakUI Tank/DPS") end
+    if HealerProfileBox:GetText() == "" then HealerProfileBox:SetText("OakUI Healer") end
+    for _, btn in ipairs(self._roleChoices or {}) do if btn.UpdateState then btn:UpdateState() end end
+    for _, btn in ipairs(self._layoutChoices or {}) do if btn.UpdateState then btn:UpdateState() end end
+    UpdateAutoAssign()
+end)
+
+local HomeButtonRow = CreateFrame("Frame", nil, HomeView)
+HomeButtonRow:SetSize(340, 34)
+HomeButtonRow:SetPoint("TOP", SubText, "BOTTOM", 0, -25)
+
+local QuickInstallBtn = MakeFlatButton(HomeButtonRow, "Quick Install", 160, 32)
+QuickInstallBtn:SetPoint("LEFT", HomeButtonRow, "LEFT", 0, 0)
 QuickInstallBtn.Text:SetTextColor(r, g, b)
 QuickInstallBtn:SetScript("OnClick", function()
-    if addonTable.QuickInstallAll then
-        addonTable.QuickInstallAll()
+    QuickInstallFrame:Show()
+    if QuickInstallFrame.Raise then QuickInstallFrame:Raise() end
+end)
+
+local GuidedInstallBtn = MakeFlatButton(HomeButtonRow, "Guided Install", 160, 32)
+GuidedInstallBtn:SetPoint("LEFT", QuickInstallBtn, "RIGHT", 20, 0)
+GuidedInstallBtn.Text:SetTextColor(r, g, b)
+GuidedInstallBtn:SetScript("OnClick", function()
+    if addonTable.ResetOakGuidedInstaller then
+        addonTable.ResetOakGuidedInstaller()
+    end
+    if addonTable.OpenInstaller then
+        addonTable.OpenInstaller("installer")
     end
 end)
 
 local QuickInstallNote = HomeView:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-QuickInstallNote:SetPoint("TOP", QuickInstallBtn, "BOTTOM", 0, -10)
+QuickInstallNote:SetPoint("TOP", HomeButtonRow, "BOTTOM", 0, -10)
 QuickInstallNote:SetPoint("LEFT", HomeView, "LEFT", 30, 0)
 QuickInstallNote:SetPoint("RIGHT", HomeView, "RIGHT", -30, 0)
 QuickInstallNote:SetJustifyH("CENTER")
-QuickInstallNote:SetText("Installs all supported profiles and applies OAK visibility settings to match the OakUI layout.")
+QuickInstallNote:SetText("Quick Install applies Oak's full setup. Guided Install lets you walk through each choice.")
 QuickInstallNote:SetTextColor(0.75, 0.75, 0.75)
 
 local MinimapOption = CreateFrame("Frame", nil, HomeView)
@@ -392,8 +568,8 @@ end
 local HomeNavBtn = CreateNavButton(LeftPane, "Home", -20, HomeView)
 local InstallerNavBtn = CreateNavButton(LeftPane, "MAIN INSTALLER", -50, InstallerView)
 local ChatNavBtn = CreateNavButton(LeftPane, "Chat Cleaning", -80, ChatView)
-local VisNavBtn = CreateNavButton(LeftPane, "Ellesmere Tweaks", -110, VisibilityView)
-local EllesmereSelectiveNavBtn = CreateNavButton(LeftPane, "Ellesmere Import", -140, EllesmereSelectiveView)
+local VisNavBtn = CreateNavButton(LeftPane, "Visibility/Tweaks", -110, VisibilityView)
+local EllesmereSelectiveNavBtn = CreateNavButton(LeftPane, "Selective Import", -140, EllesmereSelectiveView)
 local RawImportsNavBtn = CreateNavButton(LeftPane, "Raw Imports", -170, RawImportsView)
 local FontsNavBtn = CreateNavButton(LeftPane, "Custom Fonts", -200, FontsView)
 local ChangelogNavBtn = CreateNavButton(LeftPane, "Changelog", -230, ChangelogView)

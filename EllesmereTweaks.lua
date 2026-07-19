@@ -312,7 +312,12 @@ local function GetEllesmereChatAddon()
 end
 
 local function ChatLineFadeEnabled()
-    return IsEllesmereProvider() and EnsureVisibilityDB().chatLineFade == true
+    local db = EnsureVisibilityDB()
+    return IsEllesmereProvider() and db.chatLineFade == true and db.disableChatFade ~= true
+end
+
+local function ChatFadeDisabled()
+    return IsEllesmereProvider() and EnsureVisibilityDB().disableChatFade == true
 end
 
 local function GetChatLineFadeDelay()
@@ -323,7 +328,10 @@ end
 local function ApplyChatLineFadeToFrame(chatFrame)
     if not chatFrame or chatFrame:IsForbidden() then return end
 
-    if ChatLineFadeEnabled() then
+    if ChatFadeDisabled() then
+        chatFrame:SetAlpha(1)
+        chatFrame:SetFading(false)
+    elseif ChatLineFadeEnabled() then
         chatFrame:SetAlpha(1)
         chatFrame:SetFading(true)
         chatFrame:SetTimeVisible(GetChatLineFadeDelay())
@@ -339,15 +347,43 @@ local function ApplyChatLineFadeToFrame(chatFrame)
     -- and addon hooks in that delivery path can taint Blizzard's HistoryKeeper.
 end
 
-local function ApplyChatLineFade()
-    local enabled = ChatLineFadeEnabled()
-    for i = 1, NUM_CHAT_WINDOWS or 20 do
-        ApplyChatLineFadeToFrame(_G["ChatFrame" .. i])
+local function ApplyEllesmereIdleFadePreference()
+    local db = EnsureVisibilityDB()
+    local cfg = GetEllesmereChatConfig()
+    if type(cfg) ~= "table" then return false end
+
+    if ChatFadeDisabled() then
+        if not db.chatFadeDisabledApplied and cfg.idleFadeStrength ~= 0 then
+            db.chatIdleFadeStrengthBeforeDisable = cfg.idleFadeStrength
+        end
+        cfg.idleFadeStrength = 0
+        db.chatFadeDisabledApplied = true
+        return true
     end
 
+    if db.chatFadeDisabledApplied then
+        if cfg.idleFadeStrength == 0 then
+            cfg.idleFadeStrength = db.chatIdleFadeStrengthBeforeDisable or 100
+        end
+        db.chatFadeDisabledApplied = nil
+        return true
+    end
+
+    return false
+end
+
+local function ApplyChatLineFade()
     local ECHAT = GetEllesmereChatAddon()
     if ECHAT and type(ECHAT.ResetIdleTimer) == "function" and not originalResetIdleTimer then
         originalResetIdleTimer = ECHAT.ResetIdleTimer
+    end
+
+    local idleFadeChanged = ApplyEllesmereIdleFadePreference()
+    local enabled = ChatLineFadeEnabled()
+    local fadeDisabled = ChatFadeDisabled()
+
+    for i = 1, NUM_CHAT_WINDOWS or 20 do
+        ApplyChatLineFadeToFrame(_G["ChatFrame" .. i])
     end
 
     if ECHAT and originalResetIdleTimer then
@@ -367,13 +403,33 @@ local function ApplyChatLineFade()
         elseif ECHAT.ResetIdleTimer ~= originalResetIdleTimer then
             ECHAT.ResetIdleTimer = originalResetIdleTimer
         end
+
+        if fadeDisabled then
+            if ECHAT.SetIdleFadeAlpha then
+                pcall(ECHAT.SetIdleFadeAlpha, 1)
+            end
+            for i = 1, NUM_CHAT_WINDOWS or 20 do
+                local cf = _G["ChatFrame" .. i]
+                if cf then cf:SetAlpha(1) end
+            end
+        end
+
+        if idleFadeChanged then
+            if ECHAT.RefreshVisibility then
+                pcall(ECHAT.RefreshVisibility)
+            end
+            if ECHAT.ResetIdleTimer then
+                pcall(ECHAT.ResetIdleTimer)
+            end
+        end
     end
 end
 
 function addonTable.RefreshEllesmereChatLineFade()
-    if not ChatLineFadeEnabled() and not chatFadeApplied then return end
+    local db = EnsureVisibilityDB()
+    if not ChatLineFadeEnabled() and not ChatFadeDisabled() and not db.chatFadeDisabledApplied and not chatFadeApplied then return end
     ApplyChatLineFade()
-    chatFadeApplied = ChatLineFadeEnabled()
+    chatFadeApplied = ChatLineFadeEnabled() or ChatFadeDisabled() or EnsureVisibilityDB().chatFadeDisabledApplied == true
 end
 
 function addonTable.RefreshEllesmereResourceAnchor(force)

@@ -147,19 +147,20 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
         return out, count
     end
 
-    local Title = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    Title:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -16)
+    local Title = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    Title:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -14)
     Title:SetJustifyH("LEFT")
-    Title:SetText(cWrap .. "Ellesmere Import|r")
+    Title:SetText(cWrap .. "Selective Import|r")
 
     local Desc = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    Desc:SetPoint("TOPLEFT", Title, "BOTTOMLEFT", 0, -6)
+    Desc:SetPoint("TOPLEFT", Title, "BOTTOMLEFT", 0, -4)
     Desc:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, -10)
+    Desc:SetFontObject("GameFontHighlightSmall")
     Desc:SetJustifyH("LEFT")
-    Desc:SetText("Apply OakUI's saved Ellesmere data by profile section or by individual Ellesmere addon.")
+    Desc:SetText("Import OakUI's Ellesmere profile string by shared section or by individual Ellesmere addon.")
 
     local RoleRow = CreateFrame("Frame", nil, parentFrame)
-    RoleRow:SetPoint("TOPLEFT", Desc, "BOTTOMLEFT", 0, -10)
+    RoleRow:SetPoint("TOPLEFT", Desc, "BOTTOMLEFT", 0, -7)
     RoleRow:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, 0)
     RoleRow:SetHeight(26)
 
@@ -180,7 +181,7 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
     RoleHealer.Text:SetFontObject(GameFontHighlightSmall)
 
     local PresetRow = CreateFrame("Frame", nil, parentFrame)
-    PresetRow:SetPoint("TOPLEFT", RoleRow, "BOTTOMLEFT", 0, -6)
+    PresetRow:SetPoint("TOPLEFT", RoleRow, "BOTTOMLEFT", 0, -4)
     PresetRow:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, 0)
     PresetRow:SetHeight(24)
 
@@ -195,16 +196,16 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
     Clear.Text:SetFontObject(GameFontHighlightSmall)
 
     local Note = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    Note:SetPoint("TOPLEFT", PresetRow, "BOTTOMLEFT", 0, -4)
+    Note:SetPoint("TOPLEFT", PresetRow, "BOTTOMLEFT", 0, -3)
     Note:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, 0)
     Note:SetJustifyH("LEFT")
     Note:SetTextColor(0.62, 0.62, 0.62)
-    Note:SetText("Parent checkboxes import a whole addon. Indented rows import specific sections only. Recommended leaves shared Theme, Layout, and Click Cast unchecked.")
+    Note:SetText("Addon checkboxes use EUI's per-addon import model. Recommended leaves shared Theme and Layout unchecked.")
 
     local ScrollFrame = CreateFrame("ScrollFrame", "OakUI_EllesmereSelectiveScroll", parentFrame, "UIPanelScrollFrameTemplate")
     scrollChild = CreateFrame("Frame", nil, ScrollFrame)
     ScrollFrame:SetScrollChild(scrollChild)
-    ScrollFrame:SetPoint("TOPLEFT", Note, "BOTTOMLEFT", 0, -8)
+    ScrollFrame:SetPoint("TOPLEFT", Note, "BOTTOMLEFT", 0, -6)
     ScrollFrame:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -30, 55)
     scrollChild:SetWidth(ScrollFrame:GetWidth() or 560)
     SkinScrollbar(ScrollFrame)
@@ -213,7 +214,7 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
         local row = CreateFrame("Frame", nil, parent)
         local indent = depth * 18
         local isHeader = node.header == true
-        row:SetHeight(isHeader and 32 or 30)
+        row:SetHeight(isHeader and 28 or 26)
         row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, yOffset)
         row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, yOffset)
 
@@ -254,9 +255,9 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
                 desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -2)
                 desc:SetWidth(textWidth)
 
-                local titleHeight = math.max(12, title:GetStringHeight() or 12)
-                local descHeight = math.max(12, desc:GetStringHeight() or 12)
-                row:SetHeight(math.max(isHeader and 38 or 34, titleHeight + descHeight + 10))
+                local titleHeight = math.max(11, title:GetStringHeight() or 11)
+                local descHeight = math.max(11, desc:GetStringHeight() or 11)
+                row:SetHeight(math.max(isHeader and 32 or 30, titleHeight + descHeight + 8))
             else
                 local left = 5 + indent
                 local titleWidth = math.max(100, math.min(isHeader and 205 or (185 - indent), width * 0.33))
@@ -275,7 +276,7 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
                 desc:SetWidth(descWidth)
 
                 local descHeight = math.max(12, desc:GetStringHeight() or 12)
-                row:SetHeight(math.max(isHeader and 32 or 28, descHeight + 10))
+                row:SetHeight(math.max(isHeader and 28 or 24, descHeight + 8))
             end
         end
         row.Layout(scrollChild and scrollChild:GetWidth())
@@ -328,7 +329,7 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
 
         local function RenderNode(node, depth)
             local row = CreateRow(scrollChild, node, depth, y)
-            y = y - row:GetHeight() - 3
+            y = y - row:GetHeight() - 2
             for _, child in ipairs(node.children or {}) do
                 RenderNode(child, depth + 1)
             end
@@ -389,13 +390,13 @@ function addonTable.BuildEllesmereSelectiveUI(parentFrame)
             print("|cffff0000[OakUI]|r Select at least one Ellesmere section to import.")
             return
         end
-        if addonTable.ApplyOakEllesmereSnapshot and addonTable.ApplyOakEllesmereSnapshot(ProfileEdit:GetText(), selectedRole, selection, false) then
+        if addonTable.ApplyOakEllesmereProfileImport and addonTable.ApplyOakEllesmereProfileImport(ProfileEdit:GetText(), selectedRole, selection, false) then
             PromptReload()
         end
     end)
 
     ApplyAll:SetScript("OnClick", function()
-        if addonTable.ApplyOakEllesmereSnapshotAll and addonTable.ApplyOakEllesmereSnapshotAll(ProfileEdit:GetText(), selectedRole, false) then
+        if addonTable.ApplyOakEllesmereProfileImportAll and addonTable.ApplyOakEllesmereProfileImportAll(ProfileEdit:GetText(), selectedRole, false) then
             PromptReload()
         end
     end)

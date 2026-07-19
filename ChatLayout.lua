@@ -9,6 +9,9 @@ local OAK_LOOT_GROUPS = {
     "PING", "ACHIEVEMENT", "GUILD_ACHIEVEMENT"
 }
 
+local OAK_LOOT_HEIGHT = 180
+local OAK_LOOT_BASE_GAP = 32
+
 local function BaseClearAllPoints(frame)
     if not frame then return end
     local fn = frame.ClearAllPointsBase or frame.ClearAllPoints
@@ -25,6 +28,25 @@ local function BaseSetSize(frame, width, height)
     if not frame then return end
     local fn = frame.SetSizeBase or frame.SetSize
     if fn then pcall(fn, frame, width, height) end
+end
+
+local function SaveChatWindowPosition(frame, numID)
+    if not frame or not numID then return end
+    if frame.GetLeft and frame.GetBottom and type(SetChatWindowSavedPosition) == "function" then
+        local left, bottom = frame:GetLeft(), frame:GetBottom()
+        if left and bottom then
+            pcall(SetChatWindowSavedPosition, numID, "BOTTOMLEFT", left, bottom)
+        end
+    end
+    if frame.GetSize and type(SetChatWindowSavedDimensions) == "function" then
+        local width, height = frame:GetSize()
+        if width and height then
+            pcall(SetChatWindowSavedDimensions, numID, width, height)
+        end
+    end
+    if type(FCF_SavePositionAndDimensions) == "function" then
+        pcall(FCF_SavePositionAndDimensions, frame)
+    end
 end
 
 local function ForceTransparency(frame, numID)
@@ -216,10 +238,10 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     lootFrame:SetUserPlaced(true)
     BaseClearAllPoints(lootFrame)
 
-    BaseSetPoint(lootFrame, "BOTTOMLEFT", cf1, "TOPLEFT", 0, 32)
-    BaseSetSize(lootFrame, cf1:GetWidth(), 180)
+    BaseSetPoint(lootFrame, "BOTTOMLEFT", cf1, "TOPLEFT", 0, OAK_LOOT_BASE_GAP)
+    BaseSetSize(lootFrame, cf1:GetWidth(), OAK_LOOT_HEIGHT)
 
-    FCF_SavePositionAndDimensions(lootFrame)
+    SaveChatWindowPosition(lootFrame, lootID)
     FCF_SetChatWindowFontSize(nil, lootFrame, 14)
     ForceTransparency(lootFrame, lootID)
 
@@ -297,7 +319,7 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
 end
 
 function addonTable.ScheduleChatWindowsAfterEllesmereProfile(silent)
-    local ok, result = pcall(addonTable.SetupChatWindows, silent, false, true)
+    local ok, result = pcall(addonTable.SetupChatWindows, silent, false, false)
     if not ok then
         print("|cffff0000[OakUI Error]|r Chat layout failed: " .. tostring(result))
     end
