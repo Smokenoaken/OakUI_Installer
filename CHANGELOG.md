@@ -1,3 +1,9 @@
+## v2.6.13-EllesmereEdition
+
+- Updated OakUI Tank/DPS and Healer EllesmereUI and Blizzi profile strings with the latest layout refinements, including Healer raid frames, cast bar, and dragon riding bar adjustments.
+- Added the new Quick Install and Guided Install flows with profile naming, both-spec import, EUI healer spec assignment, visibility choices, rounded-border choices, and selective update support.
+- Added resolution/UI-scale layout presets for 1080p, 1440p pixel-perfect, 4K, and ultrawide layouts.
+
 ## v2.6.12-EllesmereEdition
 
 - Updated the OakUI Healer and Tank/DPS profiles for EllesmereUI and BliZzi to enable anchoring for more elements, making layout adjustments easier across UI Scale and resolution changes.

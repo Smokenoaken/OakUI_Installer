@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.12-EllesmereEdition"
+P.VERSION = "2.6.13-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -107,6 +107,15 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.13-EllesmereEdition",
+        date = "July 19, 2026",
+        notes = {
+            "Updated OakUI Tank/DPS and Healer EllesmereUI and Blizzi profile strings with the latest layout refinements, including Healer raid frames, cast bar, and dragon riding bar adjustments.",
+            "Added the new Quick Install and Guided Install flows with profile naming, both-spec import, EUI healer spec assignment, visibility choices, rounded-border choices, and selective update support.",
+            "Added resolution/UI-scale layout presets for 1080p, 1440p pixel-perfect, 4K, and ultrawide layouts.",
+        }
+    },
     {
         version = "v2.6.12-EllesmereEdition",
         date = "July 17, 2026",
