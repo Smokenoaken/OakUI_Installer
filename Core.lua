@@ -200,7 +200,7 @@ QuickInstallFrame:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFil
 QuickInstallFrame:SetBackdropColor(0.106, 0.106, 0.129, 1)
 QuickInstallFrame:SetBackdropBorderColor(r, g, b, 1)
 
-local QuickState = { role = "both", autoAssign = true, layoutKey = "native", dpsProfile = "OakUI Tank/DPS", healsProfile = "OakUI Healer" }
+local QuickState = { role = "dps", autoAssign = false, layoutKey = "native", dpsProfile = "OakUI Tank/DPS", healsProfile = "OakUI Healer" }
 local QuickTitle = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 QuickTitle:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -16)
 QuickTitle:SetText(cWrap .. "Quick Install|r")
@@ -246,7 +246,6 @@ RoleLabel:SetPoint("TOPLEFT", QuickWarning, "BOTTOMLEFT", 0, -18)
 RoleLabel:SetText(cWrap .. "Profiles|r")
 MakeQuickChoice(QuickInstallFrame, "_roleChoices", "Tank/DPS", 18, -104, 120, 28, function() return QuickState.role == "dps" end, function() QuickState.role = "dps" end)
 MakeQuickChoice(QuickInstallFrame, "_roleChoices", "Healer", 148, -104, 120, 28, function() return QuickState.role == "heals" end, function() QuickState.role = "heals" end)
-MakeQuickChoice(QuickInstallFrame, "_roleChoices", "Both Specs", 278, -104, 120, 28, function() return QuickState.role == "both" end, function() QuickState.role = "both" end)
 
 local DpsProfileLabel = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 DpsProfileLabel:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -140)
@@ -330,11 +329,11 @@ QuickInstallApply:SetScript("OnClick", function()
     end
     QuickInstallFrame:Hide()
     addonTable.ApplyOakQuickInstall({
-        dps = QuickState.role ~= "heals",
-        heals = QuickState.role ~= "dps",
+        dps = QuickState.role == "dps",
+        heals = QuickState.role == "heals",
         dpsProfile = QuickState.dpsProfile ~= "" and QuickState.dpsProfile or "OakUI Tank/DPS",
         healsProfile = QuickState.healsProfile ~= "" and QuickState.healsProfile or "OakUI Healer",
-        autoAssign = QuickState.role == "both" and QuickState.autoAssign,
+        autoAssign = QuickState.autoAssign,
         layoutKey = QuickState.layoutKey,
     })
 end)

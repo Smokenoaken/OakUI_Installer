@@ -1,3 +1,10 @@
+## v2.6.15-EllesmereEdition
+
+- Updated OakUI Tank/DPS and Healer EllesmereUI profile strings with Tank Extra Frames positioning refinements and new DataBar setup for Volume Slider and Great Vault.
+- Updated EUI spec-swap profile support for the new mouseover loadout-change behavior.
+- Changed Quick Install and Guided Install to import one EUI profile at a time again, with EUI spec swapping still available but disabled by default, to avoid cross-profile layout placement issues.
+- Fixed the Guided Install Selective Update page so the selectable import list uses the available window height.
+
 ## v2.6.14-EllesmereEdition
 
 - Updated the OakUI Tank/DPS EllesmereUI profile string with the latest layout adjustments.

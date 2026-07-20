@@ -24,11 +24,59 @@ local EDGE_MARGIN = 10
 local EDGE_MARGIN_BY_PRESET = {
     ["1080p"] = 0,
 }
+local RAID_FRAME_KEY = "RF_RaidFrames"
+local RAID_FRAME_CLAMP_PRESETS = {
+    ["1080p"] = true,
+}
+local EXTRA_FRAMES_CONTAINER_NAME = "ERFExtraFramesContainer"
+local EXTRA_FRAMES_GAP = 5
 
 local function EnsureDB()
     if not OakUI_DB then OakUI_DB = {} end
     OakUI_DB.layoutTransform = OakUI_DB.layoutTransform or {}
     return OakUI_DB.layoutTransform
+end
+
+local function GetActiveEllesmereProfileName()
+    local EUI = _G.EllesmereUI
+    if EUI and type(EUI.GetActiveProfileName) == "function" then
+        local ok, profileName = pcall(EUI.GetActiveProfileName)
+        if ok then return profileName end
+    end
+    return type(_G.EllesmereUIDB) == "table" and (_G.EllesmereUIDB.activeProfile or _G.EllesmereUIDB.profile)
+end
+
+local function DefaultRoleProfileName(role)
+    if addonTable.GetOakEllesmereRoleProfileName then
+        return addonTable.GetOakEllesmereRoleProfileName(role)
+    end
+    return role == "heals" and "OakUI Healer" or "OakUI Tank/DPS"
+end
+
+local function RememberProfileRole(profileName, role)
+    if not profileName or (role ~= "dps" and role ~= "heals") then return end
+    local db = EnsureDB()
+    db.ellesmereProfileRoles = db.ellesmereProfileRoles or {}
+    db.ellesmereProfileRoles[profileName] = role
+end
+
+local function GetProfileRole(profileName)
+    if not profileName then return nil end
+    local roles = OakUI_DB and OakUI_DB.layoutTransform and OakUI_DB.layoutTransform.ellesmereProfileRoles
+    if type(roles) == "table" and roles[profileName] then return roles[profileName] end
+    if profileName == DefaultRoleProfileName("heals") then return "heals" end
+    if profileName == DefaultRoleProfileName("dps") then return "dps" end
+end
+
+local function IsTankDPSProfile(profileName, role)
+    if role == "dps" then return true end
+    if role == "heals" then return false end
+    return GetProfileRole(profileName) == "dps"
+end
+
+local function IsActiveEllesmereProfile(profileName)
+    if not profileName or profileName == "" then return true end
+    return GetActiveEllesmereProfileName() == profileName
 end
 
 local function GetPreset(key)
@@ -221,10 +269,106 @@ local function PatchDamageMeterAnchor(anchors, preset, offsetX)
     return true
 end
 
-local function PatchProfileLayout(profile, preset, offsetX)
+local function PatchRaidFrameAnchorOffset(anchors, deltaX)
+    deltaX = tonumber(deltaX)
+    if type(anchors) ~= "table" or not deltaX or math.abs(deltaX) < 0.5 then return false end
+
+    local anchor = anchors[RAID_FRAME_KEY]
+    if type(anchor) ~= "table" then return false end
+
+    anchor.offsetX = (tonumber(anchor.offsetX) or 0) + deltaX
+    return true
+end
+
+local function PatchTankDPSExtraFrames(profile)
+    local raidFrames = profile
+        and profile.addons
+        and profile.addons.EllesmereUIRaidFrames
+    if type(raidFrames) ~= "table" then return false end
+
+    raidFrames.extraFrames = raidFrames.extraFrames or {}
+    local extra = raidFrames.extraFrames
+    local changed = false
+    if extra.position ~= "free" then extra.position = "free"; changed = true end
+    if extra.growDirection ~= "UP" then extra.growDirection = "UP"; changed = true end
+    if extra.wrapDirection ~= "RIGHT" then extra.wrapDirection = "RIGHT"; changed = true end
+    if extra.freeHorizontal ~= false then extra.freeHorizontal = false; changed = true end
+    return changed
+end
+
+local DAMAGE_METER_ELEM_KEYS = {
+    EDM_Win1 = true,
+    EDM_Win2 = true,
+    EDM_Win3 = true,
+}
+
+local function ClearDamageMeterElementPositions(layer)
+    if type(layer) ~= "table" or type(layer.elems) ~= "table" then return false end
+
+    local changed = false
+    for key in pairs(DAMAGE_METER_ELEM_KEYS) do
+        if layer.elems[key] ~= nil then
+            layer.elems[key] = nil
+            changed = true
+        end
+    end
+    return changed
+end
+
+local function PatchUnlockLayerLayout(layer, preset, offsetX)
+    if type(layer) ~= "table" then return false end
+    local changed = PatchDamageMeterAnchor(layer.anchors, preset, offsetX)
+    changed = ClearDamageMeterElementPositions(layer) or changed
+    return changed
+end
+
+local function PatchUnlockOverrideStore(store, preset, offsetX)
+    if type(store) ~= "table" then return false end
+
+    local changed = PatchUnlockLayerLayout(store.baselineLayout, preset, offsetX)
+    if type(store.layouts) == "table" then
+        for _, layer in pairs(store.layouts) do
+            changed = PatchUnlockLayerLayout(layer, preset, offsetX) or changed
+        end
+    end
+    return changed
+end
+
+local function PatchUnlockLayerRaidFrameOffset(layer, deltaX)
+    if type(layer) ~= "table" then return false end
+    return PatchRaidFrameAnchorOffset(layer.anchors, deltaX)
+end
+
+local function PatchUnlockOverrideStoreRaidFrameOffset(store, deltaX)
+    if type(store) ~= "table" then return false end
+
+    local changed = PatchUnlockLayerRaidFrameOffset(store.baselineLayout, deltaX)
+    if type(store.layouts) == "table" then
+        for _, layer in pairs(store.layouts) do
+            changed = PatchUnlockLayerRaidFrameOffset(layer, deltaX) or changed
+        end
+    end
+    return changed
+end
+
+local function PatchProfileRaidFrameOffset(profile, deltaX)
+    if type(profile) ~= "table" then return false end
+
+    local changed = PatchRaidFrameAnchorOffset(profile.unlockLayout and profile.unlockLayout.anchors, deltaX)
+    changed = PatchUnlockOverrideStoreRaidFrameOffset(profile.specUnlockOverrides, deltaX) or changed
+    changed = PatchUnlockOverrideStoreRaidFrameOffset(profile.condUnlockOverrides, deltaX) or changed
+    return changed
+end
+
+local function PatchProfileLayout(profile, preset, offsetX, role)
     if type(profile) ~= "table" then return false end
     local changed = PatchMinimapPosition(profile)
     changed = PatchDamageMeterAnchor(profile.unlockLayout and profile.unlockLayout.anchors, preset, offsetX) or changed
+    changed = PatchUnlockOverrideStore(profile.specUnlockOverrides, preset, offsetX) or changed
+    changed = PatchUnlockOverrideStore(profile.condUnlockOverrides, preset, offsetX) or changed
+    if role == "dps" then
+        changed = PatchTankDPSExtraFrames(profile) or changed
+    end
     return changed
 end
 
@@ -260,12 +404,88 @@ end
 
 local function RefreshEllesmereLayout()
     if _G._EMM_ApplyMinimap then pcall(_G._EMM_ApplyMinimap) end
+    if _G._ERF_RefreshAll then pcall(_G._ERF_RefreshAll) end
     local EUI = _G.EllesmereUI
+    if EUI and type(EUI.SpecOverrides_ApplyUnlock) == "function" then
+        pcall(EUI.SpecOverrides_ApplyUnlock, nil, true)
+    end
     if EUI and EUI.ReapplyOwnAnchor then
         pcall(EUI.ReapplyOwnAnchor, "EDM_Win1")
+        pcall(EUI.ReapplyOwnAnchor, RAID_FRAME_KEY)
     elseif EUI and EUI.ReapplyAllUnlockAnchors then
         pcall(EUI.ReapplyAllUnlockAnchors)
     end
+end
+
+local function ApplyInstallExtraFramesPosition(profileName, role)
+    profileName = profileName or GetActiveEllesmereProfileName()
+    if not IsTankDPSProfile(profileName, role) then return false end
+    if not IsActiveEllesmereProfile(profileName) then return false end
+    if InCombatLockdown and InCombatLockdown() then return false end
+
+    local raidFrame = ResolveUnlockFrame(RAID_FRAME_KEY)
+    if not (raidFrame and raidFrame.GetRight and raidFrame.GetBottom) then return false end
+    local raidRight = raidFrame:GetRight()
+    local raidBottom = raidFrame:GetBottom()
+    if not (raidRight and raidBottom and UIParent and UIParent.GetCenter) then return false end
+
+    local profiles = type(_G.EllesmereUIDB) == "table" and _G.EllesmereUIDB.profiles
+    local activeProfile = profileName and profiles and profiles[profileName]
+    local raidFrames = activeProfile
+        and activeProfile.addons
+        and activeProfile.addons.EllesmereUIRaidFrames
+    if type(raidFrames) ~= "table" then return false end
+
+    local extra = raidFrames.extraFrames
+    if type(extra) ~= "table" then return false end
+    local uiCenterX, uiCenterY = UIParent:GetCenter()
+    if not (uiCenterX and uiCenterY) then return false end
+
+    local uiScale = UIParent:GetEffectiveScale()
+    local raidScale = raidFrame:GetEffectiveScale()
+    local left = (raidRight * raidScale / uiScale) + EXTRA_FRAMES_GAP - uiCenterX
+    local bottom = (raidBottom * raidScale / uiScale) - uiCenterY
+    local extraFrame = _G[EXTRA_FRAMES_CONTAINER_NAME]
+    local previousRect = type(extra.freeRect) == "table" and extra.freeRect or nil
+    local width = extraFrame and extraFrame.GetWidth and extraFrame:GetWidth() or nil
+    local height = extraFrame and extraFrame.GetHeight and extraFrame:GetHeight() or nil
+    if not width or width <= 0 then
+        width = previousRect and previousRect.right and previousRect.left and (previousRect.right - previousRect.left) or 0
+    end
+    if not height or height <= 0 then
+        height = previousRect and previousRect.top and previousRect.bottom and (previousRect.top - previousRect.bottom) or 0
+    end
+
+    extra.position = "free"
+    extra.growDirection = "UP"
+    extra.wrapDirection = "RIGHT"
+    extra.freeHorizontal = false
+    extra.freePos = {
+        x = left + (width / 2),
+        y = bottom + (height / 2),
+    }
+    extra.freeRect = {
+        left = left,
+        right = left + width,
+        bottom = bottom,
+        top = bottom + height,
+    }
+
+    if extraFrame and extraFrame.ClearAllPoints and extraFrame.SetPoint then
+        extraFrame:ClearAllPoints()
+        extraFrame:SetPoint("BOTTOMLEFT", UIParent, "CENTER", left, bottom)
+    end
+    return true
+end
+
+local function ScheduleInstallExtraFramesPosition(profileName, role)
+    ApplyInstallExtraFramesPosition(profileName, role)
+    if not (C_Timer and C_Timer.After) then
+        return
+    end
+    C_Timer.After(0, function() ApplyInstallExtraFramesPosition(profileName, role) end)
+    C_Timer.After(0.25, function() ApplyInstallExtraFramesPosition(profileName, role) end)
+    C_Timer.After(1, function() ApplyInstallExtraFramesPosition(profileName, role) end)
 end
 
 local function ApplyLiveDamageMeterOffset(db, profileName, preset)
@@ -276,21 +496,71 @@ local function ApplyLiveDamageMeterOffset(db, profileName, preset)
         PatchDamageMeterAnchor(db.unlockAnchors, preset, offsetX)
         PatchDamageMeterAnchor(db.unlockLayout and db.unlockLayout.anchors, preset, offsetX)
         if profileName and db.profiles and db.profiles[profileName] then
-            PatchProfileLayout(db.profiles[profileName], preset, offsetX)
+            PatchProfileLayout(db.profiles[profileName], preset, offsetX, GetProfileRole(profileName))
         end
         local activeName = db.activeProfile or db.profile
         if activeName and db.profiles and db.profiles[activeName] then
-            PatchProfileLayout(db.profiles[activeName], preset, offsetX)
+            PatchProfileLayout(db.profiles[activeName], preset, offsetX, GetProfileRole(activeName))
         end
     end
     RefreshEllesmereLayout()
     return true
 end
 
-local function ScheduleLiveDamageMeterOffset(db, profileName, preset)
+local function ComputeLiveRaidFrameOffsetDelta(preset)
+    preset = preset or addonTable.GetOakLayoutPreset()
+    if not (preset and RAID_FRAME_CLAMP_PRESETS[preset.key]) then return nil end
+    if not UIParent then return nil end
+
+    local frame = ResolveUnlockFrame(RAID_FRAME_KEY)
+    if not (frame and frame.GetLeft and frame.GetRight) then return nil end
+    if not (frame:GetLeft() and frame:GetRight()) then return nil end
+
+    local uiScale = UIParent:GetEffectiveScale()
+    local frameScale = frame:GetEffectiveScale()
+    local left = (frame:GetLeft() or 0) * frameScale / uiScale
+    local right = (frame:GetRight() or 0) * frameScale / uiScale
+    local uiWidth = UIParent:GetWidth() or 0
+    local margin = EdgeMarginForPreset(preset)
+
+    if left < margin then
+        return margin - left
+    elseif right > uiWidth - margin then
+        return (uiWidth - margin) - right
+    end
+end
+
+local function ApplyLiveRaidFrameClamp(db, profileName, preset)
+    local deltaX = ComputeLiveRaidFrameOffsetDelta(preset)
+    if not deltaX or math.abs(deltaX) < 0.5 then return false end
+
+    local changed = false
+    if type(db) == "table" then
+        changed = PatchRaidFrameAnchorOffset(db.unlockAnchors, deltaX) or changed
+        changed = PatchRaidFrameAnchorOffset(db.unlockLayout and db.unlockLayout.anchors, deltaX) or changed
+        local activeName = db.activeProfile or db.profile
+        if activeName and db.profiles and db.profiles[activeName] then
+            changed = PatchProfileRaidFrameOffset(db.profiles[activeName], deltaX) or changed
+        elseif profileName and db.profiles and db.profiles[profileName] then
+            changed = PatchProfileRaidFrameOffset(db.profiles[profileName], deltaX) or changed
+        end
+    end
+    if changed then RefreshEllesmereLayout() end
+    return changed
+end
+
+local function ApplyLiveLayoutCorrections(db, profileName, preset, role)
+    if not IsActiveEllesmereProfile(profileName) then return false end
+    local changed = ApplyLiveDamageMeterOffset(db, profileName, preset)
+    changed = ApplyLiveRaidFrameClamp(db, profileName, preset) or changed
+    return changed
+end
+
+local function ScheduleLiveDamageMeterOffset(db, profileName, preset, role)
+    ApplyLiveLayoutCorrections(db, profileName, preset, role)
     if not (C_Timer and C_Timer.After) then return end
-    C_Timer.After(0.25, function() ApplyLiveDamageMeterOffset(db, profileName, preset) end)
-    C_Timer.After(1.25, function() ApplyLiveDamageMeterOffset(db, profileName, preset) end)
+    C_Timer.After(0.25, function() ApplyLiveLayoutCorrections(db, profileName, preset, role) end)
+    C_Timer.After(1.25, function() ApplyLiveLayoutCorrections(db, profileName, preset, role) end)
 end
 
 local function NumberPattern()
@@ -371,19 +641,30 @@ function addonTable.ApplyOakScopedEllesmereLayoutTransform(db, profile, options)
     end
 end
 
-function addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName)
+function addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName, role)
     local preset = addonTable.GetOakLayoutPreset()
-    if IsNativePreset(preset) or type(db) ~= "table" then return false end
+    if type(db) ~= "table" then return false end
+    if role == "dps" or role == "heals" then RememberProfileRole(profileName, role) end
+
+    if IsNativePreset(preset) then
+        local changed = false
+        if IsTankDPSProfile(profileName, role) and profileName and db.profiles and db.profiles[profileName] then
+            changed = PatchTankDPSExtraFrames(db.profiles[profileName]) or changed
+        end
+        if changed then RefreshEllesmereLayout() end
+        if IsTankDPSProfile(profileName, role) then ScheduleInstallExtraFramesPosition(profileName, role) end
+        return changed
+    end
 
     local offsetX = ComputeDamageMeterOffsetX(preset)
     local changed = false
     if profileName and db.profiles and db.profiles[profileName] then
-        changed = PatchProfileLayout(db.profiles[profileName], preset, offsetX) or changed
+        changed = PatchProfileLayout(db.profiles[profileName], preset, offsetX, role) or changed
     end
 
     local activeName = db.activeProfile or db.profile
     if activeName and db.profiles and db.profiles[activeName] then
-        changed = PatchProfileLayout(db.profiles[activeName], preset, offsetX) or changed
+        changed = PatchProfileLayout(db.profiles[activeName], preset, offsetX, GetProfileRole(activeName)) or changed
     end
 
     changed = PatchDamageMeterAnchor(db.unlockAnchors, preset, offsetX) or changed
@@ -391,8 +672,9 @@ function addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName)
 
     if changed then
         RefreshEllesmereLayout()
-        ScheduleLiveDamageMeterOffset(db, profileName, preset)
+        ScheduleLiveDamageMeterOffset(db, profileName, preset, role)
     end
+    if IsTankDPSProfile(profileName, role) then ScheduleInstallExtraFramesPosition(profileName, role) end
     return changed
 end
 

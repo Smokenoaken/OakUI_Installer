@@ -94,7 +94,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             dps = addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("dps") or "OakUI Tank/DPS",
             heals = addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("heals") or "OakUI Healer",
         },
-        autoAssign = true,
+        autoAssign = false,
         layoutKey = "native",
         selection = SelectionPreset("recommended"),
         chatLayout = true,
@@ -112,11 +112,11 @@ function addonTable.BuildInstallerUI(parentFrame)
     local function ResetInstallerState(options)
         options = options or {}
         state.mode = options.mode or "fresh"
-        state.roles.dps = options.dps ~= false
-        state.roles.heals = options.heals == true
+        state.roles.heals = options.heals == true and options.dps ~= true
+        state.roles.dps = not state.roles.heals
         state.profiles.dps = options.dpsProfile or (addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("dps") or "OakUI Tank/DPS")
         state.profiles.heals = options.healsProfile or (addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("heals") or "OakUI Healer")
-        state.autoAssign = options.autoAssign ~= false
+        state.autoAssign = options.autoAssign == true
         state.layoutKey = options.layoutKey or "native"
         state.selection = SelectionPreset(options.selectionMode or "recommended")
         state.chatLayout = options.chatLayout ~= false
@@ -176,7 +176,8 @@ function addonTable.BuildInstallerUI(parentFrame)
         page:ClearAllPoints()
         page:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
         if previewVisible then
-            page:SetPoint("BOTTOMRIGHT", preview, "BOTTOMLEFT", -12, 0)
+            page:SetPoint("TOPRIGHT", preview, "TOPLEFT", -12, 0)
+            page:SetPoint("BOTTOMLEFT", content, "BOTTOMLEFT", 0, 0)
         else
             page:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -4, 0)
         end
@@ -255,6 +256,7 @@ function addonTable.BuildInstallerUI(parentFrame)
                 inner:SetColorTexture(0.137, 0.141, 0.172, 1)
             end
         end
+        row.UpdateState = Update
         row:SetScript("OnClick", function()
             setter(not getter())
             Update()
@@ -399,8 +401,32 @@ function addonTable.BuildInstallerUI(parentFrame)
         healsBox:SetText(state.profiles.heals)
         healsBox:SetScript("OnTextChanged", function(self) state.profiles.heals = TrimText(self:GetText()) end)
 
-        MakeCheckbox(page, "Tank/DPS Profile", "Import the Tank/DPS OakUI EUI profile.", function() return state.roles.dps end, function(v) state.roles.dps = v end, -42, 0, "profiles-dps")
-        MakeCheckbox(page, "Healer Profile", "Import the Healer OakUI EUI profile.", function() return state.roles.heals end, function(v) state.roles.heals = v end, -88, 0, "profiles-healer")
+        local roleRows = {}
+        local function UpdateRoleRows()
+            for _, row in ipairs(roleRows) do
+                if row.UpdateState then row:UpdateState() end
+            end
+        end
+        roleRows[1] = MakeCheckbox(page, "Tank/DPS Profile", "Import the Tank/DPS OakUI EUI profile.", function() return state.roles.dps end, function(v)
+            if v then
+                state.roles.dps = true
+                state.roles.heals = false
+            else
+                state.roles.dps = false
+                state.roles.heals = true
+            end
+            UpdateRoleRows()
+        end, -42, 0, "profiles-dps")
+        roleRows[2] = MakeCheckbox(page, "Healer Profile", "Import the Healer OakUI EUI profile.", function() return state.roles.heals end, function(v)
+            if v then
+                state.roles.heals = true
+                state.roles.dps = false
+            else
+                state.roles.heals = false
+                state.roles.dps = true
+            end
+            UpdateRoleRows()
+        end, -88, 0, "profiles-healer")
         MakeCheckbox(page, "Assign Profiles To Specs", "Use EUI's existing spec profile assignment so healer specs use the Healer profile and other specs use Tank/DPS.", function() return state.autoAssign end, function(v) state.autoAssign = v end, -140, 0, "profiles-auto")
         return page
     end
@@ -593,7 +619,27 @@ function addonTable.BuildInstallerUI(parentFrame)
         end
     end
 
+    local function BlockInstallInCombat()
+        if not (InCombatLockdown and InCombatLockdown()) then return false end
+        if StaticPopupDialogs and StaticPopup_Show then
+            StaticPopupDialogs["OAKUI_INSTALL_BLOCKED_COMBAT"] = {
+                text = "OakUI cannot install profiles while you are in combat. Leave combat and run the install again.",
+                button1 = "Okay",
+                timeout = 0,
+                whileDead = true,
+                hideOnEscape = true,
+                preferredIndex = 3,
+            }
+            StaticPopup_Show("OAKUI_INSTALL_BLOCKED_COMBAT")
+        else
+            print("|cffff0000[OakUI]|r Leave combat before running the installer.")
+        end
+        return true
+    end
+
     local function ApplyInstall()
+        if BlockInstallInCombat() then return end
+
         if not state.roles.dps and not state.roles.heals then
             print("|cffff0000[OakUI]|r Select at least one profile to import.")
             ShowStep(2)

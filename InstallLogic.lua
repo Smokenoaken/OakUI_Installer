@@ -526,7 +526,7 @@ function addonTable.Injectors.Ellesmere(profileName, role)
             addonTable.ApplyOakEllesmereUIScale(_G.EllesmereUIDB)
         end
         if type(_G.EllesmereUIDB) == "table" and addonTable.ApplyOakEllesmereLayoutAdjustments then
-            addonTable.ApplyOakEllesmereLayoutAdjustments(_G.EllesmereUIDB, profileName)
+            addonTable.ApplyOakEllesmereLayoutAdjustments(_G.EllesmereUIDB, profileName, role)
         end
         if addonTable.ApplyOakRoundThinBordersIfEnabled then
             local borderOk, borderErr = pcall(addonTable.ApplyOakRoundThinBordersIfEnabled, profileName)

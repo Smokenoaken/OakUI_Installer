@@ -239,7 +239,7 @@ function addonTable.ApplyOakEllesmereProfileImport(profileName, role, selection,
         addonTable.ApplyOakEllesmereUIScale(db)
     end
     if db and addonTable.ApplyOakEllesmereLayoutAdjustments then
-        addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName)
+        addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName, role)
     end
     if addonTable.ApplyOakRoundThinBordersIfEnabled then pcall(addonTable.ApplyOakRoundThinBordersIfEnabled, profileName) end
     if addonTable.ApplyOakRoundThinDamageMetersIfEnabled then pcall(addonTable.ApplyOakRoundThinDamageMetersIfEnabled, profileName) end
