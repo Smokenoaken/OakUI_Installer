@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.15-EllesmereEdition"
+P.VERSION = "2.6.16-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -107,6 +107,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.16-EllesmereEdition",
+        date = "July 20, 2026",
+        notes = {
+            "Updated Selective Update to match EllesmereUI's current per-addon import handling for layout overrides.",
+            "Fresh installs now warn before replacing existing EllesmereUI profiles and clear the selected profile before importing.",
+        }
+    },
     {
         version = "v2.6.15-EllesmereEdition",
         date = "July 20, 2026",

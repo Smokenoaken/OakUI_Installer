@@ -1,3 +1,8 @@
+## v2.6.16-EllesmereEdition
+
+- Updated Selective Update to match EllesmereUI's current per-addon import handling for layout overrides.
+- Fresh installs now warn before replacing existing EllesmereUI profiles and clear the selected profile before importing.
+
 ## v2.6.15-EllesmereEdition
 
 - Updated OakUI Tank/DPS and Healer EllesmereUI profile strings with Tank Extra Frames positioning refinements and new DataBar setup for Volume Slider and Great Vault.
