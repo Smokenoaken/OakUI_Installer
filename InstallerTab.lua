@@ -637,12 +637,97 @@ function addonTable.BuildInstallerUI(parentFrame)
         return true
     end
 
-    local function ApplyInstall()
+    local function AddExistingProfile(existing, seen, profileName)
+        profileName = TrimText(profileName)
+        if profileName == "" or seen[profileName] then return end
+        local db = type(_G.EllesmereUIDB) == "table" and _G.EllesmereUIDB
+        local profiles = db and db.profiles
+        if type(profiles) == "table" and type(profiles[profileName]) == "table" then
+            seen[profileName] = true
+            table.insert(existing, profileName)
+        end
+    end
+
+    local function GetFreshInstallExistingProfiles()
+        local existing, seen = {}, {}
+        if state.mode ~= "fresh" then return existing end
+        if state.roles.dps then AddExistingProfile(existing, seen, state.profiles.dps) end
+        if state.roles.heals then AddExistingProfile(existing, seen, state.profiles.heals) end
+        return existing
+    end
+
+    local function DeleteFreshInstallProfiles(profileNames)
+        if type(profileNames) ~= "table" then return true end
+        if not _G.EllesmereUI or type(_G.EllesmereUI.DeleteProfile) ~= "function" then
+            print("|cffff0000[OakUI]|r EllesmereUI profile delete API is unavailable. Install cancelled.")
+            return false
+        end
+
+        for _, profileName in ipairs(profileNames) do
+            if profileName == "Default" then
+                print("|cffff0000[OakUI]|r OakUI will not overwrite EllesmereUI's Default profile. Choose another profile name.")
+                ShowStep(3)
+                return false
+            end
+        end
+
+        for _, profileName in ipairs(profileNames) do
+            local ok, err = pcall(_G.EllesmereUI.DeleteProfile, profileName)
+            if not ok then
+                print("|cffff0000[OakUI]|r Could not delete existing EllesmereUI profile '" .. tostring(profileName) .. "': " .. tostring(err))
+                return false
+            end
+        end
+        return true
+    end
+
+    local function ConfirmFreshInstallOverwriteIfNeeded(continueFunc)
+        local existing = GetFreshInstallExistingProfiles()
+        if #existing == 0 then return false end
+
+        for _, profileName in ipairs(existing) do
+            if profileName == "Default" then
+                print("|cffff0000[OakUI]|r OakUI will not overwrite EllesmereUI's Default profile. Choose another profile name.")
+                ShowStep(3)
+                return true
+            end
+        end
+
+        if not StaticPopupDialogs or not StaticPopup_Show then
+            print("|cffff0000[OakUI]|r Fresh install would overwrite existing EllesmereUI profile(s): " .. table.concat(existing, ", ") .. ". Install cancelled.")
+            return true
+        end
+
+        StaticPopupDialogs["OAKUI_FRESH_INSTALL_OVERWRITE"] = {
+            text = "Fresh install will overwrite the existing EllesmereUI profile(s):\n\n%s\n\nDelete the old profile data and continue?",
+            button1 = "Overwrite",
+            button2 = "Cancel",
+            OnAccept = function(_, data)
+                if DeleteFreshInstallProfiles(data) then
+                    continueFunc()
+                end
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            preferredIndex = 3,
+        }
+        StaticPopup_Show("OAKUI_FRESH_INSTALL_OVERWRITE", table.concat(existing, "\n"), nil, existing)
+        return true
+    end
+
+    local function ApplyInstall(skipFreshOverwriteCheck)
         if BlockInstallInCombat() then return end
 
         if not state.roles.dps and not state.roles.heals then
             print("|cffff0000[OakUI]|r Select at least one profile to import.")
             ShowStep(2)
+            return
+        end
+
+        if not skipFreshOverwriteCheck and ConfirmFreshInstallOverwriteIfNeeded(function()
+            ApplyInstall(true)
+        end) then
             return
         end
 

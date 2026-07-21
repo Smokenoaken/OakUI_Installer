@@ -26,6 +26,19 @@ local MODULES = {
     { folder = "EllesmereUIDataBars", label = "DataBars", description = "DataBars module styling and behavior. Character gold data is never imported by OakUI." },
 }
 
+local OVERRIDE_KEYS = {
+    "specOverrides",
+    "specOverrideGroups",
+    "specOverrideNextId",
+    "condOverrides",
+    "condOverrideGroups",
+    "condOverrideNextId",
+    "specUnlockOverrides",
+    "condUnlockOverrides",
+    "specBmOverrides",
+    "condBmOverrides",
+}
+
 local CATEGORY_TREE = {
     {
         id = "section:profile",
@@ -104,6 +117,21 @@ local function GetSelectedFolders(selection)
     return folders, count
 end
 
+local function PayloadHasOverrides(data)
+    if type(data) ~= "table" then return false end
+    for _, key in ipairs(OVERRIDE_KEYS) do
+        if data[key] ~= nil then return true end
+    end
+    return false
+end
+
+local function StripOverrideStores(data)
+    if type(data) ~= "table" then return end
+    for _, key in ipairs(OVERRIDE_KEYS) do
+        data[key] = nil
+    end
+end
+
 local function GetProfilesDB()
     return type(_G.EllesmereUIDB) == "table" and _G.EllesmereUIDB
 end
@@ -171,6 +199,10 @@ local function BuildFilteredPayload(role, selection)
     data.assignedSpecs = nil
     data.applyUIScale = nil
 
+    local includeOverrides = keepLayout
+        and PayloadHasOverrides(data)
+        and (data.overridesIncluded == true or (data.partialImport ~= true and data.overridesExcluded ~= true))
+
     if keepLayout and data.unlockLayout then
         if folderCount > 0
             and _G.EllesmereUI
@@ -196,10 +228,20 @@ local function BuildFilteredPayload(role, selection)
         data.partialImport = true
     end
 
-    if not keepLayout then
-        data.specUnlockOverrides = nil
-        data.condUnlockOverrides = nil
+    if keepLayout then
+        if includeOverrides then
+            data.overridesIncluded = true
+            data.overridesExcluded = nil
+        else
+            StripOverrideStores(data)
+            data.overridesExcluded = true
+            data.overridesIncluded = nil
+        end
+    else
+        StripOverrideStores(data)
         data.layoutExcluded = true
+        data.overridesExcluded = true
+        data.overridesIncluded = nil
     end
 
     return payload
