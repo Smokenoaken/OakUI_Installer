@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.16-EllesmereEdition"
+P.VERSION = "2.6.17-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -109,6 +109,19 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.17-EllesmereEdition",
+        date = "July 24, 2026",
+        notes = {
+            "Updated the OakUI Tank/DPS and Healer profile strings for EllesmereUI and Blizzi Party Tools.",
+            "Improved Quick Install and Guided Install handling for custom profile names and Tank/DPS plus Healer profile installs.",
+            "Synced Blizzi Party Tools profile matching with the user’s chosen EllesmereUI profile names.",
+            "Added Show Player In Group to install visibility options and clarified Hide/Shown wording in installer review screens.",
+            "Improved install overwrite and reload prompts.",
+            "Added support for upcoming patch 12.1 \"Curse of Ula'Tek\".",
+            "Updated the supporter list.",
+        }
+    },
     {
         version = "v2.6.16-EllesmereEdition",
         date = "July 20, 2026",
