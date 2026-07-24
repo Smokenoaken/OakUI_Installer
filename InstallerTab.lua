@@ -103,6 +103,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             actionBars = true,
             cdm = true,
             chat = true,
+            showPlayerInGroup = true,
             chatLineFade = true,
             disableChatFade = false,
         },
@@ -112,8 +113,11 @@ function addonTable.BuildInstallerUI(parentFrame)
     local function ResetInstallerState(options)
         options = options or {}
         state.mode = options.mode or "fresh"
-        state.roles.heals = options.heals == true and options.dps ~= true
-        state.roles.dps = not state.roles.heals
+        state.roles.dps = options.dps == true
+        state.roles.heals = options.heals == true
+        if not state.roles.dps and not state.roles.heals then
+            state.roles.dps = true
+        end
         state.profiles.dps = options.dpsProfile or (addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("dps") or "OakUI Tank/DPS")
         state.profiles.heals = options.healsProfile or (addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("heals") or "OakUI Healer")
         state.autoAssign = options.autoAssign == true
@@ -125,6 +129,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             actionBars = true,
             cdm = true,
             chat = true,
+            showPlayerInGroup = true,
             chatLineFade = true,
             disableChatFade = false,
         }
@@ -389,14 +394,14 @@ function addonTable.BuildInstallerUI(parentFrame)
         heading:SetText(cWrap .. "Profiles|r")
 
         local dpsBox = CreateFrame("EditBox", nil, page, "InputBoxTemplate")
-        dpsBox:SetSize(160, 22)
-        dpsBox:SetPoint("TOPLEFT", page, "TOPLEFT", 130, -42)
+        dpsBox:SetSize(190, 22)
+        dpsBox:SetPoint("TOPLEFT", page, "TOPLEFT", 185, -42)
         dpsBox:SetAutoFocus(false)
         dpsBox:SetText(state.profiles.dps)
         dpsBox:SetScript("OnTextChanged", function(self) state.profiles.dps = TrimText(self:GetText()) end)
         local healsBox = CreateFrame("EditBox", nil, page, "InputBoxTemplate")
-        healsBox:SetSize(160, 22)
-        healsBox:SetPoint("TOPLEFT", page, "TOPLEFT", 130, -88)
+        healsBox:SetSize(190, 22)
+        healsBox:SetPoint("TOPLEFT", page, "TOPLEFT", 185, -88)
         healsBox:SetAutoFocus(false)
         healsBox:SetText(state.profiles.heals)
         healsBox:SetScript("OnTextChanged", function(self) state.profiles.heals = TrimText(self:GetText()) end)
@@ -407,24 +412,14 @@ function addonTable.BuildInstallerUI(parentFrame)
                 if row.UpdateState then row:UpdateState() end
             end
         end
-        roleRows[1] = MakeCheckbox(page, "Tank/DPS Profile", "Import the Tank/DPS OakUI EUI profile.", function() return state.roles.dps end, function(v)
-            if v then
-                state.roles.dps = true
-                state.roles.heals = false
-            else
-                state.roles.dps = false
-                state.roles.heals = true
-            end
+        roleRows[1] = MakeCheckbox(page, "Tank/DPS Profile", "Import this profile.", function() return state.roles.dps end, function(v)
+            state.roles.dps = v == true
+            if not state.roles.dps and not state.roles.heals then state.roles.heals = true end
             UpdateRoleRows()
         end, -42, 0, "profiles-dps")
-        roleRows[2] = MakeCheckbox(page, "Healer Profile", "Import the Healer OakUI EUI profile.", function() return state.roles.heals end, function(v)
-            if v then
-                state.roles.heals = true
-                state.roles.dps = false
-            else
-                state.roles.heals = false
-                state.roles.dps = true
-            end
+        roleRows[2] = MakeCheckbox(page, "Healer Profile", "Import this profile.", function() return state.roles.heals end, function(v)
+            state.roles.heals = v == true
+            if not state.roles.dps and not state.roles.heals then state.roles.dps = true end
             UpdateRoleRows()
         end, -88, 0, "profiles-healer")
         MakeCheckbox(page, "Assign Profiles To Specs", "Use EUI's existing spec profile assignment so healer specs use the Healer profile and other specs use Tank/DPS.", function() return state.autoAssign end, function(v) state.autoAssign = v end, -140, 0, "profiles-auto")
@@ -498,12 +493,13 @@ function addonTable.BuildInstallerUI(parentFrame)
         heading:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -2)
         heading:SetText(cWrap .. "Visibility|r")
         MakeCheckbox(page, "Chat Window Layout", "Reapply OakUI's saved chat window positions and tabs.", function() return state.chatLayout end, function(v) state.chatLayout = v end, -38, 0, "visibility-chatlayout")
-        MakeCheckbox(page, "Chat", "Hide the chat background and use OakUI's chat fade choice.", function() return state.visibility.chat end, function(v) state.visibility.chat = v end, -78, 0, "visibility-chat")
-        MakeCheckbox(page, "Unit Frames", "Hide player/pet frames without a target using EUI visibility settings.", function() return state.visibility.unitFrames end, function(v) state.visibility.unitFrames = v end, -118, 0, "visibility-unitframes")
-        MakeCheckbox(page, "Cooldown Manager", "Hide EUI CDM and resource bars without a target.", function() return state.visibility.cdm end, function(v) state.visibility.cdm = v end, -158, 0, "visibility-cdm")
-        MakeCheckbox(page, "Action Bars", "Use mouseover visibility for EUI action bars.", function() return state.visibility.actionBars end, function(v) state.visibility.actionBars = v end, -198, 0, "visibility-actionbars")
-        MakeCheckbox(page, "Chat Line Fade", "Use Blizzard per-line fading instead of EUI full-text idle fade.", function() return state.visibility.chatLineFade and not state.visibility.disableChatFade end, function(v) state.visibility.chatLineFade = v; if v then state.visibility.disableChatFade = false end end, -248, 0, "visibility-chatfade")
-        MakeCheckbox(page, "Disable Chat Fade", "Set EUI Idle Fade Strength to 0 and keep chat visible.", function() return state.visibility.disableChatFade end, function(v) state.visibility.disableChatFade = v; if v then state.visibility.chatLineFade = false end end, -288, 0, "visibility-chatvisible")
+        MakeCheckbox(page, "Hide Chat", "Hide the chat background and use OakUI's chat fade choice.", function() return state.visibility.chat end, function(v) state.visibility.chat = v end, -78, 0, "visibility-chat")
+        MakeCheckbox(page, "Hide Unit Frames", "Hide player/pet frames without a target using EUI visibility settings.", function() return state.visibility.unitFrames end, function(v) state.visibility.unitFrames = v end, -118, 0, "visibility-unitframes")
+        MakeCheckbox(page, "Show Player In Group", "If unit frames are hidden, show the player frame while in a party or raid.", function() return state.visibility.showPlayerInGroup end, function(v) state.visibility.showPlayerInGroup = v end, -158, 0, "visibility-playergroup")
+        MakeCheckbox(page, "Hide Cooldown Manager", "Hide EUI CDM and resource bars without a target.", function() return state.visibility.cdm end, function(v) state.visibility.cdm = v end, -198, 0, "visibility-cdm")
+        MakeCheckbox(page, "Hide Action Bars", "Use mouseover visibility for EUI action bars.", function() return state.visibility.actionBars end, function(v) state.visibility.actionBars = v end, -238, 0, "visibility-actionbars")
+        MakeCheckbox(page, "Chat Line Fade", "Use Blizzard per-line fading instead of EUI full-text idle fade.", function() return state.visibility.chatLineFade and not state.visibility.disableChatFade end, function(v) state.visibility.chatLineFade = v; if v then state.visibility.disableChatFade = false end end, -288, 0, "visibility-chatfade")
+        MakeCheckbox(page, "Disable Chat Fade", "Set EUI Idle Fade Strength to 0 and keep chat visible.", function() return state.visibility.disableChatFade end, function(v) state.visibility.disableChatFade = v; if v then state.visibility.chatLineFade = false end end, -328, 0, "visibility-chatvisible")
         return page
     end
 
@@ -567,6 +563,9 @@ function addonTable.BuildInstallerUI(parentFrame)
                 break
             end
         end
+        local function HiddenShown(value)
+            return value and "Hidden" or "Shown"
+        end
         reviewText:SetText(
             cWrap .. "Install Type:|r " .. mode .. "\n" ..
             cWrap .. "Layout Preset:|r " .. layoutLabel .. "\n" ..
@@ -574,10 +573,11 @@ function addonTable.BuildInstallerUI(parentFrame)
             cWrap .. "Import Scope:|r " .. sections .. "\n" ..
             cWrap .. "EUI Spec Assignment:|r " .. auto .. "\n\n" ..
             cWrap .. "Chat Layout:|r " .. (state.chatLayout and "Apply" or "Skip") .. "\n" ..
-            cWrap .. "Visibility:|r Chat " .. (state.visibility.chat and "On" or "Off") ..
-            ", Unit Frames " .. (state.visibility.unitFrames and "On" or "Off") ..
-            ", CDM " .. (state.visibility.cdm and "On" or "Off") ..
-            ", Action Bars " .. (state.visibility.actionBars and "On" or "Off") .. "\n" ..
+            cWrap .. "Visibility:|r Chat " .. HiddenShown(state.visibility.chat) ..
+            ", Unit Frames " .. HiddenShown(state.visibility.unitFrames) ..
+            ", Player In Group " .. (state.visibility.showPlayerInGroup and "Shown" or "Normal") ..
+            ", Cooldown Manager " .. HiddenShown(state.visibility.cdm) ..
+            ", Action Bars " .. HiddenShown(state.visibility.actionBars) .. "\n" ..
             cWrap .. "Rounded Borders:|r " .. (state.rounded.all and "On" or "Off") .. "\n\n" ..
             "Click Install to apply these choices. OakUI will prompt you to reload when it finishes."
         )
@@ -619,21 +619,87 @@ function addonTable.BuildInstallerUI(parentFrame)
         end
     end
 
+    local installerModal
+    local function ShowOakInstallerModal(options)
+        options = options or {}
+        if not installerModal then
+            local rootFrame = _G.OakUIProfileManager or parentFrame:GetParent() or UIParent
+            installerModal = CreateFrame("Frame", "OakUI_InstallerModal", rootFrame, "BackdropTemplate")
+            installerModal:SetSize(430, 174)
+            installerModal:SetPoint("CENTER", rootFrame, "CENTER", 0, 0)
+            installerModal:SetFrameStrata("FULLSCREEN_DIALOG")
+            installerModal:SetFrameLevel((rootFrame.GetFrameLevel and rootFrame:GetFrameLevel() or 900) + 80)
+            installerModal:SetToplevel(true)
+            installerModal:EnableMouse(true)
+            installerModal:SetMovable(true)
+            installerModal:RegisterForDrag("LeftButton")
+            installerModal:SetScript("OnDragStart", function(self) self:StartMoving() end)
+            installerModal:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+            installerModal:Hide()
+            installerModal:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 })
+            installerModal:SetBackdropColor(0.106, 0.106, 0.129, 0.98)
+            installerModal:SetBackdropBorderColor(r, g, b, 1)
+
+            installerModal.Text = installerModal:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            installerModal.Text:SetPoint("TOPLEFT", installerModal, "TOPLEFT", 24, -24)
+            installerModal.Text:SetPoint("TOPRIGHT", installerModal, "TOPRIGHT", -24, -24)
+            installerModal.Text:SetJustifyH("CENTER")
+            installerModal.Text:SetJustifyV("MIDDLE")
+            installerModal.Text:SetTextColor(1, 1, 1)
+
+            installerModal.Accept = MakeFlatButton(installerModal, "Okay", 144, 26)
+            installerModal.Accept:SetPoint("BOTTOMRIGHT", installerModal, "BOTTOM", -6, 18)
+            installerModal.Accept:SetFrameLevel(installerModal:GetFrameLevel() + 20)
+            installerModal.Accept:EnableMouse(true)
+            installerModal.Accept:RegisterForClicks("AnyUp")
+
+            installerModal.Cancel = MakeFlatButton(installerModal, "Cancel", 144, 26)
+            installerModal.Cancel:SetPoint("BOTTOMLEFT", installerModal, "BOTTOM", 6, 18)
+            installerModal.Cancel:SetFrameLevel(installerModal:GetFrameLevel() + 20)
+            installerModal.Cancel:EnableMouse(true)
+            installerModal.Cancel:RegisterForClicks("AnyUp")
+        end
+
+        local modalParent = installerModal:GetParent()
+        installerModal:SetFrameLevel((modalParent and modalParent.GetFrameLevel and modalParent:GetFrameLevel() or 900) + 80)
+        installerModal.Accept:SetFrameLevel(installerModal:GetFrameLevel() + 20)
+        installerModal.Cancel:SetFrameLevel(installerModal:GetFrameLevel() + 20)
+        installerModal:SetHeight(options.height or 174)
+        installerModal:SetBackdropBorderColor(r, g, b, 1)
+        installerModal.Text:SetText(options.text or "")
+        installerModal.Accept.Text:SetText(options.acceptText or "Okay")
+        installerModal.Cancel.Text:SetText(options.cancelText or "Cancel")
+        installerModal.Cancel:SetShown(options.cancelText ~= false)
+
+        installerModal.Accept:SetScript("OnClick", function()
+            installerModal:Hide()
+            if type(options.onAccept) == "function" then options.onAccept() end
+        end)
+        installerModal.Cancel:SetScript("OnClick", function()
+            installerModal:Hide()
+            if type(options.onCancel) == "function" then options.onCancel() end
+        end)
+
+        if options.cancelText == false then
+            installerModal.Accept:ClearAllPoints()
+            installerModal.Accept:SetPoint("BOTTOM", installerModal, "BOTTOM", 0, 18)
+        else
+            installerModal.Accept:ClearAllPoints()
+            installerModal.Accept:SetPoint("BOTTOMRIGHT", installerModal, "BOTTOM", -6, 18)
+        end
+
+        installerModal:Show()
+        if installerModal.Raise then installerModal:Raise() end
+        return installerModal
+    end
+
     local function BlockInstallInCombat()
         if not (InCombatLockdown and InCombatLockdown()) then return false end
-        if StaticPopupDialogs and StaticPopup_Show then
-            StaticPopupDialogs["OAKUI_INSTALL_BLOCKED_COMBAT"] = {
-                text = "OakUI cannot install profiles while you are in combat. Leave combat and run the install again.",
-                button1 = "Okay",
-                timeout = 0,
-                whileDead = true,
-                hideOnEscape = true,
-                preferredIndex = 3,
-            }
-            StaticPopup_Show("OAKUI_INSTALL_BLOCKED_COMBAT")
-        else
-            print("|cffff0000[OakUI]|r Leave combat before running the installer.")
-        end
+        ShowOakInstallerModal({
+            text = "OakUI cannot install profiles while you are in combat.\n\nLeave combat and run the install again.",
+            acceptText = "Okay",
+            cancelText = false,
+        })
         return true
     end
 
@@ -693,26 +759,17 @@ function addonTable.BuildInstallerUI(parentFrame)
             end
         end
 
-        if not StaticPopupDialogs or not StaticPopup_Show then
-            print("|cffff0000[OakUI]|r Fresh install would overwrite existing EllesmereUI profile(s): " .. table.concat(existing, ", ") .. ". Install cancelled.")
-            return true
-        end
-
-        StaticPopupDialogs["OAKUI_FRESH_INSTALL_OVERWRITE"] = {
-            text = "Fresh install will overwrite the existing EllesmereUI profile(s):\n\n%s\n\nDelete the old profile data and continue?",
-            button1 = "Overwrite",
-            button2 = "Cancel",
-            OnAccept = function(_, data)
-                if DeleteFreshInstallProfiles(data) then
+        ShowOakInstallerModal({
+            text = "Fresh install will overwrite the existing EllesmereUI profile(s):\n\n" .. table.concat(existing, "\n") .. "\n\nDelete the old profile data and continue?",
+            acceptText = "Overwrite",
+            cancelText = "Cancel",
+            height = 188,
+            onAccept = function()
+                if DeleteFreshInstallProfiles(existing) then
                     continueFunc()
                 end
             end,
-            timeout = 0,
-            whileDead = true,
-            hideOnEscape = true,
-            preferredIndex = 3,
-        }
-        StaticPopup_Show("OAKUI_FRESH_INSTALL_OVERWRITE", table.concat(existing, "\n"), nil, existing)
+        })
         return true
     end
 
@@ -762,6 +819,11 @@ function addonTable.BuildInstallerUI(parentFrame)
             if addonTable.ApplyOakFontPreset then pcall(addonTable.ApplyOakFontPreset) end
         end
 
+        if addonTable.RegisterOakRoleProfileName then
+            if importedDPS then addonTable.RegisterOakRoleProfileName("dps", state.profiles.dps) end
+            if importedHeals then addonTable.RegisterOakRoleProfileName("heals", state.profiles.heals) end
+        end
+
         if state.chatLayout then
             if addonTable.ScheduleChatWindowsAfterEllesmereProfile then
                 addonTable.ScheduleChatWindowsAfterEllesmereProfile(true)
@@ -790,27 +852,34 @@ function addonTable.BuildInstallerUI(parentFrame)
             end
         end
 
+        if addonTable.SetOakInstallActiveEllesmereProfile and (importedDPS or importedHeals) then
+            local ok, err = pcall(
+                addonTable.SetOakInstallActiveEllesmereProfile,
+                state.profiles.dps,
+                state.profiles.heals,
+                importedDPS == true,
+                importedHeals == true
+            )
+            if not ok then
+                print("|cffff0000[OakUI]|r Could not set active EllesmereUI profile after install: " .. tostring(err))
+            end
+        end
+
         if addonTable.MarkInstallerComplete and (importedDPS or importedHeals) then
             addonTable.MarkInstallerComplete()
         end
+        if state.mode == "fresh" and (importedDPS or importedHeals) and addonTable.MarkEllesmereCDMRepopulateAfterReload then
+            addonTable.MarkEllesmereCDMRepopulateAfterReload()
+        end
         local function ShowReloadPrompt()
-            if not StaticPopupDialogs then
-                if ReloadUI then ReloadUI() end
-                return
-            end
-            StaticPopupDialogs["OAKUI_INSTALL_COMPLETE_RELOAD"] = {
-                text = "OakUI install is complete. Reload your UI now?",
-                button1 = "Reload UI",
-                button2 = "Later",
-                OnAccept = function()
+            ShowOakInstallerModal({
+                text = "OakUI install is complete.\n\nReload your UI now?",
+                acceptText = "Reload UI",
+                cancelText = "Later",
+                onAccept = function()
                     if ReloadUI then ReloadUI() end
                 end,
-                timeout = 0,
-                whileDead = true,
-                hideOnEscape = true,
-                preferredIndex = 3,
-            }
-            StaticPopup_Show("OAKUI_INSTALL_COMPLETE_RELOAD")
+            })
         end
         if C_Timer and C_Timer.After then
             C_Timer.After(1.5, ShowReloadPrompt)

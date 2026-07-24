@@ -246,6 +246,7 @@ RoleLabel:SetPoint("TOPLEFT", QuickWarning, "BOTTOMLEFT", 0, -18)
 RoleLabel:SetText(cWrap .. "Profiles|r")
 MakeQuickChoice(QuickInstallFrame, "_roleChoices", "Tank/DPS", 18, -104, 120, 28, function() return QuickState.role == "dps" end, function() QuickState.role = "dps" end)
 MakeQuickChoice(QuickInstallFrame, "_roleChoices", "Healer", 148, -104, 120, 28, function() return QuickState.role == "heals" end, function() QuickState.role = "heals" end)
+MakeQuickChoice(QuickInstallFrame, "_roleChoices", "Both Specs", 278, -104, 120, 28, function() return QuickState.role == "both" end, function() QuickState.role = "both" end)
 
 local DpsProfileLabel = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 DpsProfileLabel:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -140)
@@ -329,8 +330,8 @@ QuickInstallApply:SetScript("OnClick", function()
     end
     QuickInstallFrame:Hide()
     addonTable.ApplyOakQuickInstall({
-        dps = QuickState.role == "dps",
-        heals = QuickState.role == "heals",
+        dps = QuickState.role == "dps" or QuickState.role == "both",
+        heals = QuickState.role == "heals" or QuickState.role == "both",
         dpsProfile = QuickState.dpsProfile ~= "" and QuickState.dpsProfile or "OakUI Tank/DPS",
         healsProfile = QuickState.healsProfile ~= "" and QuickState.healsProfile or "OakUI Healer",
         autoAssign = QuickState.autoAssign,
@@ -720,12 +721,56 @@ function addonTable.MarkInstallerComplete()
     OakUI_DB.install.characters[GetCharacterInstallKey()] = state
 end
 
+function addonTable.MarkEllesmereCDMRepopulateAfterReload()
+    if not OakUI_DB then OakUI_DB = {} end
+    if not OakUI_DB.install then OakUI_DB.install = { characters = {} } end
+    if not OakUI_DB.install.characters then OakUI_DB.install.characters = {} end
+    local state = OakUI_DB.install.characters[GetCharacterInstallKey()] or {}
+    state.pendingEllesmereCDMRepopulate = true
+    state.pendingEllesmereCDMRepopulateTime = time and time() or 0
+    OakUI_DB.install.characters[GetCharacterInstallKey()] = state
+end
+
+local function ConsumeEllesmereCDMRepopulateAfterReload()
+    if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
+    local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
+    if not state or state.pendingEllesmereCDMRepopulate ~= true then return end
+
+    local attempts = 0
+    local function TryRepopulate()
+        attempts = attempts + 1
+        local done = false
+        if addonTable.RepopulateActiveEllesmereCDMFromBlizzard then
+            local ok, result = pcall(addonTable.RepopulateActiveEllesmereCDMFromBlizzard, true)
+            done = ok and result == true
+        end
+
+        if done or attempts >= 8 then
+            state.pendingEllesmereCDMRepopulate = nil
+            state.pendingEllesmereCDMRepopulateTime = nil
+            OakUI_DB.install.characters[GetCharacterInstallKey()] = state
+            return
+        end
+
+        if C_Timer and C_Timer.After then
+            C_Timer.After(2, TryRepopulate)
+        end
+    end
+
+    if C_Timer and C_Timer.After then
+        C_Timer.After(2, TryRepopulate)
+    else
+        TryRepopulate()
+    end
+end
+
 DB_Frame:HookScript("OnEvent", function(self, event)
     if event ~= "PLAYER_LOGIN" then return end
     if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
 
     CreateOakMinimapButton()
     ClaimEllesmereFirstInstallForOakUI()
+    ConsumeEllesmereCDMRepopulateAfterReload()
     if HideMinimapCheck and HideMinimapCheck.UpdateState then HideMinimapCheck:UpdateState() end
     if addonTable.BypassElvUIInstaller then
         addonTable.BypassElvUIInstaller()

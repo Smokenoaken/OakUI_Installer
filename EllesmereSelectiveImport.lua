@@ -276,6 +276,10 @@ function addonTable.ApplyOakEllesmereProfileImport(profileName, role, selection,
         return false
     end
 
+    if addonTable.RegisterOakRoleProfileName then
+        addonTable.RegisterOakRoleProfileName(role, profileName)
+    end
+
     local db = GetProfilesDB()
     if db and addonTable.ApplyOakEllesmereUIScale then
         addonTable.ApplyOakEllesmereUIScale(db)
@@ -289,9 +293,6 @@ function addonTable.ApplyOakEllesmereProfileImport(profileName, role, selection,
     if addonTable.ApplyOakRoundThinCastBarsIfEnabled then pcall(addonTable.ApplyOakRoundThinCastBarsIfEnabled, profileName) end
     if addonTable.ApplyOakRoundThinNameplatesIfEnabled then pcall(addonTable.ApplyOakRoundThinNameplatesIfEnabled, profileName) end
     if addonTable.ApplyOakRoundThinBossFramesIfEnabled then pcall(addonTable.ApplyOakRoundThinBossFramesIfEnabled, profileName) end
-    if addonTable.MarkEllesmereCDMAutoRepopulateProfile then addonTable.MarkEllesmereCDMAutoRepopulateProfile(profileName) end
-    if addonTable.ScheduleEllesmereCDMRepopulate then addonTable.ScheduleEllesmereCDMRepopulate(profileName, "profile_import") end
-
     if not quiet then
         print("|cff17ee15[OakUI]|r Imported Ellesmere profile '" .. tostring(profileName) .. "' from OakUI's profile string.")
     end

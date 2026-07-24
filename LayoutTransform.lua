@@ -79,6 +79,34 @@ local function IsActiveEllesmereProfile(profileName)
     return GetActiveEllesmereProfileName() == profileName
 end
 
+local function EnsureEllesmereMovementAlertProfile()
+    local getter = _G._EUI_MovementAlert_DB
+    if type(getter) == "function" then
+        local ok, movementDB = pcall(getter)
+        if ok and type(movementDB) == "table" and type(movementDB.profile) == "table" then
+            if type(movementDB.profile.movementAlert) ~= "table" then
+                movementDB.profile.movementAlert = {}
+            end
+            return true
+        end
+    end
+
+    local euiDB = _G.EllesmereUIDB
+    local profileName = GetActiveEllesmereProfileName()
+    local profile = type(euiDB) == "table"
+        and type(euiDB.profiles) == "table"
+        and profileName
+        and euiDB.profiles[profileName]
+    if type(profile) ~= "table" then return false end
+
+    profile.addons = profile.addons or {}
+    profile.addons.EllesmereUIQoL = profile.addons.EllesmereUIQoL or {}
+    if type(profile.addons.EllesmereUIQoL.movementAlert) ~= "table" then
+        profile.addons.EllesmereUIQoL.movementAlert = {}
+    end
+    return true
+end
+
 local function GetPreset(key)
     return PRESET_BY_KEY[key or activePresetKey] or PRESET_BY_KEY.native
 end
@@ -360,15 +388,12 @@ local function PatchProfileRaidFrameOffset(profile, deltaX)
     return changed
 end
 
-local function PatchProfileLayout(profile, preset, offsetX, role)
+local function PatchProfileLayout(profile, preset, offsetX)
     if type(profile) ~= "table" then return false end
     local changed = PatchMinimapPosition(profile)
     changed = PatchDamageMeterAnchor(profile.unlockLayout and profile.unlockLayout.anchors, preset, offsetX) or changed
     changed = PatchUnlockOverrideStore(profile.specUnlockOverrides, preset, offsetX) or changed
     changed = PatchUnlockOverrideStore(profile.condUnlockOverrides, preset, offsetX) or changed
-    if role == "dps" then
-        changed = PatchTankDPSExtraFrames(profile) or changed
-    end
     return changed
 end
 
@@ -403,6 +428,7 @@ local function ComputeLiveDamageMeterOffset()
 end
 
 local function RefreshEllesmereLayout()
+    EnsureEllesmereMovementAlertProfile()
     if _G._EMM_ApplyMinimap then pcall(_G._EMM_ApplyMinimap) end
     if _G._ERF_RefreshAll then pcall(_G._ERF_RefreshAll) end
     local EUI = _G.EllesmereUI
@@ -417,7 +443,13 @@ local function RefreshEllesmereLayout()
     end
 end
 
+local function RefreshEllesmereRaidFramesOnly()
+    EnsureEllesmereMovementAlertProfile()
+    if _G._ERF_RefreshAll then pcall(_G._ERF_RefreshAll) end
+end
+
 local function ApplyInstallExtraFramesPosition(profileName, role)
+    EnsureEllesmereMovementAlertProfile()
     profileName = profileName or GetActiveEllesmereProfileName()
     if not IsTankDPSProfile(profileName, role) then return false end
     if not IsActiveEllesmereProfile(profileName) then return false end
@@ -496,11 +528,11 @@ local function ApplyLiveDamageMeterOffset(db, profileName, preset)
         PatchDamageMeterAnchor(db.unlockAnchors, preset, offsetX)
         PatchDamageMeterAnchor(db.unlockLayout and db.unlockLayout.anchors, preset, offsetX)
         if profileName and db.profiles and db.profiles[profileName] then
-            PatchProfileLayout(db.profiles[profileName], preset, offsetX, GetProfileRole(profileName))
+            PatchProfileLayout(db.profiles[profileName], preset, offsetX)
         end
         local activeName = db.activeProfile or db.profile
         if activeName and db.profiles and db.profiles[activeName] then
-            PatchProfileLayout(db.profiles[activeName], preset, offsetX, GetProfileRole(activeName))
+            PatchProfileLayout(db.profiles[activeName], preset, offsetX)
         end
     end
     RefreshEllesmereLayout()
@@ -647,24 +679,31 @@ function addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName, role)
     if role == "dps" or role == "heals" then RememberProfileRole(profileName, role) end
 
     if IsNativePreset(preset) then
-        local changed = false
+        local extraChanged = false
         if IsTankDPSProfile(profileName, role) and profileName and db.profiles and db.profiles[profileName] then
-            changed = PatchTankDPSExtraFrames(db.profiles[profileName]) or changed
+            extraChanged = PatchTankDPSExtraFrames(db.profiles[profileName]) or extraChanged
         end
-        if changed then RefreshEllesmereLayout() end
+        if extraChanged then RefreshEllesmereRaidFramesOnly() end
         if IsTankDPSProfile(profileName, role) then ScheduleInstallExtraFramesPosition(profileName, role) end
-        return changed
+        return extraChanged
     end
 
     local offsetX = ComputeDamageMeterOffsetX(preset)
     local changed = false
+    local extraChanged = false
     if profileName and db.profiles and db.profiles[profileName] then
-        changed = PatchProfileLayout(db.profiles[profileName], preset, offsetX, role) or changed
+        changed = PatchProfileLayout(db.profiles[profileName], preset, offsetX) or changed
+        if IsTankDPSProfile(profileName, role) then
+            extraChanged = PatchTankDPSExtraFrames(db.profiles[profileName]) or extraChanged
+        end
     end
 
     local activeName = db.activeProfile or db.profile
     if activeName and db.profiles and db.profiles[activeName] then
-        changed = PatchProfileLayout(db.profiles[activeName], preset, offsetX, GetProfileRole(activeName)) or changed
+        changed = PatchProfileLayout(db.profiles[activeName], preset, offsetX) or changed
+        if IsTankDPSProfile(activeName, GetProfileRole(activeName)) then
+            extraChanged = PatchTankDPSExtraFrames(db.profiles[activeName]) or extraChanged
+        end
     end
 
     changed = PatchDamageMeterAnchor(db.unlockAnchors, preset, offsetX) or changed
@@ -673,9 +712,11 @@ function addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName, role)
     if changed then
         RefreshEllesmereLayout()
         ScheduleLiveDamageMeterOffset(db, profileName, preset, role)
+    elseif extraChanged then
+        RefreshEllesmereRaidFramesOnly()
     end
     if IsTankDPSProfile(profileName, role) then ScheduleInstallExtraFramesPosition(profileName, role) end
-    return changed
+    return changed or extraChanged
 end
 
 function addonTable.TransformOakLayoutOffset(x, y)

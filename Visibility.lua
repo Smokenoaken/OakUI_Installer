@@ -2313,6 +2313,7 @@ function addonTable.ApplyOakInstallerVisibilityTweaks(options)
     if options.chat ~= nil then SetChatBackgroundHidden(options.chat) end
     if options.cdm ~= nil then SetCDMFading(options.cdm) end
     if IsEllesmereProvider() then
+        if options.showPlayerInGroup ~= nil then SetEllesmereShowPlayerInParty(options.showPlayerInGroup) end
         if options.chatLineFade ~= nil then SetEllesmereChatLineFade(options.chatLineFade) end
         if options.disableChatFade ~= nil then SetEllesmereDisableChatFade(options.disableChatFade) end
     end
@@ -2388,10 +2389,10 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddOption("Apply All", SetAllHidden, GetAllHidden, nil, 300, -23, 150)
 
         AddSection("Visibility", leftX, -78)
-        AddOption("Hide Player/Pet", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options between None and Hide without Target for Player/Pet.", leftX, -98, colWidth, true)
-        AddOption("Hide CDM", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -98, colWidth, true)
+        AddOption("Hide Unit Frames", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options between None and Hide without Target for Player/Pet.", leftX, -98, colWidth, true)
+        AddOption("Hide Cooldown Manager", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -98, colWidth, true)
         AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -98 + rowGap, colWidth)
-        AddOption("Hide Chat Background", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade.", rightX, -98 + rowGap, colWidth)
+        AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade.", rightX, -98 + rowGap, colWidth)
         AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -98 + rowGap * 2, colWidth)
         AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", rightX, -98 + rowGap * 2, colWidth)
         AddOption("Hide Error Messages", SetErrorMessagesHidden, GetErrorMessagesHidden, "Suppresses most red UI error text from UIErrorsFrame, useful for GSE macro spam. Important errors like full bags, full quest log, dead player/pet, and LFG boot/teleport messages still show.", leftX, -98 + rowGap * 3, colWidth, true)
@@ -2432,7 +2433,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
     dAll:SetPoint("LEFT", lblAll, "RIGHT", 15, 0); dAll:SetText("- Applies every visibility toggle below."); dAll:SetTextColor(0.6, 0.6, 0.6)
     table.insert(checkboxes, cbAll)
 
-    local cb1, lbl1 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide Player Frame|r", SetUnitframes, GetUnitframes)
+    local cb1, lbl1 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide Unit Frames|r", SetUnitframes, GetUnitframes)
     cb1:SetPoint("TOPLEFT", cbAll, "BOTTOMLEFT", 0, -30)
     local d1 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     d1:SetPoint("LEFT", lbl1, "RIGHT", 15, 0); d1:SetText(IsEllesmereProvider() and "- Sets player/pet Hide without Target." or "- Toggles ElvUI Player > Fader."); d1:SetTextColor(0.6, 0.6, 0.6)
@@ -2444,13 +2445,13 @@ function addonTable.BuildVisibilityUI(parentFrame)
     d2:SetPoint("LEFT", lbl2, "RIGHT", 15, 0); d2:SetText("- Fades all action bars in together on mouseover."); d2:SetTextColor(0.6, 0.6, 0.6)
     table.insert(checkboxes, cb2)
 
-    local cb3, lbl3 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide Chat Background|r", SetChatBackgroundHidden, GetChatBackgroundHidden)
+    local cb3, lbl3 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide Chat|r", SetChatBackgroundHidden, GetChatBackgroundHidden)
     cb3:SetPoint("TOPLEFT", cb2, "BOTTOMLEFT", 0, -30)
     local d3 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     d3:SetPoint("LEFT", lbl3, "RIGHT", 15, 0); d3:SetText(IsEllesmereProvider() and "- Opacity 0, idle fade 100." or "- Sets ElvUI chat panels."); d3:SetTextColor(0.6, 0.6, 0.6)
     table.insert(checkboxes, cb3)
 
-    local cb4, lbl4 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide CDM|r", SetCDMFading, GetCDMFading)
+    local cb4, lbl4 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide Cooldown Manager|r", SetCDMFading, GetCDMFading)
     cb4:SetPoint("TOPLEFT", cb3, "BOTTOMLEFT", 0, -30)
     local d4 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     d4:SetPoint("LEFT", lbl4, "RIGHT", 15, 0); d4:SetText(IsEllesmereProvider() and "- Cooldowns hide without target." or "- Toggles Ayije CDM fading."); d4:SetTextColor(0.6, 0.6, 0.6)

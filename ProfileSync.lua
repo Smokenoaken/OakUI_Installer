@@ -5,17 +5,65 @@ local ellesmereHooked = false
 local blizziHooked = false
 local syncFrame
 
-local function GetOakRoleProfileName(role)
+local function TrimProfileName(profileName)
+    return tostring(profileName or ""):gsub("^%s+", ""):gsub("%s+$", "")
+end
+
+local function GetProfileSyncDB()
+    OakUI_DB = OakUI_DB or {}
+    OakUI_DB.profileSync = OakUI_DB.profileSync or {}
+    OakUI_DB.profileSync.ellesmereRoleProfiles = OakUI_DB.profileSync.ellesmereRoleProfiles or {}
+    return OakUI_DB.profileSync
+end
+
+local function GetDefaultRoleProfileName(role)
     if addonTable.GetOakEllesmereRoleProfileName then
         return addonTable.GetOakEllesmereRoleProfileName(role)
     end
     return role == "heals" and "OakUI Healer" or "OakUI Tank/DPS"
 end
 
+local function GetOakRoleProfileName(role)
+    role = role == "heals" and "heals" or "dps"
+    local syncDB = OakUI_DB and OakUI_DB.profileSync
+    local roleProfiles = syncDB and syncDB.ellesmereRoleProfiles
+    local profileName = roleProfiles and TrimProfileName(roleProfiles[role])
+    if profileName and profileName ~= "" then
+        return profileName
+    end
+    return GetDefaultRoleProfileName(role)
+end
+
 local function GetOakProfileRole(profileName)
+    profileName = TrimProfileName(profileName)
+    if profileName == "" then return nil end
+
+    local syncDB = OakUI_DB and OakUI_DB.profileSync
+    local roleProfiles = syncDB and syncDB.ellesmereRoleProfiles
+    if type(roleProfiles) == "table" then
+        if profileName == TrimProfileName(roleProfiles.heals) then return "heals" end
+        if profileName == TrimProfileName(roleProfiles.dps) then return "dps" end
+    end
+
     if profileName == GetOakRoleProfileName("heals") then return "heals" end
     if profileName == GetOakRoleProfileName("dps") then return "dps" end
+    if profileName == GetDefaultRoleProfileName("heals") then return "heals" end
+    if profileName == GetDefaultRoleProfileName("dps") then return "dps" end
     return nil
+end
+
+function addonTable.RegisterOakRoleProfileName(role, profileName)
+    role = role == "heals" and "heals" or role == "dps" and "dps" or nil
+    profileName = TrimProfileName(profileName)
+    if not role or profileName == "" then return false end
+
+    local syncDB = GetProfileSyncDB()
+    syncDB.ellesmereRoleProfiles[role] = profileName
+    return true
+end
+
+function addonTable.GetOakSyncedRoleProfileName(role)
+    return GetOakRoleProfileName(role)
 end
 
 local function IsAddonLoaded(folder)

@@ -244,8 +244,19 @@ local function GetCurrentEllesmereSpecKey()
     return specID and tostring(specID) or nil
 end
 
-local function GetActiveEllesmereProfileName()
-    return _G.EllesmereUIDB and _G.EllesmereUIDB.activeProfile
+local function GetCurrentPlayerSpecRole()
+    local specIndex = GetSpecialization and GetSpecialization()
+    if not specIndex then return nil end
+
+    if GetSpecializationInfo then
+        local _, _, _, _, role = GetSpecializationInfo(specIndex)
+        if role then return role end
+    end
+
+    if GetSpecializationRole then
+        local ok, role = pcall(GetSpecializationRole, specIndex)
+        if ok then return role end
+    end
 end
 
 local function ForEachKnownSpec(callback)
@@ -273,6 +284,11 @@ function addonTable.AssignOakEllesmereProfilesToSpecs(dpsProfileName, healerProf
     if type(_G.EllesmereUIDB) ~= "table" then return false end
     local db = _G.EllesmereUIDB
     db.specProfiles = db.specProfiles or {}
+
+    if addonTable.RegisterOakRoleProfileName then
+        addonTable.RegisterOakRoleProfileName("dps", dpsProfileName)
+        addonTable.RegisterOakRoleProfileName("heals", healerProfileName)
+    end
 
     for specID, profileName in pairs(db.specProfiles) do
         if profileName == dpsProfileName or profileName == healerProfileName then
@@ -305,35 +321,146 @@ function addonTable.AssignOakEllesmereProfilesToSpecs(dpsProfileName, healerProf
     return true
 end
 
-local function IsOakEllesmereProfile(profileName)
-    if not profileName or profileName == "" then return false end
-    if addonTable.GetOakEllesmereRoleProfileName then
-        if profileName == addonTable.GetOakEllesmereRoleProfileName("dps") then return true end
-        if profileName == addonTable.GetOakEllesmereRoleProfileName("heals") then return true end
+function addonTable.SetOakInstallActiveEllesmereProfile(dpsProfileName, healerProfileName, installedDPS, installedHeals)
+    if type(_G.EllesmereUIDB) ~= "table" then return false end
+    local db = _G.EllesmereUIDB
+    local profiles = db.profiles
+    if type(profiles) ~= "table" then return false end
+
+    local targetProfile
+    if installedDPS and installedHeals then
+        targetProfile = GetCurrentPlayerSpecRole() == "HEALER" and healerProfileName or dpsProfileName
+    elseif installedHeals then
+        targetProfile = healerProfileName
+    elseif installedDPS then
+        targetProfile = dpsProfileName
     end
-    return OakUI_DB
-        and OakUI_DB.ellesmere
-        and OakUI_DB.ellesmere.cdmAutoRepopulateProfiles
-        and OakUI_DB.ellesmere.cdmAutoRepopulateProfiles[profileName] == true
+
+    if not targetProfile or targetProfile == "" or type(profiles[targetProfile]) ~= "table" then
+        return false
+    end
+
+    local EUI = _G.EllesmereUI
+    local switched = false
+    if EUI and type(EUI.SwitchProfile) == "function" then
+        switched = pcall(EUI.SwitchProfile, targetProfile)
+    end
+
+    if not switched then
+        db.activeProfile = targetProfile
+    end
+    db.lastNonSpecProfile = targetProfile
+
+    if EUI and type(EUI.RefreshAllAddons) == "function" then
+        pcall(EUI.RefreshAllAddons, EUI)
+    end
+    return true
 end
 
-function addonTable.MarkEllesmereCDMAutoRepopulateProfile(profileName)
-    if not profileName or profileName == "" then return end
-    OakUI_DB = OakUI_DB or {}
-    OakUI_DB.ellesmere = OakUI_DB.ellesmere or {}
-    OakUI_DB.ellesmere.cdmAutoRepopulateProfiles = OakUI_DB.ellesmere.cdmAutoRepopulateProfiles or {}
-    OakUI_DB.ellesmere.cdmAutoRepopulateProfiles[profileName] = true
+local OAK_CDM_RACE_RACIALS = {
+    Scourge = { 7744 },
+    Tauren = { 20549 },
+    Orc = { 20572, 33697, 33702 },
+    BloodElf = { 202719, 50613, 25046, 69179, 80483, 155145, 129597, 232633, 28730 },
+    Dwarf = { 20594 },
+    Troll = { 26297 },
+    Draenei = { 28880, 59543, 59545, 121093, 59544, 370626, 59547, 59548, 59542, 416250 },
+    NightElf = { 58984 },
+    Human = { 59752 },
+    DarkIronDwarf = { 265221 },
+    Gnome = { 20589 },
+    HighmountainTauren = { 255654 },
+    Worgen = { 68992 },
+    Goblin = { 69070 },
+    Pandaren = { 107079 },
+    MagharOrc = { 274738 },
+    LightforgedDraenei = { 255647 },
+    VoidElf = { 256948 },
+    KulTiran = { 287712 },
+    ZandalariTroll = { 291944 },
+    Vulpera = { 312411 },
+    Mechagnome = { 312924 },
+    Nightborne = { 260364 },
+    Dracthyr = { { 357214, notClass = "EVOKER" } },
+    EarthenDwarf = { 436344 },
+    Haranir = { 1237885 },
+}
+
+local function OakDeepCopy(value, seen)
+    if type(value) ~= "table" then return value end
+    seen = seen or {}
+    if seen[value] then return seen[value] end
+    local copy = {}
+    seen[value] = copy
+    for k, v in pairs(value) do
+        copy[OakDeepCopy(k, seen)] = OakDeepCopy(v, seen)
+    end
+    return copy
 end
 
-local function FilterCDMSpellList(spellData, list)
-    if type(list) ~= "table" then return false end
-    local changed, writeIndex = false, 1
+local function GetCurrentRacialSet()
+    local race = select(2, UnitRace("player"))
+    local class = select(2, UnitClass("player"))
+    local set = {}
+    for _, entry in ipairs(OAK_CDM_RACE_RACIALS[race] or {}) do
+        local spellID = type(entry) == "table" and entry[1] or entry
+        local requiredClass = type(entry) == "table" and entry.class or nil
+        local excludedClass = type(entry) == "table" and entry.notClass or nil
+        if spellID and (not requiredClass or requiredClass == class) and (not excludedClass or excludedClass ~= class) then
+            set[spellID] = true
+        end
+    end
+    return set
+end
+
+local function GetActiveCDMSpecProfile(db, profileName, specKey)
+    db.spellAssignments = db.spellAssignments or { profiles = {} }
+    local spellStore = db.spellAssignments
+    spellStore.profiles = spellStore.profiles or {}
+    local bucket = spellStore.profiles[profileName]
+    if type(bucket) ~= "table" then
+        bucket = { specProfiles = {} }
+        if not spellStore._perProfileSeeded and type(spellStore.specProfiles) == "table" and next(spellStore.specProfiles) then
+            bucket.specProfiles = OakDeepCopy(spellStore.specProfiles)
+        end
+        spellStore.profiles[profileName] = bucket
+    end
+    bucket.specProfiles = bucket.specProfiles or {}
+    local specProfile = bucket.specProfiles[specKey]
+    if type(specProfile) ~= "table" then
+        specProfile = { barSpells = {} }
+        bucket.specProfiles[specKey] = specProfile
+    end
+    specProfile.barSpells = specProfile.barSpells or {}
+    return specProfile
+end
+
+local function GetCDMBarSpellData(specProfile, barKey)
+    if not specProfile or not barKey then return nil end
+    local spellData = specProfile.barSpells[barKey]
+    if type(spellData) ~= "table" then
+        spellData = {}
+        specProfile.barSpells[barKey] = spellData
+    end
+    return spellData
+end
+
+local function IsOakCDMUserAddedSpell(spellData, spellID, racialSet)
+    if type(spellID) ~= "number" or spellID == 0 then return false end
+    if spellID < 0 then return true end
+    if spellData.customSpellIDs and spellData.customSpellIDs[spellID] then return true end
+    if racialSet and racialSet[spellID] then return true end
+    if spellData.spellDurations and (spellData.spellDurations[spellID] or 0) > 0 then return true end
+    return false
+end
+
+local function FilterCDMListPreservingUserAdded(spellData, list, racialSet)
+    if type(spellData) ~= "table" or type(list) ~= "table" then return false end
+    local changed = false
+    local writeIndex = 1
     for readIndex = 1, #list do
         local spellID = list[readIndex]
-        local keep = type(spellID) ~= "number"
-            or spellID < 0
-            or (spellData.customSpellIDs and spellData.customSpellIDs[spellID])
-        if keep then
+        if IsOakCDMUserAddedSpell(spellData, spellID, racialSet) then
             list[writeIndex] = spellID
             writeIndex = writeIndex + 1
         else
@@ -347,14 +474,11 @@ local function FilterCDMSpellList(spellData, list)
     return changed
 end
 
-local function FilterCDMSpellSet(spellData, set)
-    if type(set) ~= "table" then return false end
+local function FilterCDMSetPreservingUserAdded(spellData, set, racialSet)
+    if type(spellData) ~= "table" or type(set) ~= "table" then return false end
     local changed = false
     for spellID in pairs(set) do
-        local remove = type(spellID) == "number"
-            and spellID > 0
-            and not (spellData.customSpellIDs and spellData.customSpellIDs[spellID])
-        if remove then
+        if not IsOakCDMUserAddedSpell(spellData, spellID, racialSet) then
             set[spellID] = nil
             changed = true
         end
@@ -362,138 +486,166 @@ local function FilterCDMSpellSet(spellData, set)
     return changed
 end
 
-local function ShouldRepopulateBar(barData)
+local function ShouldOakRepopulateCDMBar(barData)
     if type(barData) ~= "table" or barData.isGhostBar or barData.key == "buffs" then return false end
     return barData.barType == "cooldowns"
         or barData.barType == "utility"
         or barData.barType == "buffs"
         or barData.key == "cooldowns"
         or barData.key == "utility"
+        or barData.key == "__ghost_cd"
 end
 
-local function RepopulateSpecStoreFromBlizzard(specStore, profile, specKey)
-    if type(specStore) ~= "table" or not specKey then return false end
-    local specData = specStore[specKey]
-    local changed = false
-    if type(specData) ~= "table" then
-        specData = {}
-        specStore[specKey] = specData
-        changed = true
-    end
-    if type(specData.barSpells) ~= "table" then
-        specData.barSpells = {}
-        changed = true
-    end
-
-    local function repopulateBar(barKey)
-        local spellData = specData.barSpells[barKey]
-        if type(spellData) ~= "table" then
-            spellData = {}
-            specData.barSpells[barKey] = spellData
-            changed = true
+local function FrameHasText(frame, text)
+    if not frame or not text then return false end
+    local regions = { frame:GetRegions() }
+    for _, region in ipairs(regions) do
+        if region and region.GetObjectType and region:GetObjectType() == "FontString" then
+            local value = region:GetText()
+            if value == text or (type(value) == "string" and value:find(text, 1, true)) then
+                return true
+            end
         end
-        changed = FilterCDMSpellList(spellData, spellData.assignedSpells) or changed
-        changed = FilterCDMSpellSet(spellData, spellData.removedSpells) or changed
+    end
+    return false
+end
+
+local function FindButtonByText(frame, text)
+    if not frame then return nil end
+    if frame.GetObjectType and frame:GetObjectType() == "Button" and FrameHasText(frame, text) then
+        return frame
     end
 
-    local seen = {}
-    local bars = profile and profile.addons
-        and profile.addons.EllesmereUICooldownManager
-        and profile.addons.EllesmereUICooldownManager.cdmBars
-        and profile.addons.EllesmereUICooldownManager.cdmBars.bars
-    if type(bars) == "table" then
-        for _, barData in ipairs(bars) do
-            if ShouldRepopulateBar(barData) and barData.key then
-                seen[barData.key] = true
-                repopulateBar(barData.key)
+    local children = { frame:GetChildren() }
+    for _, child in ipairs(children) do
+        local found = FindButtonByText(child, text)
+        if found then return found end
+    end
+    return nil
+end
+
+local function TryEllesmereNativeCDMRepopulate()
+    if not C_AddOns or not C_AddOns.IsAddOnLoaded or not C_AddOns.IsAddOnLoaded("EllesmereUICooldownManager") then
+        if C_AddOns and C_AddOns.LoadAddOn then
+            pcall(C_AddOns.LoadAddOn, "EllesmereUICooldownManager")
+        end
+    end
+
+    local EUI = _G.EllesmereUI
+    local module = EUI and EUI._modules and EUI._modules.EllesmereUICooldownManager
+    if not EUI or not module or type(module.buildPage) ~= "function" or type(EUI.ShowConfirmPopup) ~= "function" then
+        return false
+    end
+
+    local hidden = CreateFrame("Frame", nil, UIParent)
+    hidden:SetSize(1200, 2200)
+    hidden:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -3000, -3000)
+    hidden:SetAlpha(0)
+    hidden:Hide()
+
+    local oldPrebuilding = EUI._prebuilding
+    local oldBuildingModule = EUI._buildingModule
+    local oldBuildingPage = EUI._buildingPage
+    local oldShowConfirmPopup = EUI.ShowConfirmPopup
+    local repopulated = false
+
+    EUI._prebuilding = true
+    EUI._buildingModule = "EllesmereUICooldownManager"
+    EUI._buildingPage = "CDM Bars"
+    EUI.ShowConfirmPopup = function(self, opts)
+        if type(opts) == "table" and opts.title == "Repopulate Bars" and type(opts.onConfirm) == "function" then
+            repopulated = true
+            opts.onConfirm()
+            return
+        end
+        return oldShowConfirmPopup(self, opts)
+    end
+
+    local ok = pcall(module.buildPage, "CDM Bars", hidden, -10)
+    if ok then
+        local button = FindButtonByText(hidden, "Repopulate from Blizzard CDM") or FindButtonByText(hidden, "Repopulate")
+        if button then
+            local click = button:GetScript("OnClick")
+            if type(click) == "function" then
+                pcall(click, button, "LeftButton")
+            elseif button.Click then
+                pcall(button.Click, button)
             end
         end
     end
 
-    for _, barKey in ipairs({ "cooldowns", "utility", "__ghost_cd" }) do
-        if not seen[barKey] then repopulateBar(barKey) end
-    end
+    EUI.ShowConfirmPopup = oldShowConfirmPopup
+    EUI._prebuilding = oldPrebuilding
+    EUI._buildingModule = oldBuildingModule
+    EUI._buildingPage = oldBuildingPage
+    hidden:Hide()
+    hidden:SetParent(nil)
 
-    return changed
+    return repopulated == true
 end
 
-function addonTable.RepopulateEllesmereCDMFromBlizzard(profileName, reason, quiet)
+function addonTable.RepopulateActiveEllesmereCDMFromBlizzard(quiet)
+    if TryEllesmereNativeCDMRepopulate() then
+        if not quiet then
+            print("|cff17ee15[OakUI]|r Repopulated Ellesmere CDM from Blizzard CDM.")
+        end
+        return true
+    end
+    if quiet then return false end
     if not C_AddOns or not C_AddOns.IsAddOnLoaded or not C_AddOns.IsAddOnLoaded("EllesmereUICooldownManager") then return false end
+
     local db = _G.EllesmereUIDB
     if type(db) ~= "table" then return false end
 
-    profileName = profileName and profileName ~= "" and profileName or GetActiveEllesmereProfileName()
-    if not IsOakEllesmereProfile(profileName) then return false end
+    local profileName = db.activeProfile or "Default"
+    local profile = db.profiles and db.profiles[profileName]
+    local cdmProfile = profile
+        and profile.addons
+        and profile.addons.EllesmereUICooldownManager
+    local bars = cdmProfile and cdmProfile.cdmBars and cdmProfile.cdmBars.bars
+    if type(bars) ~= "table" then return false end
 
     local specKey = GetCurrentEllesmereSpecKey()
-    if not specKey then return false end
+    if not specKey or specKey == "0" then return false end
+    local specProfile = GetActiveCDMSpecProfile(db, profileName, specKey)
+    local racialSet = GetCurrentRacialSet()
+    local changed = false
 
-    db.profiles = db.profiles or {}
-    local profile = db.profiles[profileName]
-    if type(profile) ~= "table" then return false end
+    for _, barData in ipairs(bars) do
+        if ShouldOakRepopulateCDMBar(barData) and barData.key then
+            local spellData = GetCDMBarSpellData(specProfile, barData.key)
+            changed = FilterCDMListPreservingUserAdded(spellData, spellData.assignedSpells, racialSet) or changed
+            changed = FilterCDMSetPreservingUserAdded(spellData, spellData.removedSpells, racialSet) or changed
+        end
+    end
 
-    db.spellAssignments = db.spellAssignments or {}
-    db.spellAssignments.specProfiles = db.spellAssignments.specProfiles or {}
-    db.spellAssignments.profiles = db.spellAssignments.profiles or {}
-    db.spellAssignments.profiles[profileName] = db.spellAssignments.profiles[profileName] or {}
-    db.spellAssignments.profiles[profileName].specProfiles = db.spellAssignments.profiles[profileName].specProfiles or {}
+    local ghostSpellData = GetCDMBarSpellData(specProfile, "__ghost_cd")
+    changed = FilterCDMListPreservingUserAdded(ghostSpellData, ghostSpellData.assignedSpells, racialSet) or changed
+    changed = FilterCDMSetPreservingUserAdded(ghostSpellData, ghostSpellData.removedSpells, racialSet) or changed
 
-    local changed = RepopulateSpecStoreFromBlizzard(db.spellAssignments.profiles[profileName].specProfiles, profile, specKey)
-    changed = RepopulateSpecStoreFromBlizzard(db.spellAssignments.specProfiles, profile, specKey) or changed
+    local buffSpellData = GetCDMBarSpellData(specProfile, "buffs")
+    if buffSpellData then
+        if buffSpellData.buffDisplayOrder ~= nil then changed = true end
+        if buffSpellData._buffDisplayOrderUserModified ~= nil then changed = true end
+        buffSpellData.buffDisplayOrder = nil
+        buffSpellData._buffDisplayOrderUserModified = nil
+    end
 
-    if type(_G._ECME_LoadSpecProfile) == "function" then
-        pcall(_G._ECME_LoadSpecProfile, specKey)
+    if type(_G._ECME_Apply) == "function" then
+        pcall(_G._ECME_Apply)
     end
     if _G.EllesmereUI and type(_G.EllesmereUI.CDMReconcileActiveSpecSpells) == "function" then
         pcall(_G.EllesmereUI.CDMReconcileActiveSpecSpells)
     end
-    if type(_G._ECME_Apply) == "function" then
-        pcall(_G._ECME_Apply)
+    if _G.EllesmereUI and type(_G.EllesmereUI.RefreshAllAddons) == "function" then
+        pcall(_G.EllesmereUI.RefreshAllAddons, _G.EllesmereUI)
     end
 
-    if not quiet and changed then
-        print("|cff17ee15[OakUI]|r Repopulated Ellesmere CDM from Blizzard CDM" .. (reason and (" (" .. tostring(reason) .. ")") or "") .. ".")
+    if not quiet then
+        print("|cff17ee15[OakUI]|r Repopulated Ellesmere CDM from Blizzard CDM.")
     end
     return true
 end
-
-local cdmRepopulateTimer
-function addonTable.ScheduleEllesmereCDMRepopulate(profileName, reason)
-    if cdmRepopulateTimer and cdmRepopulateTimer.Cancel then cdmRepopulateTimer:Cancel() end
-    if not C_Timer or not C_Timer.NewTimer then
-        return addonTable.RepopulateEllesmereCDMFromBlizzard(profileName, reason, true)
-    end
-
-    cdmRepopulateTimer = C_Timer.NewTimer(0.8, function()
-        cdmRepopulateTimer = nil
-        addonTable.RepopulateEllesmereCDMFromBlizzard(profileName, reason, true)
-        C_Timer.After(1.2, function()
-            addonTable.RepopulateEllesmereCDMFromBlizzard(profileName, reason, true)
-        end)
-    end)
-end
-
-local cdmSpecWatcher = CreateFrame("Frame")
-cdmSpecWatcher:RegisterEvent("PLAYER_LOGIN")
-cdmSpecWatcher:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-cdmSpecWatcher:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
-cdmSpecWatcher:RegisterEvent("SPELLS_CHANGED")
-local lastCDMSpecKey
-cdmSpecWatcher:SetScript("OnEvent", function(_, event, unit)
-    if event == "PLAYER_SPECIALIZATION_CHANGED" and unit ~= "player" then return end
-    local profileName = GetActiveEllesmereProfileName()
-    if not IsOakEllesmereProfile(profileName) then
-        lastCDMSpecKey = GetCurrentEllesmereSpecKey()
-        return
-    end
-
-    local specKey = GetCurrentEllesmereSpecKey()
-    if not specKey then return end
-    if event == "PLAYER_LOGIN" or specKey ~= lastCDMSpecKey then
-        lastCDMSpecKey = specKey
-        addonTable.ScheduleEllesmereCDMRepopulate(profileName, "spec")
-    end
-end)
 
 function addonTable.Injectors.Ellesmere(profileName, role)
     if not C_AddOns.IsAddOnLoaded("EllesmereUI") then return end
@@ -522,6 +674,9 @@ function addonTable.Injectors.Ellesmere(profileName, role)
     elseif not success then
         print("|cffff0000[OakUI Error]|r EllesmereUI import failed: " .. tostring(err))
     else
+        if addonTable.RegisterOakRoleProfileName then
+            addonTable.RegisterOakRoleProfileName(role, profileName)
+        end
         if type(_G.EllesmereUIDB) == "table" and addonTable.ApplyOakEllesmereUIScale then
             addonTable.ApplyOakEllesmereUIScale(_G.EllesmereUIDB)
         end
@@ -565,12 +720,6 @@ function addonTable.Injectors.Ellesmere(profileName, role)
             end
         end
         RefreshEllesmereAfterProfileImport()
-        if addonTable.MarkEllesmereCDMAutoRepopulateProfile then
-            addonTable.MarkEllesmereCDMAutoRepopulateProfile(profileName)
-        end
-        if addonTable.ScheduleEllesmereCDMRepopulate then
-            addonTable.ScheduleEllesmereCDMRepopulate(profileName, "profile_import")
-        end
     end
 end
 
@@ -735,6 +884,9 @@ function addonTable.Injectors.BlizziPartyTools(profileName, role)
         end
         if addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled then
             pcall(addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled)
+        end
+        if ok and success and addonTable.RegisterOakRoleProfileName then
+            addonTable.RegisterOakRoleProfileName(role, profileName or "OakUI")
         end
         return
     end
