@@ -1,3 +1,11 @@
+## v2.6.18-EllesmereEdition
+
+- Updated OakUI Tank/DPS and Healer profile data, including Tank/DPS party frame placement and cast-bar color adjustments.
+- Improved installer resolution/UI scale handling with automatic resolution detection and grouped matching resolution choices.
+- Added 1080p compact and additional ultrawide layout choices.
+- Improved one-time install placement for minimap, objective tracker, damage meters, and DBM large bars across supported resolutions/UI scales.
+- Added installer options to include or skip DBM, BigWigs, and Blizzi profiles when those addons are installed.
+
 ## v2.6.17-EllesmereEdition
 
 - Updated the OakUI Tank/DPS and Healer profile strings for EllesmereUI and Blizzi Party Tools.
