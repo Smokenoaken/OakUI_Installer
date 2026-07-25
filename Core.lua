@@ -246,7 +246,7 @@ local QuickWarning = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFon
 QuickWarning:SetPoint("TOPLEFT", QuickTitle, "BOTTOMLEFT", 0, -8)
 QuickWarning:SetPoint("TOPRIGHT", QuickInstallFrame, "TOPRIGHT", -18, -8)
 QuickWarning:SetJustifyH("LEFT")
-QuickWarning:SetText(cWrap .. "THIS INSTALL IS FOR IF YOU KNOW WHAT YOU'RE DOING|r\nIt installs everything exactly as Oak has it, then prompts you to reload.")
+QuickWarning:SetText("Applies OakUI's full setup using the choices below.")
 
 local QuickClose = MakeFlatButton(QuickInstallFrame, "X", 26, 24)
 QuickClose:SetPoint("TOPRIGHT", QuickInstallFrame, "TOPRIGHT", -10, -10)
