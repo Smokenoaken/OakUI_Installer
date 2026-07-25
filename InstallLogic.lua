@@ -354,146 +354,10 @@ function addonTable.SetOakInstallActiveEllesmereProfile(dpsProfileName, healerPr
     if EUI and type(EUI.RefreshAllAddons) == "function" then
         pcall(EUI.RefreshAllAddons, EUI)
     end
+    if addonTable.ScheduleOakDBMHugeBarsToTarget then
+        pcall(addonTable.ScheduleOakDBMHugeBarsToTarget)
+    end
     return true
-end
-
-local OAK_CDM_RACE_RACIALS = {
-    Scourge = { 7744 },
-    Tauren = { 20549 },
-    Orc = { 20572, 33697, 33702 },
-    BloodElf = { 202719, 50613, 25046, 69179, 80483, 155145, 129597, 232633, 28730 },
-    Dwarf = { 20594 },
-    Troll = { 26297 },
-    Draenei = { 28880, 59543, 59545, 121093, 59544, 370626, 59547, 59548, 59542, 416250 },
-    NightElf = { 58984 },
-    Human = { 59752 },
-    DarkIronDwarf = { 265221 },
-    Gnome = { 20589 },
-    HighmountainTauren = { 255654 },
-    Worgen = { 68992 },
-    Goblin = { 69070 },
-    Pandaren = { 107079 },
-    MagharOrc = { 274738 },
-    LightforgedDraenei = { 255647 },
-    VoidElf = { 256948 },
-    KulTiran = { 287712 },
-    ZandalariTroll = { 291944 },
-    Vulpera = { 312411 },
-    Mechagnome = { 312924 },
-    Nightborne = { 260364 },
-    Dracthyr = { { 357214, notClass = "EVOKER" } },
-    EarthenDwarf = { 436344 },
-    Haranir = { 1237885 },
-}
-
-local function OakDeepCopy(value, seen)
-    if type(value) ~= "table" then return value end
-    seen = seen or {}
-    if seen[value] then return seen[value] end
-    local copy = {}
-    seen[value] = copy
-    for k, v in pairs(value) do
-        copy[OakDeepCopy(k, seen)] = OakDeepCopy(v, seen)
-    end
-    return copy
-end
-
-local function GetCurrentRacialSet()
-    local race = select(2, UnitRace("player"))
-    local class = select(2, UnitClass("player"))
-    local set = {}
-    for _, entry in ipairs(OAK_CDM_RACE_RACIALS[race] or {}) do
-        local spellID = type(entry) == "table" and entry[1] or entry
-        local requiredClass = type(entry) == "table" and entry.class or nil
-        local excludedClass = type(entry) == "table" and entry.notClass or nil
-        if spellID and (not requiredClass or requiredClass == class) and (not excludedClass or excludedClass ~= class) then
-            set[spellID] = true
-        end
-    end
-    return set
-end
-
-local function GetActiveCDMSpecProfile(db, profileName, specKey)
-    db.spellAssignments = db.spellAssignments or { profiles = {} }
-    local spellStore = db.spellAssignments
-    spellStore.profiles = spellStore.profiles or {}
-    local bucket = spellStore.profiles[profileName]
-    if type(bucket) ~= "table" then
-        bucket = { specProfiles = {} }
-        if not spellStore._perProfileSeeded and type(spellStore.specProfiles) == "table" and next(spellStore.specProfiles) then
-            bucket.specProfiles = OakDeepCopy(spellStore.specProfiles)
-        end
-        spellStore.profiles[profileName] = bucket
-    end
-    bucket.specProfiles = bucket.specProfiles or {}
-    local specProfile = bucket.specProfiles[specKey]
-    if type(specProfile) ~= "table" then
-        specProfile = { barSpells = {} }
-        bucket.specProfiles[specKey] = specProfile
-    end
-    specProfile.barSpells = specProfile.barSpells or {}
-    return specProfile
-end
-
-local function GetCDMBarSpellData(specProfile, barKey)
-    if not specProfile or not barKey then return nil end
-    local spellData = specProfile.barSpells[barKey]
-    if type(spellData) ~= "table" then
-        spellData = {}
-        specProfile.barSpells[barKey] = spellData
-    end
-    return spellData
-end
-
-local function IsOakCDMUserAddedSpell(spellData, spellID, racialSet)
-    if type(spellID) ~= "number" or spellID == 0 then return false end
-    if spellID < 0 then return true end
-    if spellData.customSpellIDs and spellData.customSpellIDs[spellID] then return true end
-    if racialSet and racialSet[spellID] then return true end
-    if spellData.spellDurations and (spellData.spellDurations[spellID] or 0) > 0 then return true end
-    return false
-end
-
-local function FilterCDMListPreservingUserAdded(spellData, list, racialSet)
-    if type(spellData) ~= "table" or type(list) ~= "table" then return false end
-    local changed = false
-    local writeIndex = 1
-    for readIndex = 1, #list do
-        local spellID = list[readIndex]
-        if IsOakCDMUserAddedSpell(spellData, spellID, racialSet) then
-            list[writeIndex] = spellID
-            writeIndex = writeIndex + 1
-        else
-            changed = true
-        end
-    end
-    for index = writeIndex, #list do
-        list[index] = nil
-        changed = true
-    end
-    return changed
-end
-
-local function FilterCDMSetPreservingUserAdded(spellData, set, racialSet)
-    if type(spellData) ~= "table" or type(set) ~= "table" then return false end
-    local changed = false
-    for spellID in pairs(set) do
-        if not IsOakCDMUserAddedSpell(spellData, spellID, racialSet) then
-            set[spellID] = nil
-            changed = true
-        end
-    end
-    return changed
-end
-
-local function ShouldOakRepopulateCDMBar(barData)
-    if type(barData) ~= "table" or barData.isGhostBar or barData.key == "buffs" then return false end
-    return barData.barType == "cooldowns"
-        or barData.barType == "utility"
-        or barData.barType == "buffs"
-        or barData.key == "cooldowns"
-        or barData.key == "utility"
-        or barData.key == "__ghost_cd"
 end
 
 local function FrameHasText(frame, text)
@@ -524,7 +388,7 @@ local function FindButtonByText(frame, text)
     return nil
 end
 
-local function TryEllesmereNativeCDMRepopulate()
+local function TryOpenEllesmereCDMRepopulatePopup()
     if not C_AddOns or not C_AddOns.IsAddOnLoaded or not C_AddOns.IsAddOnLoaded("EllesmereUICooldownManager") then
         if C_AddOns and C_AddOns.LoadAddOn then
             pcall(C_AddOns.LoadAddOn, "EllesmereUICooldownManager")
@@ -532,38 +396,27 @@ local function TryEllesmereNativeCDMRepopulate()
     end
 
     local EUI = _G.EllesmereUI
-    local module = EUI and EUI._modules and EUI._modules.EllesmereUICooldownManager
-    if not EUI or not module or type(module.buildPage) ~= "function" or type(EUI.ShowConfirmPopup) ~= "function" then
+    if not EUI or type(EUI.ShowModule) ~= "function" or type(EUI.ShowConfirmPopup) ~= "function" then
         return false
     end
 
-    local hidden = CreateFrame("Frame", nil, UIParent)
-    hidden:SetSize(1200, 2200)
-    hidden:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -3000, -3000)
-    hidden:SetAlpha(0)
-    hidden:Hide()
-
-    local oldPrebuilding = EUI._prebuilding
-    local oldBuildingModule = EUI._buildingModule
-    local oldBuildingPage = EUI._buildingPage
+    local openedPopup = false
     local oldShowConfirmPopup = EUI.ShowConfirmPopup
-    local repopulated = false
-
-    EUI._prebuilding = true
-    EUI._buildingModule = "EllesmereUICooldownManager"
-    EUI._buildingPage = "CDM Bars"
     EUI.ShowConfirmPopup = function(self, opts)
-        if type(opts) == "table" and opts.title == "Repopulate Bars" and type(opts.onConfirm) == "function" then
-            repopulated = true
-            opts.onConfirm()
-            return
+        if type(opts) == "table" and opts.title == "Repopulate Bars" then
+            openedPopup = true
         end
         return oldShowConfirmPopup(self, opts)
     end
 
-    local ok = pcall(module.buildPage, "CDM Bars", hidden, -10)
+    local ok = pcall(EUI.ShowModule, EUI, "EllesmereUICooldownManager")
+    if ok and type(EUI.SelectPage) == "function" then
+        pcall(EUI.SelectPage, EUI, "CDM Bars")
+    end
+
     if ok then
-        local button = FindButtonByText(hidden, "Repopulate from Blizzard CDM") or FindButtonByText(hidden, "Repopulate")
+        local root = (type(EUI.GetMainFrame) == "function" and EUI:GetMainFrame()) or EUI._mainFrame
+        local button = FindButtonByText(root, "Repopulate from Blizzard CDM") or FindButtonByText(root, "Repopulate")
         if button then
             local click = button:GetScript("OnClick")
             if type(click) == "function" then
@@ -575,76 +428,21 @@ local function TryEllesmereNativeCDMRepopulate()
     end
 
     EUI.ShowConfirmPopup = oldShowConfirmPopup
-    EUI._prebuilding = oldPrebuilding
-    EUI._buildingModule = oldBuildingModule
-    EUI._buildingPage = oldBuildingPage
-    hidden:Hide()
-    hidden:SetParent(nil)
 
-    return repopulated == true
+    return openedPopup == true
 end
 
 function addonTable.RepopulateActiveEllesmereCDMFromBlizzard(quiet)
-    if TryEllesmereNativeCDMRepopulate() then
+    if TryOpenEllesmereCDMRepopulatePopup() then
         if not quiet then
-            print("|cff17ee15[OakUI]|r Repopulated Ellesmere CDM from Blizzard CDM.")
+            print("|cff17ee15[OakUI]|r Opened Ellesmere CDM repopulate confirmation.")
         end
         return true
     end
-    if quiet then return false end
-    if not C_AddOns or not C_AddOns.IsAddOnLoaded or not C_AddOns.IsAddOnLoaded("EllesmereUICooldownManager") then return false end
-
-    local db = _G.EllesmereUIDB
-    if type(db) ~= "table" then return false end
-
-    local profileName = db.activeProfile or "Default"
-    local profile = db.profiles and db.profiles[profileName]
-    local cdmProfile = profile
-        and profile.addons
-        and profile.addons.EllesmereUICooldownManager
-    local bars = cdmProfile and cdmProfile.cdmBars and cdmProfile.cdmBars.bars
-    if type(bars) ~= "table" then return false end
-
-    local specKey = GetCurrentEllesmereSpecKey()
-    if not specKey or specKey == "0" then return false end
-    local specProfile = GetActiveCDMSpecProfile(db, profileName, specKey)
-    local racialSet = GetCurrentRacialSet()
-    local changed = false
-
-    for _, barData in ipairs(bars) do
-        if ShouldOakRepopulateCDMBar(barData) and barData.key then
-            local spellData = GetCDMBarSpellData(specProfile, barData.key)
-            changed = FilterCDMListPreservingUserAdded(spellData, spellData.assignedSpells, racialSet) or changed
-            changed = FilterCDMSetPreservingUserAdded(spellData, spellData.removedSpells, racialSet) or changed
-        end
-    end
-
-    local ghostSpellData = GetCDMBarSpellData(specProfile, "__ghost_cd")
-    changed = FilterCDMListPreservingUserAdded(ghostSpellData, ghostSpellData.assignedSpells, racialSet) or changed
-    changed = FilterCDMSetPreservingUserAdded(ghostSpellData, ghostSpellData.removedSpells, racialSet) or changed
-
-    local buffSpellData = GetCDMBarSpellData(specProfile, "buffs")
-    if buffSpellData then
-        if buffSpellData.buffDisplayOrder ~= nil then changed = true end
-        if buffSpellData._buffDisplayOrderUserModified ~= nil then changed = true end
-        buffSpellData.buffDisplayOrder = nil
-        buffSpellData._buffDisplayOrderUserModified = nil
-    end
-
-    if type(_G._ECME_Apply) == "function" then
-        pcall(_G._ECME_Apply)
-    end
-    if _G.EllesmereUI and type(_G.EllesmereUI.CDMReconcileActiveSpecSpells) == "function" then
-        pcall(_G.EllesmereUI.CDMReconcileActiveSpecSpells)
-    end
-    if _G.EllesmereUI and type(_G.EllesmereUI.RefreshAllAddons) == "function" then
-        pcall(_G.EllesmereUI.RefreshAllAddons, _G.EllesmereUI)
-    end
-
     if not quiet then
-        print("|cff17ee15[OakUI]|r Repopulated Ellesmere CDM from Blizzard CDM.")
+        print("|cffff0000[OakUI]|r Could not open Ellesmere CDM repopulate confirmation.")
     end
-    return true
+    return false
 end
 
 function addonTable.Injectors.Ellesmere(profileName, role)
@@ -849,6 +647,9 @@ function addonTable.Injectors.DBM(profileName, role)
     if _G.DBM and type(_G.DBM.ApplyProfile) == "function" then
         _G.DBM:ApplyProfile(profileName)
     end
+    if addonTable.ScheduleOakDBMHugeBarsToTarget then
+        pcall(addonTable.ScheduleOakDBMHugeBarsToTarget, profileName)
+    end
     if addonTable.ApplyOakRoundThinBossModBarsIfEnabled then
         pcall(addonTable.ApplyOakRoundThinBossModBarsIfEnabled)
     end
@@ -865,8 +666,85 @@ function addonTable.Injectors.DBM(profileName, role)
     end
 end
 
+local function DeepCopyBlizziProfile(value, seen)
+    if type(value) ~= "table" then return value end
+    seen = seen or {}
+    if seen[value] then return seen[value] end
+    local copy = {}
+    seen[value] = copy
+    for key, child in pairs(value) do
+        if type(child) ~= "function" and type(child) ~= "userdata" then
+            copy[DeepCopyBlizziProfile(key, seen)] = DeepCopyBlizziProfile(child, seen)
+        end
+    end
+    return copy
+end
+
+local function GetBlizziRoleSourceProfileName(role)
+    return role == "heals" and "OakUI Healer" or "OakUI Tank/DPS"
+end
+
+local function IsBlizziMultiProfileBundle(encoded)
+    local BIT = _G.BIT
+    if not BIT or type(BIT.PeekProfileImport) ~= "function" then return false end
+    local ok, kind, meta = pcall(BIT.PeekProfileImport, encoded)
+    return ok and kind == "bundle" and type(meta) == "table" and (tonumber(meta.profiles) or 0) > 1
+end
+
+local function BlizziProfileExists(profileName)
+    local BIT = _G.BIT
+    if BIT and BIT.Profiles and type(BIT.Profiles.Exists) == "function" then
+        local ok, exists = pcall(BIT.Profiles.Exists, BIT.Profiles, profileName)
+        if ok then return exists == true end
+    end
+
+    local profiles = type(_G.BliZziInterruptsSavedVars) == "table" and _G.BliZziInterruptsSavedVars.profiles
+    return type(profiles) == "table" and type(profiles[profileName]) == "table"
+end
+
+local function EnsureMatchingBlizziProfile(profileName, role, forceFromRoleSource)
+    profileName = TrimProfileString(profileName)
+    if profileName == "" then return false end
+
+    local sourceName = GetBlizziRoleSourceProfileName(role)
+    if not forceFromRoleSource and (profileName == sourceName or BlizziProfileExists(profileName)) then
+        return true
+    end
+
+    local sv = _G.BliZziInterruptsSavedVars
+    if type(sv) ~= "table" then return false end
+    sv.profiles = sv.profiles or {}
+    local source = sv.profiles[sourceName]
+    if type(source) ~= "table" then
+        return BlizziProfileExists(profileName)
+    end
+
+    sv.profiles[profileName] = DeepCopyBlizziProfile(source)
+    sv.activeProfile = profileName
+    if _G.BIT then
+        _G.BIT.db = sv.profiles[profileName]
+        if _G.BIT.Profiles then
+            if type(_G.BIT.Profiles.NotifyAllChanged) == "function" then
+                pcall(_G.BIT.Profiles.NotifyAllChanged, _G.BIT.Profiles)
+            end
+            if type(_G.BIT.Profiles.Switch) == "function" then
+                pcall(_G.BIT.Profiles.Switch, _G.BIT.Profiles, profileName)
+            end
+        end
+    end
+    return true
+end
+
 function addonTable.Injectors.BlizziPartyTools(profileName, role)
-    if not C_AddOns.IsAddOnLoaded("BliZzi_Interrupts") then return end
+    if C_AddOns and C_AddOns.IsAddOnLoaded and not C_AddOns.IsAddOnLoaded("BliZzi_Interrupts") then
+        if C_AddOns.LoadAddOn then
+            pcall(C_AddOns.LoadAddOn, "BliZzi_Interrupts")
+        end
+    end
+    if C_AddOns and C_AddOns.IsAddOnLoaded and not C_AddOns.IsAddOnLoaded("BliZzi_Interrupts") then return end
+
+    profileName = TrimProfileString(profileName)
+    if profileName == "" then profileName = "OakUI" end
     local healerEncoded = role == "heals" and TrimProfileString(P.BLIZZI_PARTY_TOOLS_HEALS_PROFILE) or ""
     local encoded = healerEncoded ~= "" and healerEncoded or TrimProfileString(P.BLIZZI_PARTY_TOOLS_PROFILE)
     if encoded == "" then
@@ -875,31 +753,39 @@ function addonTable.Injectors.BlizziPartyTools(profileName, role)
     end
 
     local BIT = _G.BIT
+    local forceMatchingCopy = IsBlizziMultiProfileBundle(encoded)
     if BIT and BIT.Profiles and type(BIT.Profiles.Import) == "function" then
-        local ok, success, result = pcall(BIT.Profiles.Import, BIT.Profiles, profileName or "OakUI", encoded)
+        local ok, success, result = pcall(BIT.Profiles.Import, BIT.Profiles, profileName, encoded)
         if not ok then
             print("|cffff0000[OakUI Error]|r Blizzi Party Tools import failed: " .. tostring(success))
         elseif not success then
             print("|cffff0000[OakUI Error]|r Blizzi Party Tools import failed: " .. tostring(result))
+        elseif not EnsureMatchingBlizziProfile(profileName, role, forceMatchingCopy) then
+            print("|cffff0000[OakUI Error]|r Blizzi Party Tools could not create matching profile '" .. profileName .. "'.")
         end
         if addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled then
             pcall(addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled)
         end
         if ok and success and addonTable.RegisterOakRoleProfileName then
-            addonTable.RegisterOakRoleProfileName(role, profileName or "OakUI")
+            addonTable.RegisterOakRoleProfileName(role, profileName)
         end
         return
     end
 
     if BIT and type(BIT.ImportProfile) == "function" then
-        local ok, success, result = pcall(BIT.ImportProfile, encoded)
+        local ok, success, result = pcall(BIT.ImportProfile, encoded, profileName)
         if not ok then
             print("|cffff0000[OakUI Error]|r Blizzi Party Tools import failed: " .. tostring(success))
         elseif not success then
             print("|cffff0000[OakUI Error]|r Blizzi Party Tools import failed: " .. tostring(result))
+        elseif not EnsureMatchingBlizziProfile(profileName, role, forceMatchingCopy) then
+            print("|cffff0000[OakUI Error]|r Blizzi Party Tools could not create matching profile '" .. profileName .. "'.")
         end
         if addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled then
             pcall(addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled)
+        end
+        if ok and success and addonTable.RegisterOakRoleProfileName then
+            addonTable.RegisterOakRoleProfileName(role, profileName)
         end
         return
     end
@@ -967,6 +853,9 @@ function addonTable.Injectors.EditMode()
 
     importLayoutInfo.layoutName = layoutName
     importLayoutInfo.layoutType = Enum.EditModeLayoutType.Account
+    if addonTable.ApplyOakEditModeLayoutAdjustmentsInfo then
+        pcall(addonTable.ApplyOakEditModeLayoutAdjustmentsInfo, importLayoutInfo)
+    end
     table.insert(editModeLayouts.layouts, importLayoutInfo)
 
     local saveOk, saveErr = pcall(C_EditMode.SaveLayouts, editModeLayouts)

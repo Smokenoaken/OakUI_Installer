@@ -15,6 +15,20 @@ local function IsAddonReady(folder)
     return true
 end
 
+local OPTIONAL_PROFILE_FOLDERS = {
+    dbm = "DBM-Core",
+    bigwigs = "BigWigs",
+    blizzi = "BliZzi_Interrupts",
+}
+
+local function IsOptionalProfileReady(key)
+    return IsAddonReady(OPTIONAL_PROFILE_FOLDERS[key])
+end
+
+local function OptionalProfileEnabled(options, key)
+    return IsOptionalProfileReady(key) and not (options and options.optionalProfiles and options.optionalProfiles[key] == false)
+end
+
 local function BuildInstallerAddons(Inj, cWrap, ShowCopyBox)
     local baseUrl = "https://www.curseforge.com/wow/addons/ellesmere-ui"
     return {
@@ -87,6 +101,11 @@ function addonTable.BuildInstallerUI(parentFrame)
     local FlagshipAddons = BuildInstallerAddons(Inj, cWrap, ShowCopyBox)
     addonTable.FlagshipAddons = FlagshipAddons
 
+    local function GetDefaultLayoutKey()
+        local preset = addonTable.GetOakRecommendedLayoutPreset and addonTable.GetOakRecommendedLayoutPreset()
+        return (type(preset) == "table" and preset.key) or "native"
+    end
+
     local state = {
         mode = "fresh",
         roles = { dps = true, heals = false },
@@ -95,9 +114,15 @@ function addonTable.BuildInstallerUI(parentFrame)
             heals = addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("heals") or "OakUI Healer",
         },
         autoAssign = false,
-        layoutKey = "native",
+        layoutKey = GetDefaultLayoutKey(),
+        layoutTouched = false,
         selection = SelectionPreset("recommended"),
         chatLayout = true,
+        optionalProfiles = {
+            dbm = true,
+            bigwigs = true,
+            blizzi = true,
+        },
         visibility = {
             unitFrames = true,
             actionBars = true,
@@ -121,9 +146,15 @@ function addonTable.BuildInstallerUI(parentFrame)
         state.profiles.dps = options.dpsProfile or (addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("dps") or "OakUI Tank/DPS")
         state.profiles.heals = options.healsProfile or (addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("heals") or "OakUI Healer")
         state.autoAssign = options.autoAssign == true
-        state.layoutKey = options.layoutKey or "native"
+        state.layoutKey = options.layoutKey or GetDefaultLayoutKey()
+        state.layoutTouched = options.layoutKey ~= nil
         state.selection = SelectionPreset(options.selectionMode or "recommended")
         state.chatLayout = options.chatLayout ~= false
+        state.optionalProfiles = {
+            dbm = OptionalProfileEnabled(options, "dbm"),
+            bigwigs = OptionalProfileEnabled(options, "bigwigs"),
+            blizzi = OptionalProfileEnabled(options, "blizzi"),
+        }
         state.visibility = {
             unitFrames = true,
             actionBars = true,
@@ -173,7 +204,7 @@ function addonTable.BuildInstallerUI(parentFrame)
 
     local pages = {}
     local currentStep = 1
-    local stepOrder = { "mode", "layout", "profiles", "selective", "visibility", "rounded", "review" }
+    local stepOrder = { "mode", "layout", "profiles", "addons", "selective", "visibility", "rounded", "review" }
     local previewVisible = true
 
     local function AnchorPage(page)
@@ -341,6 +372,7 @@ function addonTable.BuildInstallerUI(parentFrame)
         end
         row:SetScript("OnClick", function()
             state.layoutKey = preset.key
+            state.layoutTouched = true
             for _, sibling in ipairs(parent._layoutChoices or {}) do sibling.Update() end
         end)
         row:SetScript("OnEnter", function() SetPreview("layout", "Layout Preset") end)
@@ -361,7 +393,7 @@ function addonTable.BuildInstallerUI(parentFrame)
         copy:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -6)
         copy:SetJustifyH("LEFT")
         copy:SetText("Fresh install applies OakUI exactly as shipped. Selective update lets existing users refresh only chosen EUI sections.")
-        MakeChoice(page, "Fresh Install", "Import complete OakUI EUI data, visibility, chat layout, rounded borders, and supported optional profiles.", "mode", "fresh", -66, 64)
+        MakeChoice(page, "Fresh Install", "Import complete OakUI EUI data, visibility, chat layout, rounded borders, and the optional addon profiles you choose.", "mode", "fresh", -66, 64)
         MakeChoice(page, "Selective Update", "Use when updating OakUI. To preserve personal customizations, import only modules or sections you have not personalized.", "mode", "selective", -138, 76)
         return page
     end
@@ -378,12 +410,60 @@ function addonTable.BuildInstallerUI(parentFrame)
         copy:SetJustifyH("LEFT")
         copy:SetText("Sets EUI's UI scale preset while preserving imported EUI anchors. Element sizes are not scaled.")
 
-        local presets = addonTable.GetOakLayoutPresets and addonTable.GetOakLayoutPresets() or {}
-        for index, preset in ipairs(presets) do
-            local col = (index - 1) % 2
-            local row = math.floor((index - 1) / 2)
-            MakeLayoutChoice(page, preset, col * 216, -54 - (row * 60))
+        local recommendedLabel = page:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        recommendedLabel:SetPoint("TOPLEFT", copy, "BOTTOMLEFT", 0, -14)
+
+        local alternateLabel = page:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        alternateLabel:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -142)
+        alternateLabel:SetText(cWrap .. "Alternate Resolutions|r")
+
+        page.RefreshLayoutChoices = function()
+            for _, btn in ipairs(page._layoutChoices or {}) do
+                btn:Hide()
+                btn:SetParent(nil)
+            end
+            page._layoutChoices = {}
+
+            local recommendedGroup, alternatives, detected, recommended
+            if addonTable.GetOakLayoutPresetGroups then
+                recommendedGroup, alternatives, detected, recommended = addonTable.GetOakLayoutPresetGroups()
+            end
+            if not recommendedGroup or #recommendedGroup == 0 then
+                local presets = addonTable.GetOakLayoutPresets and addonTable.GetOakLayoutPresets() or {}
+                recommended = presets[1]
+                recommendedGroup = recommended and { recommended } or {}
+                alternatives = {}
+                for index = 2, #presets do alternatives[#alternatives + 1] = presets[index] end
+            end
+
+            if recommended and not state.layoutTouched then
+                state.layoutKey = recommended.key
+            end
+
+            local detectedLabel = "Your Resolution"
+            if type(detected) == "table" and detected.width and detected.height then
+                detectedLabel = detectedLabel .. " (" .. detected.width .. "x" .. detected.height .. ")"
+            end
+            recommendedLabel:SetText(cWrap .. detectedLabel .. "|r")
+
+            for index, preset in ipairs(recommendedGroup or {}) do
+                local col = (index - 1) % 2
+                local row = math.floor((index - 1) / 2)
+                MakeLayoutChoice(page, preset, col * 216, -78 - (row * 56))
+            end
+
+            local recommendedRows = math.max(1, math.ceil(#(recommendedGroup or {}) / 2))
+            local alternateY = -86 - (recommendedRows * 56)
+            alternateLabel:ClearAllPoints()
+            alternateLabel:SetPoint("TOPLEFT", page, "TOPLEFT", 0, alternateY)
+
+            for index, preset in ipairs(alternatives or {}) do
+                local col = (index - 1) % 2
+                local row = math.floor((index - 1) / 2)
+                MakeLayoutChoice(page, preset, col * 216, alternateY - 26 - (row * 56))
+            end
         end
+        page.RefreshLayoutChoices()
         return page
     end
 
@@ -423,6 +503,48 @@ function addonTable.BuildInstallerUI(parentFrame)
             UpdateRoleRows()
         end, -88, 0, "profiles-healer")
         MakeCheckbox(page, "Assign Profiles To Specs", "Use EUI's existing spec profile assignment so healer specs use the Healer profile and other specs use Tank/DPS.", function() return state.autoAssign end, function(v) state.autoAssign = v end, -140, 0, "profiles-auto")
+        return page
+    end
+
+    local function BuildAddonsPage()
+        local page = MakePage("addons")
+        local heading = page:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        heading:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -2)
+        heading:SetText(cWrap .. "Addon Profiles|r")
+
+        local copy = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        copy:SetPoint("TOPLEFT", heading, "BOTTOMLEFT", 0, -8)
+        copy:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -8)
+        copy:SetJustifyH("LEFT")
+        copy:SetText("Choose which optional third-party addon profiles OakUI should install. Uncheck anything you have customized and want to keep.")
+
+        local y = -64
+        if IsOptionalProfileReady("dbm") then
+            MakeCheckbox(page, "Install DBM Profile", "Imports OakUI's DBM profile and positions DBM Large bars above the target frame.", function() return state.optionalProfiles.dbm end, function(v) state.optionalProfiles.dbm = v end, y, 0, "addons")
+            y = y - 48
+        else
+            state.optionalProfiles.dbm = false
+        end
+        if IsOptionalProfileReady("bigwigs") then
+            MakeCheckbox(page, "Install BigWigs Profile", "Imports OakUI's BigWigs profile and timeline settings.", function() return state.optionalProfiles.bigwigs end, function(v) state.optionalProfiles.bigwigs = v end, y, 0, "addons")
+            y = y - 48
+        else
+            state.optionalProfiles.bigwigs = false
+        end
+        if IsOptionalProfileReady("blizzi") then
+            MakeCheckbox(page, "Install Blizzi Profile", "Imports Blizzi Party Tools profiles matching the selected EUI profile names.", function() return state.optionalProfiles.blizzi end, function(v) state.optionalProfiles.blizzi = v end, y, 0, "addons")
+            y = y - 48
+        else
+            state.optionalProfiles.blizzi = false
+        end
+        if y == -64 then
+            local none = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            none:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -66)
+            none:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -66)
+            none:SetJustifyH("LEFT")
+            none:SetTextColor(0.72, 0.72, 0.72)
+            none:SetText("No supported optional addon profiles are available. Install and enable DBM, BigWigs, or Blizzi Party Tools to import those profiles.")
+        end
         return page
     end
 
@@ -529,6 +651,7 @@ function addonTable.BuildInstallerUI(parentFrame)
     BuildModePage()
     BuildLayoutPage()
     BuildProfilesPage()
+    BuildAddonsPage()
     BuildSelectivePage()
     BuildVisibilityPage()
     BuildRoundedPage()
@@ -572,6 +695,9 @@ function addonTable.BuildInstallerUI(parentFrame)
             cWrap .. "Profiles:|r " .. GetRoleSummary() .. "\n" ..
             cWrap .. "Import Scope:|r " .. sections .. "\n" ..
             cWrap .. "EUI Spec Assignment:|r " .. auto .. "\n\n" ..
+            cWrap .. "Addon Profiles:|r DBM " .. (state.optionalProfiles.dbm and "Install" or "Skip") ..
+            ", BigWigs " .. (state.optionalProfiles.bigwigs and "Install" or "Skip") ..
+            ", Blizzi " .. (state.optionalProfiles.blizzi and "Install" or "Skip") .. "\n" ..
             cWrap .. "Chat Layout:|r " .. (state.chatLayout and "Apply" or "Skip") .. "\n" ..
             cWrap .. "Visibility:|r Chat " .. HiddenShown(state.visibility.chat) ..
             ", Unit Frames " .. HiddenShown(state.visibility.unitFrames) ..
@@ -601,8 +727,11 @@ function addonTable.BuildInstallerUI(parentFrame)
         stepLabel:SetText("Step " .. currentStep .. " of " .. #stepOrder)
         backBtn:SetShown(currentStep > 1)
         nextBtn.Text:SetText(key == "review" and "Install" or "Next")
+        if key == "layout" and pages.layout and pages.layout.RefreshLayoutChoices then
+            pages.layout.RefreshLayoutChoices()
+        end
         if key == "review" then UpdateReview() end
-        SetPreview(key, key == "mode" and "Install Type" or key == "layout" and "Layout Preset" or key == "profiles" and "Profiles" or key == "selective" and "Selective Import" or key == "visibility" and "Visibility" or key == "rounded" and "Rounded Borders" or "Review")
+        SetPreview(key, key == "mode" and "Install Type" or key == "layout" and "Layout Preset" or key == "profiles" and "Profiles" or key == "addons" and "Addon Profiles" or key == "selective" and "Selective Import" or key == "visibility" and "Visibility" or key == "rounded" and "Rounded Borders" or "Review")
     end
 
     function addonTable.ResetOakGuidedInstaller()
@@ -845,10 +974,16 @@ function addonTable.BuildInstallerUI(parentFrame)
 
         for _, addon in ipairs(FlagshipAddons) do
             if addon.name == "Blizzi Party Tools (Optional)" then
-                if state.roles.dps then ApplyOptionalProfile(addon, "dps") end
-                if state.roles.heals then ApplyOptionalProfile(addon, "heals") end
+                if state.optionalProfiles.blizzi then
+                    if state.roles.dps then ApplyOptionalProfile(addon, "dps") end
+                    if state.roles.heals then ApplyOptionalProfile(addon, "heals") end
+                end
             elseif addon.name == "DBM (Optional)" or addon.name == "BigWigs (Optional)" then
-                ApplyOptionalProfile(addon, "dps")
+                if addon.name == "DBM (Optional)" and state.optionalProfiles.dbm then
+                    ApplyOptionalProfile(addon, "dps")
+                elseif addon.name == "BigWigs (Optional)" and state.optionalProfiles.bigwigs then
+                    ApplyOptionalProfile(addon, "dps")
+                end
             end
         end
 
@@ -899,6 +1034,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             layoutKey = options and options.layoutKey or "native",
             selectionMode = "all",
             chatLayout = true,
+            optionalProfiles = options and options.optionalProfiles,
         })
         ApplyInstall()
     end

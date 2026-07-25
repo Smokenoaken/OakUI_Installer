@@ -6,30 +6,51 @@ local BASE_UI_SCALE = 0.64
 
 local PRESETS = {
     { key = "native", label = "OakUI Native", desc = "2560x1440 at 0.64.", width = 2560, height = 1440, scale = 0.64 },
-    { key = "1080p", label = "1080p", desc = "1920x1080 at 0.711.", width = 1920, height = 1080, scale = 0.711 },
+    { key = "1080p", label = "1080p OakUI 0.64", desc = "1920x1080 at 0.64.", width = 1920, height = 1080, scale = 0.64 },
+    { key = "1080p_compact", label = "1080p Compact 0.533", desc = "1920x1080 at 0.533.", width = 1920, height = 1080, scale = 0.533 },
     { key = "1440p_pp", label = "1440p Pixel Perfect", desc = "2560x1440 at 0.533.", width = 2560, height = 1440, scale = 0.533 },
+    { key = "uw3440_oak", label = "3440 Ultrawide 0.64", desc = "3440x1440 at 0.64.", width = 3440, height = 1440, scale = 0.64 },
+    { key = "uw3440_pp", label = "3440 Ultrawide 0.533", desc = "3440x1440 at 0.533.", width = 3440, height = 1440, scale = 0.533 },
     { key = "4k", label = "4K", desc = "3840x2160 at 0.356.", width = 3840, height = 2160, scale = 0.356 },
-    { key = "uw_oak", label = "Ultrawide 0.64", desc = "5120x1440 at 0.64.", width = 5120, height = 1440, scale = 0.64 },
-    { key = "uw_pp", label = "Ultrawide 0.533", desc = "5120x1440 at 0.533.", width = 5120, height = 1440, scale = 0.533 },
+    { key = "uw_oak", label = "5120 Super Ultrawide 0.64", desc = "5120x1440 at 0.64.", width = 5120, height = 1440, scale = 0.64 },
+    { key = "uw_pp", label = "5120 Super Ultrawide 0.533", desc = "5120x1440 at 0.533.", width = 5120, height = 1440, scale = 0.533 },
 }
 
 local PRESET_BY_KEY = {}
 for _, preset in ipairs(PRESETS) do
     PRESET_BY_KEY[preset.key] = preset
 end
+PRESET_BY_KEY["1080p_oak"] = PRESET_BY_KEY["1080p"]
 
 local activePresetKey = "native"
 local BASE_DAMAGE_METER_1_OFFSET_X = 939.1666666666666
-local EDGE_MARGIN = 10
+local EDGE_MARGIN = 0
 local EDGE_MARGIN_BY_PRESET = {
     ["1080p"] = 0,
 }
 local RAID_FRAME_KEY = "RF_RaidFrames"
 local RAID_FRAME_CLAMP_PRESETS = {
     ["1080p"] = true,
+    ["1080p_oak"] = true,
+    ["1080p_compact"] = true,
 }
 local EXTRA_FRAMES_CONTAINER_NAME = "ERFExtraFramesContainer"
 local EXTRA_FRAMES_GAP = 5
+local DEFAULT_MINIMAP_SIZE = 210
+local OBJECTIVE_TRACKER_SCALE_NUDGE = 25
+local OBJECTIVE_TRACKER_GAP_BELOW_MINIMAP = 0
+local OBJECTIVE_TRACKER_1080P_MAX_HEIGHT = 550
+local OBJECTIVE_TRACKER_MIN_HEIGHT = 400
+local OBJECTIVE_TRACKER_MAX_HEIGHT = 1200
+local QUEUE_STATUS_CORNER_INSET = 22
+local DBM_HUGE_TARGET_AURA_CLEARANCE = 22
+local DBM_HUGE_BAR_TARGET_GAP = 16
+local DBM_HUGE_SCALE_GAP_NUDGE_MAX = 3
+local DAMAGE_METER_VISIBLE_ROWS = {
+    [1] = 5, -- Overall Damage Done
+    [2] = 5, -- Damage Done
+    [3] = 3, -- Healing Done
+}
 
 local function EnsureDB()
     if not OakUI_DB then OakUI_DB = {} end
@@ -111,6 +132,143 @@ local function GetPreset(key)
     return PRESET_BY_KEY[key or activePresetKey] or PRESET_BY_KEY.native
 end
 
+local function GetCurrentUIScale()
+    local dbScale = type(_G.EllesmereUIDB) == "table" and tonumber(_G.EllesmereUIDB.ppUIScale)
+    if dbScale and dbScale > 0 then return dbScale end
+
+    if UIParent and type(UIParent.GetScale) == "function" then
+        local ok, scale = pcall(UIParent.GetScale, UIParent)
+        scale = ok and tonumber(scale)
+        if scale and scale > 0 then return scale end
+    end
+
+    if type(GetCVar) == "function" then
+        local scale = tonumber(GetCVar("uiScale"))
+        if scale and scale > 0 then return scale end
+    end
+
+    return BASE_UI_SCALE
+end
+
+local function GetCVarValue(name)
+    if C_CVar and type(C_CVar.GetCVar) == "function" then
+        local ok, value = pcall(C_CVar.GetCVar, name)
+        if ok and value and value ~= "" then return value end
+    end
+    if type(GetCVar) == "function" then
+        local ok, value = pcall(GetCVar, name)
+        if ok and value and value ~= "" then return value end
+    end
+end
+
+local function ParseResolutionText(value)
+    if type(value) ~= "string" then return nil, nil end
+    local width, height = value:match("(%d+)%s*[xX]%s*(%d+)")
+    width, height = tonumber(width), tonumber(height)
+    if width and width > 0 and height and height > 0 then
+        return width, height
+    end
+end
+
+local function GetIndexedScreenResolution()
+    if type(GetCurrentResolution) ~= "function" or type(GetScreenResolutions) ~= "function" then
+        return nil, nil
+    end
+
+    local okIndex, index = pcall(GetCurrentResolution)
+    index = okIndex and tonumber(index)
+    if not index or index <= 0 then return nil, nil end
+
+    local resolutions = { pcall(GetScreenResolutions) }
+    if not resolutions[1] then return nil, nil end
+
+    local resolution = resolutions[index + 1]
+    return ParseResolutionText(resolution)
+end
+
+local function GetCurrentPhysicalResolution()
+    local width, height
+    if type(GetPhysicalScreenSize) == "function" then
+        local ok, physW, physH = pcall(GetPhysicalScreenSize)
+        if ok then
+            width, height = tonumber(physW), tonumber(physH)
+        end
+    end
+
+    if width and width > 0 and height and height > 0 then
+        return math.floor(width + 0.5), math.floor(height + 0.5)
+    end
+
+    for _, cvarName in ipairs({ "gxResolution", "gxFullscreenResolution" }) do
+        local width, height = ParseResolutionText(GetCVarValue(cvarName))
+        if width and height then
+            return math.floor(width + 0.5), math.floor(height + 0.5)
+        end
+    end
+
+    local indexedWidth, indexedHeight = GetIndexedScreenResolution()
+    if indexedWidth and indexedHeight then
+        return math.floor(indexedWidth + 0.5), math.floor(indexedHeight + 0.5)
+    end
+
+    local windowedWidth, windowedHeight = ParseResolutionText(GetCVarValue("gxWindowedResolution"))
+    if windowedWidth and windowedHeight then
+        return math.floor(windowedWidth + 0.5), math.floor(windowedHeight + 0.5)
+    end
+
+    if type(GetScreenWidth) == "function" and type(GetScreenHeight) == "function" then
+        width, height = tonumber(GetScreenWidth()), tonumber(GetScreenHeight())
+    end
+
+    if not width or width <= 0 or not height or height <= 0 then
+        return nil, nil
+    end
+
+    return math.floor(width + 0.5), math.floor(height + 0.5)
+end
+
+local function ResolutionScore(preset, width, height)
+    if not width or not height then return math.huge end
+    local presetWidth = tonumber(preset and preset.width) or BASE_WIDTH
+    local presetHeight = tonumber(preset and preset.height) or BASE_HEIGHT
+    local aspect = width / height
+    local presetAspect = presetWidth / presetHeight
+    local aspectScore = math.abs(aspect - presetAspect) * 10000
+    local heightScore = math.abs(height - presetHeight)
+    local widthScore = math.abs(width - presetWidth) * 0.25
+    return aspectScore + heightScore + widthScore
+end
+
+local function DetectRecommendedPreset()
+    local width, height = GetCurrentPhysicalResolution()
+    if not width or not height then
+        return GetPreset("native"), { width = nil, height = nil, scale = GetCurrentUIScale() }
+    end
+
+    local userScale = GetCurrentUIScale()
+    local bestPreset, bestResolutionScore, bestScaleScore
+    for _, preset in ipairs(PRESETS) do
+        local resolutionScore = ResolutionScore(preset, width, height)
+        local scaleScore = math.abs(userScale - (tonumber(preset.scale) or BASE_UI_SCALE))
+        if not bestPreset
+            or resolutionScore < bestResolutionScore - 0.001
+            or (math.abs(resolutionScore - bestResolutionScore) <= 0.001 and scaleScore < bestScaleScore)
+        then
+            bestPreset = preset
+            bestResolutionScore = resolutionScore
+            bestScaleScore = scaleScore
+        end
+    end
+
+    return bestPreset or GetPreset("native"), { width = width, height = height, scale = userScale }
+end
+
+local function SameResolution(preset, width, height)
+    return type(preset) == "table"
+        and tonumber(preset.width) == tonumber(width)
+        and tonumber(preset.height) == tonumber(height)
+end
+
 local function GetFactors(preset)
     preset = preset or GetPreset()
     local targetScale = tonumber(preset.scale) or BASE_UI_SCALE
@@ -186,6 +344,29 @@ function addonTable.GetOakLayoutPresets()
     return PRESETS
 end
 
+function addonTable.GetOakRecommendedLayoutPreset()
+    return DetectRecommendedPreset()
+end
+
+function addonTable.GetOakLayoutPresetGroups()
+    local recommended, detected = DetectRecommendedPreset()
+    local recommendedGroup = {}
+    local alternatives = {}
+    for _, preset in ipairs(PRESETS) do
+        if detected and detected.width and detected.height and SameResolution(preset, detected.width, detected.height) then
+            recommendedGroup[#recommendedGroup + 1] = preset
+        elseif recommended and SameResolution(preset, recommended.width, recommended.height) then
+            recommendedGroup[#recommendedGroup + 1] = preset
+        else
+            alternatives[#alternatives + 1] = preset
+        end
+    end
+    if #recommendedGroup == 0 and recommended then
+        recommendedGroup[1] = recommended
+    end
+    return recommendedGroup, alternatives, detected, recommended
+end
+
 function addonTable.SetOakLayoutPreset(key)
     local preset = GetPreset(key)
     activePresetKey = preset.key
@@ -256,6 +437,12 @@ local function UiCoordWidth(preset)
     return width / scale
 end
 
+local function LayoutSizeScaleForPreset(preset)
+    local scale = tonumber(preset and preset.scale) or BASE_UI_SCALE
+    if scale <= 0 then scale = BASE_UI_SCALE end
+    return BASE_UI_SCALE / scale
+end
+
 local function ComputeDamageMeterOffsetX(preset)
     preset = preset or addonTable.GetOakLayoutPreset()
     return BASE_DAMAGE_METER_1_OFFSET_X + ((UiCoordWidth(preset) - (BASE_WIDTH / BASE_UI_SCALE)) / 2)
@@ -266,6 +453,26 @@ local function EdgeMarginForPreset(preset)
     local presetMargin = preset and EDGE_MARGIN_BY_PRESET[preset.key]
     if presetMargin ~= nil then return presetMargin end
     return EDGE_MARGIN
+end
+
+local function ComputeObjectiveTrackerTopRightOffset(preset)
+    local margin = EdgeMarginForPreset(preset)
+    local scaleFactor = LayoutSizeScaleForPreset(preset)
+    local minimapOffset = DEFAULT_MINIMAP_SIZE + ((scaleFactor - 1) * OBJECTIVE_TRACKER_SCALE_NUDGE)
+    return 0, -(margin + minimapOffset + OBJECTIVE_TRACKER_GAP_BELOW_MINIMAP)
+end
+
+local function ComputeObjectiveTrackerMaxHeight(preset)
+    preset = preset or addonTable.GetOakLayoutPreset()
+    local height = tonumber(preset and preset.height) or BASE_HEIGHT
+    local scale = tonumber(preset and preset.scale) or BASE_UI_SCALE
+    if height <= 0 then height = BASE_HEIGHT end
+    if scale <= 0 then scale = BASE_UI_SCALE end
+
+    local scaledHeight = OBJECTIVE_TRACKER_1080P_MAX_HEIGHT
+        * (height / 1080)
+        * (BASE_UI_SCALE / scale)
+    return math.floor(math.max(OBJECTIVE_TRACKER_MIN_HEIGHT, math.min(OBJECTIVE_TRACKER_MAX_HEIGHT, scaledHeight)) + 0.5)
 end
 
 local function PatchMinimapPosition(profile)
@@ -283,6 +490,113 @@ local function PatchMinimapPosition(profile)
         y = -margin,
     }
     return true
+end
+
+local function GetProfileMinimapSize(profile)
+    local minimap = profile
+        and profile.addons
+        and profile.addons.EllesmereUIMinimap
+        and profile.addons.EllesmereUIMinimap.minimap
+    return tonumber(type(minimap) == "table" and minimap.mapSize) or DEFAULT_MINIMAP_SIZE
+end
+
+local function PatchQueueStatusPosition(profile, preset)
+    local actionBars = profile
+        and profile.addons
+        and profile.addons.EllesmereUIActionBars
+    if type(actionBars) ~= "table" then return false end
+
+    local margin = EdgeMarginForPreset(preset)
+    local mapSize = GetProfileMinimapSize(profile)
+    actionBars.barPositions = actionBars.barPositions or {}
+    actionBars.barPositions.QueueStatus = {
+        point = "CENTER",
+        relPoint = "TOPRIGHT",
+        x = -(margin + QUEUE_STATUS_CORNER_INSET),
+        y = -(margin + mapSize - QUEUE_STATUS_CORNER_INSET),
+    }
+    return true
+end
+
+function addonTable.ScaleOakLayoutLength(value)
+    local preset = addonTable.GetOakLayoutPreset()
+    local scaled = (tonumber(value) or 0) * LayoutSizeScaleForPreset(preset)
+    return math.floor(scaled + 0.5)
+end
+
+local function ComputeDBMHugeBarGap(preset)
+    local scaleFactor = LayoutSizeScaleForPreset(preset)
+    local nudge = 0
+    if scaleFactor > 1 then
+        nudge = math.min(DBM_HUGE_SCALE_GAP_NUDGE_MAX, math.floor(((scaleFactor - 1) * 15) + 0.5))
+    end
+    return DBM_HUGE_BAR_TARGET_GAP - nudge
+end
+
+local function DamageMeterPixelMultiplier(preset)
+    preset = preset or addonTable.GetOakLayoutPreset()
+    local height = tonumber(preset and preset.height) or BASE_HEIGHT
+    local scale = tonumber(preset and preset.scale) or BASE_UI_SCALE
+    if height <= 0 then height = BASE_HEIGHT end
+    if scale <= 0 then scale = BASE_UI_SCALE end
+    return (768 / height) / scale
+end
+
+local function ComputeDamageMeterHeightForRows(dm, rows, preset)
+    rows = tonumber(rows) or 0
+    local headerHeight = tonumber(dm and dm.hdrHeight) or 22
+    local barHeight = tonumber(dm and dm.barHeight) or 22
+    local barSpacing = tonumber(dm and dm.barSpacing) or 2
+    local mult = DamageMeterPixelMultiplier(preset)
+    return math.floor(headerHeight + (rows * ((barHeight + barSpacing) * mult)) + 0.5)
+end
+
+local function PatchDamageMeterRowHeights(dm, preset)
+    local changed = false
+    for index, rows in pairs(DAMAGE_METER_VISIBLE_ROWS) do
+        local window = dm.windows[index]
+        if type(window) == "table" then
+            local targetHeight = ComputeDamageMeterHeightForRows(dm, rows, preset)
+            if not tonumber(window.height) or math.abs(window.height - targetHeight) > 0.5 then
+                window.height = targetHeight
+                changed = true
+            end
+        end
+    end
+    return changed
+end
+
+local function PatchDamageMeterWindowSizes(profile, preset)
+    local dm = profile
+        and profile.addons
+        and profile.addons.EllesmereUIDamageMeters
+        and profile.addons.EllesmereUIDamageMeters.dm
+    if type(dm) ~= "table" or type(dm.windows) ~= "table" then return false end
+
+    local targetSizeScale = LayoutSizeScaleForPreset(preset)
+    local currentSizeScale = tonumber(dm._oakLayoutSizeScale) or 1
+    local changed = false
+
+    if math.abs(targetSizeScale - currentSizeScale) >= 0.0001 then
+        local ratio = targetSizeScale / currentSizeScale
+        for _, window in ipairs(dm.windows) do
+            if type(window) == "table" then
+                if tonumber(window.width) then
+                    window.width = math.floor((window.width * ratio) + 0.5)
+                    changed = true
+                end
+                if tonumber(window.height) then
+                    window.height = math.floor((window.height * ratio) + 0.5)
+                    changed = true
+                end
+            end
+        end
+        dm._oakLayoutSizeScale = targetSizeScale
+    end
+
+    changed = PatchDamageMeterRowHeights(dm, preset) or changed
+
+    return changed
 end
 
 local function PatchDamageMeterAnchor(anchors, preset, offsetX)
@@ -391,6 +705,8 @@ end
 local function PatchProfileLayout(profile, preset, offsetX)
     if type(profile) ~= "table" then return false end
     local changed = PatchMinimapPosition(profile)
+    changed = PatchQueueStatusPosition(profile, preset) or changed
+    changed = PatchDamageMeterWindowSizes(profile, preset) or changed
     changed = PatchDamageMeterAnchor(profile.unlockLayout and profile.unlockLayout.anchors, preset, offsetX) or changed
     changed = PatchUnlockOverrideStore(profile.specUnlockOverrides, preset, offsetX) or changed
     changed = PatchUnlockOverrideStore(profile.condUnlockOverrides, preset, offsetX) or changed
@@ -407,6 +723,135 @@ local function ResolveUnlockFrame(key)
         if ok then return frame end
     end
     return elem.frame
+end
+
+local function ResolveDBMHugeBarTargetFrame()
+    return ResolveUnlockFrame("target")
+        or _G.EllesmereUIUnitFrames_Target
+        or _G.TargetFrame
+end
+
+local function GetFrameRectInUIParent(frame)
+    if not (frame and UIParent and frame.GetLeft and frame.GetRight and frame.GetTop and frame.GetEffectiveScale) then
+        return nil
+    end
+    local left, right, top = frame:GetLeft(), frame:GetRight(), frame:GetTop()
+    if not (left and right and top) then return nil end
+
+    local uiScale = UIParent:GetEffectiveScale()
+    local frameScale = frame:GetEffectiveScale()
+    return {
+        left = left * frameScale / uiScale,
+        right = right * frameScale / uiScale,
+        top = top * frameScale / uiScale,
+    }
+end
+
+local function SnapLayoutCoord(value)
+    local EUI = _G.EllesmereUI
+    if EUI and EUI.PP and type(EUI.PP.Scale) == "function" then
+        local ok, snapped = pcall(EUI.PP.Scale, value)
+        if ok and snapped then return snapped end
+    end
+    if EUI and EUI.PP and type(EUI.PP.Snap) == "function" then
+        local ok, snapped = pcall(EUI.PP.Snap, value)
+        if ok and snapped then return snapped end
+    end
+    return math.floor((tonumber(value) or 0) + 0.5)
+end
+
+function addonTable.ApplyOakDBMHugeBarsToTarget(profileName)
+    if InCombatLockdown and InCombatLockdown() then return false end
+    if not UIParent then return false end
+
+    local target = ResolveDBMHugeBarTargetFrame()
+    local rect = GetFrameRectInUIParent(target)
+    if not rect then return false end
+
+    local dbtProfileName = profileName or _G.DBM_UsedProfile or "Default"
+    local options = type(_G.DBT_AllPersistentOptions) == "table" and _G.DBT_AllPersistentOptions[dbtProfileName]
+    local DBT = _G.DBT
+    if type(options) ~= "table" and DBT and type(DBT.Options) == "table" then
+        options = DBT.Options
+        dbtProfileName = _G.DBM_UsedProfile or dbtProfileName
+    end
+    if type(options) ~= "table" then return false end
+
+    local uiWidth = UIParent:GetWidth() or BASE_WIDTH
+    local auraClearance = addonTable.ScaleOakLayoutLength and addonTable.ScaleOakLayoutLength(DBM_HUGE_TARGET_AURA_CLEARANCE) or DBM_HUGE_TARGET_AURA_CLEARANCE
+    local gap = ComputeDBMHugeBarGap(addonTable.GetOakLayoutPreset())
+    local x = SnapLayoutCoord(((rect.left + rect.right) / 2) - (uiWidth / 2))
+    local y = SnapLayoutCoord(rect.top + auraClearance + gap)
+    local changed = options.HugeTimerPoint ~= "BOTTOM"
+        or math.abs((tonumber(options.HugeTimerX) or 0) - x) > 0.5
+        or math.abs((tonumber(options.HugeTimerY) or 0) - y) > 0.5
+        or options.ExpandUpwardsLarge ~= true
+
+    options.HugeTimerPoint = "BOTTOM"
+    options.HugeTimerX = x
+    options.HugeTimerY = y
+    options.ExpandUpwardsLarge = true
+
+    if DBT and type(DBT.Options) == "table" and (_G.DBM_UsedProfile == dbtProfileName or not _G.DBM_UsedProfile) then
+        DBT.Options.HugeTimerPoint = options.HugeTimerPoint
+        DBT.Options.HugeTimerX = options.HugeTimerX
+        DBT.Options.HugeTimerY = options.HugeTimerY
+        DBT.Options.ExpandUpwardsLarge = options.ExpandUpwardsLarge
+        if type(DBT.Rearrange) == "function" then
+            pcall(DBT.Rearrange, DBT)
+        end
+    elseif changed and DBT and type(DBT.ApplyProfile) == "function" and _G.DBM_UsedProfile == dbtProfileName then
+        pcall(DBT.ApplyProfile, DBT, dbtProfileName, true)
+    end
+    return changed
+end
+
+local dbmHugeHooked = {}
+local dbmHugeScheduled = {}
+
+local function ScheduleDBMHugeBars(profileName, delay)
+    local key = tostring(delay or 0)
+    if dbmHugeScheduled[key] then return end
+    dbmHugeScheduled[key] = true
+    local function Apply()
+        dbmHugeScheduled[key] = nil
+        addonTable.ApplyOakDBMHugeBarsToTarget(profileName)
+    end
+    if C_Timer and C_Timer.After then
+        C_Timer.After(delay or 0, Apply)
+    else
+        Apply()
+    end
+end
+
+local function HookDBMHugeEUIFunction(tbl, name)
+    if dbmHugeHooked[name] or type(tbl) ~= "table" or type(tbl[name]) ~= "function" or type(hooksecurefunc) ~= "function" then
+        return
+    end
+    hooksecurefunc(tbl, name, function()
+        ScheduleDBMHugeBars(nil, 0.05)
+    end)
+    dbmHugeHooked[name] = true
+end
+
+local function EnsureDBMHugeHooks()
+    local EUI = _G.EllesmereUI
+    HookDBMHugeEUIFunction(EUI, "RefreshAllAddons")
+    HookDBMHugeEUIFunction(EUI, "ReapplyAllUnlockAnchors")
+    HookDBMHugeEUIFunction(EUI, "ReapplyAllUnlockAnchorsForced")
+    if not dbmHugeHooked._EUF_ReloadFrames and type(_G._EUF_ReloadFrames) == "function" and type(hooksecurefunc) == "function" then
+        hooksecurefunc("_EUF_ReloadFrames", function()
+            ScheduleDBMHugeBars(nil, 0.05)
+        end)
+        dbmHugeHooked._EUF_ReloadFrames = true
+    end
+end
+
+function addonTable.ScheduleOakDBMHugeBarsToTarget(profileName)
+    EnsureDBMHugeHooks()
+    ScheduleDBMHugeBars(profileName, 0)
+    ScheduleDBMHugeBars(profileName, 0.25)
+    ScheduleDBMHugeBars(profileName, 1)
 end
 
 local function ComputeLiveDamageMeterOffset()
@@ -432,6 +877,8 @@ local function RefreshEllesmereLayout()
     if _G._EMM_ApplyMinimap then pcall(_G._EMM_ApplyMinimap) end
     if _G._ERF_RefreshAll then pcall(_G._ERF_RefreshAll) end
     local EUI = _G.EllesmereUI
+    if _G._EAB_Apply then pcall(_G._EAB_Apply) end
+    if _G._EDM_Apply then pcall(_G._EDM_Apply) end
     if EUI and type(EUI.SpecOverrides_ApplyUnlock) == "function" then
         pcall(EUI.SpecOverrides_ApplyUnlock, nil, true)
     end
@@ -634,15 +1081,72 @@ end
 
 function addonTable.ApplyOakEditModeLayoutAdjustmentsString(layoutString)
     local preset = addonTable.GetOakLayoutPreset()
-    if IsNativePreset(preset) then return layoutString end
-
     local margin = EdgeMarginForPreset(preset)
-    local minimapSize = 253
-    local questY = -(margin + minimapSize + 28)
+    local objectiveX, objectiveY = ComputeObjectiveTrackerTopRightOffset(preset)
     layoutString = ReplaceEditModeRecord(layoutString, 6, 0, 0, 0, "UIParent", margin, -margin)
     layoutString = ReplaceEditModeRecord(layoutString, 6, 1, 0, 6, "BuffFrame", 0, -4)
-    layoutString = ReplaceEditModeRecord(layoutString, 12, -1, 2, 2, "UIParent", -margin, questY)
+    layoutString = ReplaceEditModeRecord(layoutString, 12, -1, 2, 2, "UIParent", objectiveX, objectiveY)
     return layoutString
+end
+
+local function GetObjectiveTrackerHeightSetting()
+    local enum = Enum and Enum.EditModeObjectiveTrackerSetting
+    if type(enum) ~= "table" then return nil end
+    return enum.Height or enum.FrameHeight or enum.TrackerHeight or enum.MaxHeight or enum.MaximumHeight
+end
+
+local function UpsertEditModeSetting(settings, settingID, value)
+    if not settingID or type(settings) ~= "table" then return false end
+    for _, settingInfo in ipairs(settings) do
+        if settingInfo.setting == settingID then
+            if settingInfo.value ~= value then
+                settingInfo.value = value
+                return true
+            end
+            return false
+        end
+    end
+    settings[#settings + 1] = { setting = settingID, value = value }
+    return true
+end
+
+local function CapLargestNumericSetting(settings, maxValue)
+    if type(settings) ~= "table" then return false end
+    local target
+    local targetValue = -math.huge
+    for _, settingInfo in ipairs(settings) do
+        local value = tonumber(settingInfo and settingInfo.value)
+        if value and value >= OBJECTIVE_TRACKER_MIN_HEIGHT and value > targetValue then
+            target = settingInfo
+            targetValue = value
+        end
+    end
+    if target and targetValue > maxValue then
+        target.value = maxValue
+        return true
+    end
+    return false
+end
+
+function addonTable.ApplyOakEditModeLayoutAdjustmentsInfo(layoutInfo)
+    if type(layoutInfo) ~= "table" or type(layoutInfo.systems) ~= "table" then return false end
+
+    local preset = addonTable.GetOakLayoutPreset()
+    local maxHeight = ComputeObjectiveTrackerMaxHeight(preset)
+    local objectiveSystem = Enum and Enum.EditModeSystem and Enum.EditModeSystem.ObjectiveTracker or 12
+    local heightSetting = GetObjectiveTrackerHeightSetting()
+    local changed = false
+
+    for _, sysInfo in ipairs(layoutInfo.systems) do
+        if sysInfo.system == objectiveSystem and sysInfo.systemIndex == -1 then
+            sysInfo.settings = sysInfo.settings or {}
+            changed = UpsertEditModeSetting(sysInfo.settings, heightSetting, maxHeight) or changed
+            changed = CapLargestNumericSetting(sysInfo.settings, maxHeight) or changed
+            break
+        end
+    end
+
+    return changed
 end
 
 function addonTable.ApplyOakEllesmereUIScale(db)

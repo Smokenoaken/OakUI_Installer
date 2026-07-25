@@ -9,8 +9,36 @@ local OAK_LOOT_GROUPS = {
     "PING", "ACHIEVEMENT", "GUILD_ACHIEVEMENT"
 }
 
+local OAK_PLAYER_MESSAGE_GROUPS = {
+    "SAY", "EMOTE", "YELL", "GUILD", "OFFICER", "GUILD_ACHIEVEMENT",
+    "ACHIEVEMENT", "BN_WHISPER", "WHISPER", "PARTY", "PARTY_LEADER",
+    "RAID", "RAID_LEADER", "RAID_WARNING", "INSTANCE_CHAT",
+    "INSTANCE_CHAT_LEADER", "VOICE_TEXT",
+}
+
+local OAK_GENERAL_PLAYER_GROUPS = {
+    "SAY", "EMOTE", "YELL", "GUILD", "OFFICER", "WHISPER", "PARTY",
+    "PARTY_LEADER", "RAID", "RAID_LEADER", "RAID_WARNING",
+    "INSTANCE_CHAT", "INSTANCE_CHAT_LEADER",
+}
+
+local OAK_LOOT_PLAYER_GROUPS = {
+    "GUILD_ACHIEVEMENT", "ACHIEVEMENT", "BN_WHISPER",
+}
+
+local OAK_TRADE_PLAYER_GROUPS = {
+    "WHISPER",
+}
+
 local OAK_LOOT_HEIGHT = 180
 local OAK_LOOT_BASE_GAP = 32
+
+local function ScaleLayoutLength(value)
+    if addonTable.ScaleOakLayoutLength then
+        return addonTable.ScaleOakLayoutLength(value)
+    end
+    return value
+end
 
 local function BaseClearAllPoints(frame)
     if not frame then return end
@@ -77,6 +105,10 @@ local function SyncChatFrameGroups(frame, groupsToAdd, groupsToRemove)
             ChatFrame_AddMessageGroup(frame, group)
         end
     end
+end
+
+local function ApplyChatFrameGroups(frame, groupsToAdd)
+    SyncChatFrameGroups(frame, groupsToAdd, OAK_PLAYER_MESSAGE_GROUPS)
 end
 
 local function GetChatFrameID(frame)
@@ -198,9 +230,8 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     FCF_SetChatWindowFontSize(nil, cf1, 14)
     ForceTransparency(cf1, 1)
     
-    -- Leave protected/player/monster chat routing under Blizzard control.
-    -- Touch only OakUI's low-risk loot/system groups during layout import.
     SyncChatFrameGroups(cf1, nil, OAK_LOOT_GROUPS)
+    ApplyChatFrameGroups(cf1, OAK_GENERAL_PLAYER_GROUPS)
 
     -- 2. Find or Create Loot Window Safely
     local lootWindowName = LOOT or "Loot"
@@ -238,14 +269,15 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     lootFrame:SetUserPlaced(true)
     BaseClearAllPoints(lootFrame)
 
-    BaseSetPoint(lootFrame, "BOTTOMLEFT", cf1, "TOPLEFT", 0, OAK_LOOT_BASE_GAP)
-    BaseSetSize(lootFrame, cf1:GetWidth(), OAK_LOOT_HEIGHT)
+    BaseSetPoint(lootFrame, "BOTTOMLEFT", cf1, "TOPLEFT", 0, ScaleLayoutLength(OAK_LOOT_BASE_GAP))
+    BaseSetSize(lootFrame, cf1:GetWidth(), ScaleLayoutLength(OAK_LOOT_HEIGHT))
 
     SaveChatWindowPosition(lootFrame, lootID)
     FCF_SetChatWindowFontSize(nil, lootFrame, 14)
     ForceTransparency(lootFrame, lootID)
 
     SyncChatFrameGroups(lootFrame, OAK_LOOT_GROUPS, nil)
+    ApplyChatFrameGroups(lootFrame, OAK_LOOT_PLAYER_GROUPS)
 
     -- 3. Find or Create Trade Tab Safely
     local tradeWindowName = TRADE or "Trade"
@@ -288,6 +320,7 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
         ForceTransparency(tradeFrame, tradeID)
 
         SyncChatFrameGroups(tradeFrame, { "CHANNEL" }, OAK_LOOT_GROUPS)
+        ApplyChatFrameGroups(tradeFrame, OAK_TRADE_PLAYER_GROUPS)
         RouteChannelsToFrame(tradeFrame, GetTradeChannelNames(), cf1, lootFrame)
     elseif not quiet then
         print("|cffff0000[OakUI Error]|r Could not create the Trade chat tab. Try again after leaving combat and after the UI finishes loading.")

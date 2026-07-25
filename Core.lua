@@ -190,7 +190,7 @@ local SubText = HomeView:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); 
 SubText:SetText("Welcome to the OAK Flagship Suite.\n\n" .. cWrap .. "Note:|r The primary OAK profiles are built around a 1440p display with a UI Scale of 0.64.")
 
 local QuickInstallFrame = CreateFrame("Frame", "OakUI_QuickInstallFrame", UI, "BackdropTemplate")
-QuickInstallFrame:SetSize(560, 470)
+QuickInstallFrame:SetSize(700, 620)
 QuickInstallFrame:SetPoint("CENTER", UI, "CENTER", 0, 0)
 QuickInstallFrame:SetFrameStrata("FULLSCREEN_DIALOG")
 QuickInstallFrame:SetFrameLevel(1200)
@@ -200,7 +200,44 @@ QuickInstallFrame:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFil
 QuickInstallFrame:SetBackdropColor(0.106, 0.106, 0.129, 1)
 QuickInstallFrame:SetBackdropBorderColor(r, g, b, 1)
 
-local QuickState = { role = "dps", autoAssign = false, layoutKey = "native", dpsProfile = "OakUI Tank/DPS", healsProfile = "OakUI Healer" }
+local function GetQuickDefaultLayoutKey()
+    local preset = addonTable.GetOakRecommendedLayoutPreset and addonTable.GetOakRecommendedLayoutPreset()
+    return (type(preset) == "table" and preset.key) or "native"
+end
+
+local QUICK_OPTIONAL_PROFILE_FOLDERS = {
+    dbm = "DBM-Core",
+    bigwigs = "BigWigs",
+    blizzi = "BliZzi_Interrupts",
+}
+
+local function IsQuickAddonReady(folder)
+    if not folder then return true end
+    if not C_AddOns or not C_AddOns.GetAddOnInfo then return false end
+    local name, _, _, _, reason = C_AddOns.GetAddOnInfo(folder)
+    if not name or reason == "MISSING" then return false end
+    if C_AddOns.GetAddOnEnableState and C_AddOns.GetAddOnEnableState(folder, UnitName("player")) == 0 then
+        return false
+    end
+    return true
+end
+
+local function IsQuickOptionalProfileReady(key)
+    return IsQuickAddonReady(QUICK_OPTIONAL_PROFILE_FOLDERS[key])
+end
+
+local QuickState = {
+    role = "dps",
+    autoAssign = false,
+    layoutKey = GetQuickDefaultLayoutKey(),
+    dpsProfile = "OakUI Tank/DPS",
+    healsProfile = "OakUI Healer",
+    optionalProfiles = {
+        dbm = true,
+        bigwigs = true,
+        blizzi = true,
+    },
+}
 local QuickTitle = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 QuickTitle:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -16)
 QuickTitle:SetText(cWrap .. "Quick Install|r")
@@ -298,16 +335,80 @@ AutoAssignRow:SetScript("OnClick", function()
 end)
 UpdateAutoAssign()
 
+local function MakeQuickCheckbox(parent, label, x, y, getter, setter)
+    local row = CreateFrame("Button", nil, parent)
+    row:SetSize(190, 24)
+    row:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    local box = row:CreateTexture(nil, "BACKGROUND")
+    box:SetSize(18, 18)
+    box:SetPoint("LEFT", row, "LEFT", 0, 0)
+    box:SetColorTexture(0.3, 0.32, 0.38, 1)
+    local inner = row:CreateTexture(nil, "ARTWORK")
+    inner:SetPoint("TOPLEFT", box, "TOPLEFT", 2, -2)
+    inner:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -2, 2)
+    local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    text:SetPoint("LEFT", box, "RIGHT", 8, 0)
+    text:SetText(label)
+    row.UpdateState = function()
+        if getter() then
+            inner:SetColorTexture(r, g, b, 1)
+        else
+            inner:SetColorTexture(0.137, 0.141, 0.172, 1)
+        end
+    end
+    row:SetScript("OnClick", function()
+        setter(not getter())
+        row.UpdateState()
+    end)
+    parent._quickAddonChecks = parent._quickAddonChecks or {}
+    parent._quickAddonChecks[#parent._quickAddonChecks + 1] = row
+    row.UpdateState()
+    return row
+end
+
+local AddonProfileLabel = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+AddonProfileLabel:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -224)
+AddonProfileLabel:SetText(cWrap .. "Addon Profiles|r")
+local QuickNoAddonProfiles = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+QuickNoAddonProfiles:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -246)
+QuickNoAddonProfiles:SetTextColor(0.72, 0.72, 0.72)
+QuickNoAddonProfiles:SetText("No supported optional addon profiles detected.")
+local QuickAddonRows = {
+    { key = "dbm", row = MakeQuickCheckbox(QuickInstallFrame, "DBM", 18, -246, function() return QuickState.optionalProfiles.dbm end, function(v) QuickState.optionalProfiles.dbm = v end) },
+    { key = "bigwigs", row = MakeQuickCheckbox(QuickInstallFrame, "BigWigs", 148, -246, function() return QuickState.optionalProfiles.bigwigs end, function(v) QuickState.optionalProfiles.bigwigs = v end) },
+    { key = "blizzi", row = MakeQuickCheckbox(QuickInstallFrame, "Blizzi", 278, -246, function() return QuickState.optionalProfiles.blizzi end, function(v) QuickState.optionalProfiles.blizzi = v end) },
+}
+
+local function RefreshQuickAddonProfileChoices()
+    local visible = 0
+    for _, item in ipairs(QuickAddonRows) do
+        local ready = IsQuickOptionalProfileReady(item.key)
+        item.row:SetShown(ready)
+        if ready then
+            item.row:ClearAllPoints()
+            item.row:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18 + (visible * 130), -246)
+            if item.row.UpdateState then item.row.UpdateState() end
+            visible = visible + 1
+        else
+            QuickState.optionalProfiles[item.key] = false
+        end
+    end
+    QuickNoAddonProfiles:SetShown(visible == 0)
+end
+
 local LayoutLabel = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-LayoutLabel:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -224)
+LayoutLabel:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -288)
 LayoutLabel:SetText(cWrap .. "Resolution / UI Scale|r")
-for index, preset in ipairs(addonTable.GetOakLayoutPresets and addonTable.GetOakLayoutPresets() or {}) do
-    local col = (index - 1) % 2
-    local row = math.floor((index - 1) / 2)
-    local btn = MakeQuickChoice(QuickInstallFrame, "_layoutChoices", preset.label, 18 + (col * 260), -250 - (row * 44), 250, 38, function()
+
+local QuickDetectedLabel = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+QuickDetectedLabel:SetPoint("TOPLEFT", LayoutLabel, "BOTTOMLEFT", 0, -10)
+
+local function MakeQuickLayoutButton(preset, x, y, width)
+    local btn = MakeQuickChoice(QuickInstallFrame, "_layoutChoices", preset.label, x, y, width or 210, 36, function()
         return QuickState.layoutKey == preset.key
     end, function()
         QuickState.layoutKey = preset.key
+        QuickState._layoutTouched = true
     end)
     btn.Text:ClearAllPoints()
     btn.Text:SetPoint("TOPLEFT", btn, "TOPLEFT", 8, -4)
@@ -318,7 +419,60 @@ for index, preset in ipairs(addonTable.GetOakLayoutPresets and addonTable.GetOak
     desc:SetJustifyH("LEFT")
     desc:SetTextColor(0.72, 0.72, 0.72)
     desc:SetText(preset.desc)
+    return btn
 end
+
+local QuickAlternatesLabel = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+QuickAlternatesLabel:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -318)
+QuickAlternatesLabel:SetText(cWrap .. "Alternate Resolutions|r")
+
+local function RefreshQuickLayoutChoices()
+    for _, btn in ipairs(QuickInstallFrame._layoutChoices or {}) do
+        btn:Hide()
+        btn:SetParent(nil)
+    end
+    QuickInstallFrame._layoutChoices = {}
+
+    local recommendedGroup, alternatives, detected, recommended
+    if addonTable.GetOakLayoutPresetGroups then
+        recommendedGroup, alternatives, detected, recommended = addonTable.GetOakLayoutPresetGroups()
+    end
+    if not recommendedGroup or #recommendedGroup == 0 then
+        local presets = addonTable.GetOakLayoutPresets and addonTable.GetOakLayoutPresets() or {}
+        recommended = presets[1]
+        recommendedGroup = recommended and { recommended } or {}
+        alternatives = {}
+        for index = 2, #presets do alternatives[#alternatives + 1] = presets[index] end
+    end
+
+    if recommended and not QuickState._layoutTouched then
+        QuickState.layoutKey = recommended.key
+    end
+
+    local detectedText = "Your Resolution"
+    if type(detected) == "table" and detected.width and detected.height then
+        detectedText = detectedText .. " (" .. detected.width .. "x" .. detected.height .. ")"
+    end
+    QuickDetectedLabel:SetText(cWrap .. detectedText .. "|r")
+
+    for index, preset in ipairs(recommendedGroup or {}) do
+        local col = (index - 1) % 2
+        local row = math.floor((index - 1) / 2)
+        MakeQuickLayoutButton(preset, 18 + (col * 276), -334 - (row * 42), 264)
+    end
+
+    local recommendedRows = math.max(1, math.ceil(#(recommendedGroup or {}) / 2))
+    local alternateLabelY = -340 - (recommendedRows * 42)
+    QuickAlternatesLabel:ClearAllPoints()
+    QuickAlternatesLabel:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, alternateLabelY)
+
+    for index, preset in ipairs(alternatives or {}) do
+        local col = (index - 1) % 3
+        local row = math.floor((index - 1) / 3)
+        MakeQuickLayoutButton(preset, 18 + (col * 220), alternateLabelY - 26 - (row * 42), 210)
+    end
+end
+RefreshQuickLayoutChoices()
 
 local QuickInstallApply = MakeFlatButton(QuickInstallFrame, "Install Everything", 160, 30)
 QuickInstallApply:SetPoint("BOTTOMRIGHT", QuickInstallFrame, "BOTTOMRIGHT", -18, 16)
@@ -328,6 +482,7 @@ QuickInstallApply:SetScript("OnClick", function()
         print("|cffff0000[OakUI]|r Quick Install is not ready yet. Open the Main Installer once and try again.")
         return
     end
+    RefreshQuickAddonProfileChoices()
     QuickInstallFrame:Hide()
     addonTable.ApplyOakQuickInstall({
         dps = QuickState.role == "dps" or QuickState.role == "both",
@@ -336,6 +491,11 @@ QuickInstallApply:SetScript("OnClick", function()
         healsProfile = QuickState.healsProfile ~= "" and QuickState.healsProfile or "OakUI Healer",
         autoAssign = QuickState.autoAssign,
         layoutKey = QuickState.layoutKey,
+        optionalProfiles = {
+            dbm = QuickState.optionalProfiles.dbm,
+            bigwigs = QuickState.optionalProfiles.bigwigs,
+            blizzi = QuickState.optionalProfiles.blizzi,
+        },
     })
 end)
 local QuickCancel = MakeFlatButton(QuickInstallFrame, "Cancel", 100, 30)
@@ -345,8 +505,14 @@ QuickCancel:SetScript("OnClick", function() QuickInstallFrame:Hide() end)
 QuickInstallFrame:SetScript("OnShow", function(self)
     if DpsProfileBox:GetText() == "" then DpsProfileBox:SetText("OakUI Tank/DPS") end
     if HealerProfileBox:GetText() == "" then HealerProfileBox:SetText("OakUI Healer") end
+    if not QuickState._layoutTouched then
+        QuickState.layoutKey = GetQuickDefaultLayoutKey()
+    end
+    RefreshQuickLayoutChoices()
+    RefreshQuickAddonProfileChoices()
     for _, btn in ipairs(self._roleChoices or {}) do if btn.UpdateState then btn:UpdateState() end end
     for _, btn in ipairs(self._layoutChoices or {}) do if btn.UpdateState then btn:UpdateState() end end
+    for _, row in ipairs(self._quickAddonChecks or {}) do if row.UpdateState then row.UpdateState() end end
     UpdateAutoAssign()
 end)
 
@@ -794,3 +960,10 @@ end)
 
 SLASH_OAKINSTALL1 = "/oakui"; SLASH_OAKINSTALL2 = "/oak"
 SlashCmdList["OAKINSTALL"] = function() if UI:IsShown() then UI:Hide() else addonTable.OpenInstaller("home") end end
+
+SLASH_OAKCDMREPOPULATE1 = "/oakcdm"
+SlashCmdList["OAKCDMREPOPULATE"] = function()
+    if addonTable.RepopulateActiveEllesmereCDMFromBlizzard then
+        addonTable.RepopulateActiveEllesmereCDMFromBlizzard(false)
+    end
+end
