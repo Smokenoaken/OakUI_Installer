@@ -1,3 +1,15 @@
+## v2.6.19-EllesmereEdition
+
+- Updated OakUI Tank/DPS and Healer EUI profile strings.
+- Updated Blizzi profile data and supporter list.
+- Updated 1080p .64, 1080p .533, 1440p .64, 1440p .533, 3440x1440 .64, and 3440x1440 .533 layout support.
+- Dynamically sizes EUI damage meters for 3 Healing rows and 5 Damage / Overall rows across supported layouts.
+- Added DBM Huge Bar placement above the target frame, matching target-frame width including spell icons.
+- Added installer choices to include or skip Blizzi, DBM, and BigWigs profiles when those addons are installed.
+- Fixed custom EUI profile names so Blizzi matching profiles use the user's chosen profile names.
+- Improved OakUI font registration with EllesmereUI so OakUI font applies more consistently.
+- Fixed chat layout scaling across tested resolutions/UI scales.
+
 ## v2.6.18-EllesmereEdition
 
 - Updated OakUI Tank/DPS and Healer profile data, including Tank/DPS party frame placement and cast-bar color adjustments.

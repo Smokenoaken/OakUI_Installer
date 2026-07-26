@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.18-EllesmereEdition"
+P.VERSION = "2.6.19-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -109,6 +109,21 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.19-EllesmereEdition",
+        date = "July 26, 2026",
+        notes = {
+            "Updated OakUI Tank/DPS and Healer EUI profile strings.",
+            "Updated Blizzi profile data and supporter list.",
+            "Updated 1080p .64, 1080p .533, 1440p .64, 1440p .533, 3440x1440 .64, and 3440x1440 .533 layout support.",
+            "Dynamically sizes EUI damage meters for 3 Healing rows and 5 Damage / Overall rows across supported layouts.",
+            "Added DBM Huge Bar placement above the target frame, matching target-frame width including spell icons.",
+            "Added installer choices to include or skip Blizzi, DBM, and BigWigs profiles when those addons are installed.",
+            "Fixed custom EUI profile names so Blizzi matching profiles use the user's chosen profile names.",
+            "Improved OakUI font registration with EllesmereUI so OakUI font applies more consistently.",
+            "Fixed chat layout scaling across tested resolutions/UI scales.",
+        }
+    },
     {
         version = "v2.6.18-EllesmereEdition",
         date = "July 25, 2026",
