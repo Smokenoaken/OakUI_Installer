@@ -52,10 +52,8 @@ local function BuildInstallerAddons(Inj, cWrap, ShowCopyBox)
             buttonText = "Apply Layout",
             installedText = "Applied!",
             func = function()
-                if addonTable.ScheduleChatWindowsAfterEllesmereProfile then
-                    addonTable.ScheduleChatWindowsAfterEllesmereProfile(true)
-                elseif addonTable.SetupChatWindows then
-                    addonTable.SetupChatWindows(true)
+                if addonTable.QueueOakChatLayoutAfterReload then
+                    addonTable.QueueOakChatLayoutAfterReload()
                 end
             end,
             manual = true,
@@ -1005,6 +1003,9 @@ function addonTable.BuildInstallerUI(parentFrame)
         end
         if state.mode == "fresh" and (importedDPS or importedHeals) and addonTable.MarkEllesmereCDMRepopulateAfterReload then
             addonTable.MarkEllesmereCDMRepopulateAfterReload()
+        end
+        if state.chatLayout and addonTable.MarkOakChatLayoutAfterReload then
+            addonTable.MarkOakChatLayoutAfterReload()
         end
         local function ShowReloadPrompt()
             ShowOakInstallerModal({

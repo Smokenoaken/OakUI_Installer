@@ -29,6 +29,8 @@ local EDGE_MARGIN_BY_PRESET = {
     ["1080p"] = 0,
 }
 local RAID_FRAME_KEY = "RF_RaidFrames"
+local DRAGON_RIDING_KEY = "EDR_Cluster"
+local DRAGON_RIDING_TARGET_KEY = "ERB_Power"
 local RAID_FRAME_CLAMP_PRESETS = {
     ["1080p"] = true,
     ["1080p_oak"] = true,
@@ -42,10 +44,14 @@ local OBJECTIVE_TRACKER_GAP_BELOW_MINIMAP = 0
 local OBJECTIVE_TRACKER_1080P_MAX_HEIGHT = 550
 local OBJECTIVE_TRACKER_MIN_HEIGHT = 400
 local OBJECTIVE_TRACKER_MAX_HEIGHT = 1200
+local OBJECTIVE_TRACKER_DAMAGE_METER_GAP = 18
+local OBJECTIVE_TRACKER_1080P_FLOOR = 550
 local QUEUE_STATUS_CORNER_INSET = 22
 local DBM_HUGE_TARGET_AURA_CLEARANCE = 22
 local DBM_HUGE_BAR_TARGET_GAP = 16
 local DBM_HUGE_SCALE_GAP_NUDGE_MAX = 3
+local DBM_HUGE_VISUAL_WIDTH_INSET = 4
+local DBM_HUGE_VISUAL_X_NUDGE = -3
 local DAMAGE_METER_VISIBLE_ROWS = {
     [1] = 5, -- Overall Damage Done
     [2] = 5, -- Damage Done
@@ -425,11 +431,6 @@ local function TransformMinimap(profile)
     addonTable.TransformOakLayoutPosition(minimap.position)
 end
 
-local function IsNativePreset(preset)
-    preset = preset or addonTable.GetOakLayoutPreset()
-    return not preset or preset.key == "native"
-end
-
 local function UiCoordWidth(preset)
     local width = tonumber(preset and preset.width) or BASE_WIDTH
     local scale = tonumber(preset and preset.scale) or BASE_UI_SCALE
@@ -447,6 +448,8 @@ local function ComputeDamageMeterOffsetX(preset)
     preset = preset or addonTable.GetOakLayoutPreset()
     return BASE_DAMAGE_METER_1_OFFSET_X + ((UiCoordWidth(preset) - (BASE_WIDTH / BASE_UI_SCALE)) / 2)
 end
+
+local ComputeDamageMeterHeightForRows
 
 local function EdgeMarginForPreset(preset)
     preset = preset or addonTable.GetOakLayoutPreset()
@@ -469,10 +472,26 @@ local function ComputeObjectiveTrackerMaxHeight(preset)
     if height <= 0 then height = BASE_HEIGHT end
     if scale <= 0 then scale = BASE_UI_SCALE end
 
-    local scaledHeight = OBJECTIVE_TRACKER_1080P_MAX_HEIGHT
+    local scaledFallback = OBJECTIVE_TRACKER_1080P_MAX_HEIGHT
         * (height / 1080)
         * (BASE_UI_SCALE / scale)
-    return math.floor(math.max(OBJECTIVE_TRACKER_MIN_HEIGHT, math.min(OBJECTIVE_TRACKER_MAX_HEIGHT, scaledHeight)) + 0.5)
+    local _, objectiveY = ComputeObjectiveTrackerTopRightOffset(preset)
+    local trackerTopOffset = math.abs(tonumber(objectiveY) or 0)
+    local meterStackHeight = 0
+
+    for index, rows in pairs(DAMAGE_METER_VISIBLE_ROWS) do
+        meterStackHeight = meterStackHeight + ComputeDamageMeterHeightForRows(nil, rows, preset)
+    end
+
+    local availableHeight = height - trackerTopOffset - meterStackHeight - OBJECTIVE_TRACKER_DAMAGE_METER_GAP
+    if height <= 1080 then
+        availableHeight = math.max(availableHeight, OBJECTIVE_TRACKER_1080P_FLOOR)
+        availableHeight = math.min(availableHeight, scaledFallback)
+    elseif availableHeight <= OBJECTIVE_TRACKER_MIN_HEIGHT then
+        availableHeight = scaledFallback
+    end
+
+    return math.floor(math.max(OBJECTIVE_TRACKER_MIN_HEIGHT, math.min(OBJECTIVE_TRACKER_MAX_HEIGHT, availableHeight)) + 0.5)
 end
 
 local function PatchMinimapPosition(profile)
@@ -542,7 +561,7 @@ local function DamageMeterPixelMultiplier(preset)
     return (768 / height) / scale
 end
 
-local function ComputeDamageMeterHeightForRows(dm, rows, preset)
+ComputeDamageMeterHeightForRows = function(dm, rows, preset)
     rows = tonumber(rows) or 0
     local headerHeight = tonumber(dm and dm.hdrHeight) or 22
     local barHeight = tonumber(dm and dm.barHeight) or 22
@@ -574,25 +593,18 @@ local function PatchDamageMeterWindowSizes(profile, preset)
     if type(dm) ~= "table" or type(dm.windows) ~= "table" then return false end
 
     local targetSizeScale = LayoutSizeScaleForPreset(preset)
-    local currentSizeScale = tonumber(dm._oakLayoutSizeScale) or 1
+    local targetWidth = math.floor((GetProfileMinimapSize(profile) or DEFAULT_MINIMAP_SIZE) + 0.5)
     local changed = false
 
-    if math.abs(targetSizeScale - currentSizeScale) >= 0.0001 then
-        local ratio = targetSizeScale / currentSizeScale
-        for _, window in ipairs(dm.windows) do
-            if type(window) == "table" then
-                if tonumber(window.width) then
-                    window.width = math.floor((window.width * ratio) + 0.5)
-                    changed = true
-                end
-                if tonumber(window.height) then
-                    window.height = math.floor((window.height * ratio) + 0.5)
-                    changed = true
-                end
+    for _, window in ipairs(dm.windows) do
+        if type(window) == "table" then
+            if not tonumber(window.width) or math.abs(window.width - targetWidth) > 0.5 then
+                window.width = targetWidth
+                changed = true
             end
         end
-        dm._oakLayoutSizeScale = targetSizeScale
     end
+    dm._oakLayoutSizeScale = targetSizeScale
 
     changed = PatchDamageMeterRowHeights(dm, preset) or changed
 
@@ -608,6 +620,67 @@ local function PatchDamageMeterAnchor(anchors, preset, offsetX)
     anchor.side = "TOP"
     anchor.offsetX = tonumber(offsetX) or ComputeDamageMeterOffsetX(preset)
     anchor.offsetY = 0
+    return true
+end
+
+local function PatchDragonRidingAnchor(anchors)
+    if type(anchors) ~= "table" then return false end
+    local anchor = anchors[DRAGON_RIDING_KEY]
+    local changed = false
+    if type(anchor) ~= "table" then
+        anchor = {}
+        anchors[DRAGON_RIDING_KEY] = anchor
+        changed = true
+    end
+
+    if anchor.target ~= DRAGON_RIDING_TARGET_KEY then anchor.target = DRAGON_RIDING_TARGET_KEY; changed = true end
+    if anchor.side ~= "TOP" then anchor.side = "TOP"; changed = true end
+    if tonumber(anchor.offsetX) ~= 0 then anchor.offsetX = 0; changed = true end
+    if tonumber(anchor.offsetY) ~= 0 then anchor.offsetY = 0; changed = true end
+    return changed
+end
+
+local function PatchDragonRidingWidthMatch(widthMatch)
+    if type(widthMatch) ~= "table" then return false end
+    if widthMatch[DRAGON_RIDING_KEY] == DRAGON_RIDING_TARGET_KEY then return false end
+    widthMatch[DRAGON_RIDING_KEY] = DRAGON_RIDING_TARGET_KEY
+    return true
+end
+
+local function PatchDragonRidingLayer(layer)
+    if type(layer) ~= "table" then return false end
+    layer.anchors = layer.anchors or {}
+    layer.widthMatch = layer.widthMatch or {}
+    local changed = PatchDragonRidingAnchor(layer.anchors)
+    changed = PatchDragonRidingWidthMatch(layer.widthMatch) or changed
+    return changed
+end
+
+local function PatchDragonRidingProfile(profile)
+    if type(profile) ~= "table" then return false end
+
+    profile.unlockLayout = profile.unlockLayout or {}
+    local changed = PatchDragonRidingLayer(profile.unlockLayout)
+
+    local dragonRiding = profile.addons
+        and profile.addons.EllesmereUIDragonRiding
+    if type(dragonRiding) == "table" and dragonRiding.unlockPos ~= nil then
+        dragonRiding.unlockPos = nil
+        changed = true
+    end
+
+    return changed
+end
+
+local function ClearDragonRidingModuleUnlockPos(profileName)
+    local db = _G.EllesmereUIDragonRidingDB
+    local profiles = type(db) == "table" and db.profiles
+    if not profileName or type(profiles) ~= "table" or type(profiles[profileName]) ~= "table" then
+        return false
+    end
+
+    if profiles[profileName].unlockPos == nil then return false end
+    profiles[profileName].unlockPos = nil
     return true
 end
 
@@ -660,6 +733,7 @@ end
 local function PatchUnlockLayerLayout(layer, preset, offsetX)
     if type(layer) ~= "table" then return false end
     local changed = PatchDamageMeterAnchor(layer.anchors, preset, offsetX)
+    changed = PatchDragonRidingLayer(layer) or changed
     changed = ClearDamageMeterElementPositions(layer) or changed
     return changed
 end
@@ -707,6 +781,7 @@ local function PatchProfileLayout(profile, preset, offsetX)
     local changed = PatchMinimapPosition(profile)
     changed = PatchQueueStatusPosition(profile, preset) or changed
     changed = PatchDamageMeterWindowSizes(profile, preset) or changed
+    changed = PatchDragonRidingProfile(profile) or changed
     changed = PatchDamageMeterAnchor(profile.unlockLayout and profile.unlockLayout.anchors, preset, offsetX) or changed
     changed = PatchUnlockOverrideStore(profile.specUnlockOverrides, preset, offsetX) or changed
     changed = PatchUnlockOverrideStore(profile.condUnlockOverrides, preset, offsetX) or changed
@@ -731,6 +806,8 @@ local function ResolveDBMHugeBarTargetFrame()
         or _G.TargetFrame
 end
 
+local SnapLayoutCoord
+
 local function GetFrameRectInUIParent(frame)
     if not (frame and UIParent and frame.GetLeft and frame.GetRight and frame.GetTop and frame.GetEffectiveScale) then
         return nil
@@ -744,10 +821,51 @@ local function GetFrameRectInUIParent(frame)
         left = left * frameScale / uiScale,
         right = right * frameScale / uiScale,
         top = top * frameScale / uiScale,
+        width = (right - left) * frameScale / uiScale,
     }
 end
 
-local function SnapLayoutCoord(value)
+local function GetDBMHugeIconWidth(options)
+    if type(options) ~= "table" or options.IconLeft == false then return 0 end
+
+    if options.IconLocked == false then
+        return 20
+    end
+
+    return tonumber(options.HugeHeight) or 20
+end
+
+local function GetDBMHugeRightIconWidth(options)
+    if type(options) ~= "table" or options.IconRight ~= true then return 0 end
+
+    if options.IconLocked == false then
+        return 20
+    end
+
+    return tonumber(options.HugeHeight) or 20
+end
+
+local function ComputeDBMHugeBarWidth(options, rect)
+    local width = tonumber(rect and rect.width)
+    if not width or width <= 0 then return nil end
+
+    local hugeScale = tonumber(options and options.HugeScale) or 1
+    if hugeScale <= 0 then hugeScale = 1 end
+
+    local barWidth = ((width - DBM_HUGE_VISUAL_WIDTH_INSET) / hugeScale)
+        - GetDBMHugeIconWidth(options)
+        - GetDBMHugeRightIconWidth(options)
+    return SnapLayoutCoord(math.max(1, barWidth))
+end
+
+local function ComputeDBMHugeBarCenterOffset(options)
+    local hugeScale = tonumber(options and options.HugeScale) or 1
+    if hugeScale <= 0 then hugeScale = 1 end
+
+    return ((GetDBMHugeIconWidth(options) - GetDBMHugeRightIconWidth(options)) * hugeScale) / 2
+end
+
+SnapLayoutCoord = function(value)
     local EUI = _G.EllesmereUI
     if EUI and EUI.PP and type(EUI.PP.Scale) == "function" then
         local ok, snapped = pcall(EUI.PP.Scale, value)
@@ -780,22 +898,30 @@ function addonTable.ApplyOakDBMHugeBarsToTarget(profileName)
     local uiWidth = UIParent:GetWidth() or BASE_WIDTH
     local auraClearance = addonTable.ScaleOakLayoutLength and addonTable.ScaleOakLayoutLength(DBM_HUGE_TARGET_AURA_CLEARANCE) or DBM_HUGE_TARGET_AURA_CLEARANCE
     local gap = ComputeDBMHugeBarGap(addonTable.GetOakLayoutPreset())
-    local x = SnapLayoutCoord(((rect.left + rect.right) / 2) - (uiWidth / 2))
+    local width = ComputeDBMHugeBarWidth(options, rect)
+    local x = SnapLayoutCoord(((rect.left + rect.right) / 2) - (uiWidth / 2) + ComputeDBMHugeBarCenterOffset(options) + DBM_HUGE_VISUAL_X_NUDGE)
     local y = SnapLayoutCoord(rect.top + auraClearance + gap)
     local changed = options.HugeTimerPoint ~= "BOTTOM"
         or math.abs((tonumber(options.HugeTimerX) or 0) - x) > 0.5
         or math.abs((tonumber(options.HugeTimerY) or 0) - y) > 0.5
+        or (width and math.abs((tonumber(options.HugeWidth) or 0) - width) > 0.5)
         or options.ExpandUpwardsLarge ~= true
 
     options.HugeTimerPoint = "BOTTOM"
     options.HugeTimerX = x
     options.HugeTimerY = y
+    if width then
+        options.HugeWidth = width
+    end
     options.ExpandUpwardsLarge = true
 
     if DBT and type(DBT.Options) == "table" and (_G.DBM_UsedProfile == dbtProfileName or not _G.DBM_UsedProfile) then
         DBT.Options.HugeTimerPoint = options.HugeTimerPoint
         DBT.Options.HugeTimerX = options.HugeTimerX
         DBT.Options.HugeTimerY = options.HugeTimerY
+        if width then
+            DBT.Options.HugeWidth = width
+        end
         DBT.Options.ExpandUpwardsLarge = options.ExpandUpwardsLarge
         if type(DBT.Rearrange) == "function" then
             pcall(DBT.Rearrange, DBT)
@@ -879,11 +1005,16 @@ local function RefreshEllesmereLayout()
     local EUI = _G.EllesmereUI
     if _G._EAB_Apply then pcall(_G._EAB_Apply) end
     if _G._EDM_Apply then pcall(_G._EDM_Apply) end
+    if _G._EDR_Rebuild then pcall(_G._EDR_Rebuild) end
     if EUI and type(EUI.SpecOverrides_ApplyUnlock) == "function" then
         pcall(EUI.SpecOverrides_ApplyUnlock, nil, true)
     end
+    if EUI and type(EUI.ApplyAllWidthHeightMatches) == "function" then
+        pcall(EUI.ApplyAllWidthHeightMatches)
+    end
     if EUI and EUI.ReapplyOwnAnchor then
         pcall(EUI.ReapplyOwnAnchor, "EDM_Win1")
+        pcall(EUI.ReapplyOwnAnchor, DRAGON_RIDING_KEY)
         pcall(EUI.ReapplyOwnAnchor, RAID_FRAME_KEY)
     elseif EUI and EUI.ReapplyAllUnlockAnchors then
         pcall(EUI.ReapplyAllUnlockAnchors)
@@ -1182,21 +1313,12 @@ function addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName, role)
     if type(db) ~= "table" then return false end
     if role == "dps" or role == "heals" then RememberProfileRole(profileName, role) end
 
-    if IsNativePreset(preset) then
-        local extraChanged = false
-        if IsTankDPSProfile(profileName, role) and profileName and db.profiles and db.profiles[profileName] then
-            extraChanged = PatchTankDPSExtraFrames(db.profiles[profileName]) or extraChanged
-        end
-        if extraChanged then RefreshEllesmereRaidFramesOnly() end
-        if IsTankDPSProfile(profileName, role) then ScheduleInstallExtraFramesPosition(profileName, role) end
-        return extraChanged
-    end
-
     local offsetX = ComputeDamageMeterOffsetX(preset)
     local changed = false
     local extraChanged = false
     if profileName and db.profiles and db.profiles[profileName] then
         changed = PatchProfileLayout(db.profiles[profileName], preset, offsetX) or changed
+        changed = ClearDragonRidingModuleUnlockPos(profileName) or changed
         if IsTankDPSProfile(profileName, role) then
             extraChanged = PatchTankDPSExtraFrames(db.profiles[profileName]) or extraChanged
         end
@@ -1205,6 +1327,7 @@ function addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName, role)
     local activeName = db.activeProfile or db.profile
     if activeName and db.profiles and db.profiles[activeName] then
         changed = PatchProfileLayout(db.profiles[activeName], preset, offsetX) or changed
+        changed = ClearDragonRidingModuleUnlockPos(activeName) or changed
         if IsTankDPSProfile(activeName, GetProfileRole(activeName)) then
             extraChanged = PatchTankDPSExtraFrames(db.profiles[activeName]) or extraChanged
         end
@@ -1212,6 +1335,11 @@ function addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName, role)
 
     changed = PatchDamageMeterAnchor(db.unlockAnchors, preset, offsetX) or changed
     changed = PatchDamageMeterAnchor(db.unlockLayout and db.unlockLayout.anchors, preset, offsetX) or changed
+    db.unlockAnchors = db.unlockAnchors or {}
+    db.unlockWidthMatch = db.unlockWidthMatch or {}
+    changed = PatchDragonRidingAnchor(db.unlockAnchors) or changed
+    changed = PatchDragonRidingWidthMatch(db.unlockWidthMatch) or changed
+    changed = PatchDragonRidingLayer(db.unlockLayout) or changed
 
     if changed then
         RefreshEllesmereLayout()

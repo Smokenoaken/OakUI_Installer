@@ -68,6 +68,20 @@ local function GetLSM()
     return _G.LibStub and _G.LibStub("LibSharedMedia-3.0", true)
 end
 
+local function RegisterOakFontsWithEllesmere()
+    local E = _G.EllesmereUI
+    if type(E) ~= "table" then return end
+
+    E._smFontPaths = E._smFontPaths or {}
+    for name, path in pairs(OAK_FONTS) do
+        E._smFontPaths[name] = path
+    end
+
+    if type(E.InvalidateFontCache) == "function" then
+        E.InvalidateFontCache()
+    end
+end
+
 local function IsOakRoundThinBorderKey(textureKey)
     if not textureKey or textureKey == "" then return false end
     return textureKey == ROUND_THIN_BORDER_NAME
@@ -513,10 +527,55 @@ local function RegisterOakFonts()
             })
         end
     end
+    RegisterOakFontsWithEllesmere()
     RegisterOakRoundThinBorderRenderer()
 end
 addonTable.RegisterOakFonts = RegisterOakFonts
 addonTable.RegisterOakMedia = RegisterOakFonts
+
+local function UpsertEllesmereModuleFont(fontsDB, folder, display, fontName)
+    if type(fontsDB) ~= "table" then return end
+    fontsDB.moduleFonts = fontsDB.moduleFonts or {}
+
+    for _, entry in ipairs(fontsDB.moduleFonts) do
+        if entry.folder == folder then
+            entry.display = entry.display or display
+            entry.font = fontName
+            entry.outline = entry.outline or "__global"
+            return
+        end
+    end
+
+    fontsDB.moduleFonts[#fontsDB.moduleFonts + 1] = {
+        folder = folder,
+        display = display,
+        font = fontName,
+        outline = "__global",
+    }
+end
+
+function addonTable.ApplyOakEllesmereFontPreset(fontName)
+    RegisterOakFonts()
+
+    local E = _G.EllesmereUI
+    if type(E) ~= "table" or type(E.GetFontsDB) ~= "function" then
+        return false
+    end
+
+    local activeFont = fontName or DEFAULT_FONT
+    local fontsDB = E.GetFontsDB()
+    fontsDB.global = activeFont
+    fontsDB.outlineMode = fontsDB.outlineMode or "shadow"
+
+    UpsertEllesmereModuleFont(fontsDB, "EllesmereUIActionBars", "Action Bars", activeFont)
+    UpsertEllesmereModuleFont(fontsDB, "EllesmereUIUnitFrames", "Unit Frames", activeFont)
+
+    if type(E.InvalidateFontCache) == "function" then
+        E.InvalidateFontCache()
+    end
+
+    return true
+end
 
 local function GetFontPath(fontName)
     local LSM = GetLSM()
@@ -731,6 +790,7 @@ function addonTable.ApplyOakFontPreset()
     local fontName = GetPreferredOakFontName()
     addonTable.ApplyFontToAll(fontName)
     addonTable.ApplyOakFonts()
+    addonTable.ApplyOakEllesmereFontPreset(fontName)
 end
 
 local eventFrame = CreateFrame("Frame")

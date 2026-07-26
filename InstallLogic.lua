@@ -800,18 +800,74 @@ end
 
 function addonTable.Injectors.GetEditMode() return GetOakEditModeString() end
 
-local function GetEditModePresetCount()
-    if Enum and Enum.EditModePresetLayoutsMeta and Enum.EditModePresetLayoutsMeta.NumValues then
-        return Enum.EditModePresetLayoutsMeta.NumValues
-    end
-    return 2
-end
-
 local function FindEditModeLayoutIndex(layouts, layoutName)
     for index, layout in ipairs(layouts or {}) do
         if layout.layoutName == layoutName then
             return index
         end
+    end
+end
+
+local function GetEditModePresetLayouts()
+    if EditModePresetLayoutManager and EditModePresetLayoutManager.GetCopyOfPresetLayouts then
+        local ok, layouts = pcall(EditModePresetLayoutManager.GetCopyOfPresetLayouts, EditModePresetLayoutManager)
+        if ok and type(layouts) == "table" then
+            return layouts
+        end
+    end
+    return {}
+end
+
+local function BuildCombinedEditModeLayouts(editModeLayouts)
+    local combined = GetEditModePresetLayouts()
+    local presetCount = #combined
+    for _, layout in ipairs((editModeLayouts and editModeLayouts.layouts) or {}) do
+        combined[#combined + 1] = layout
+    end
+    return combined, presetCount
+end
+
+local function FindEditModeInsertSlot(layouts, presetCount)
+    local accountType = Enum and Enum.EditModeLayoutType and Enum.EditModeLayoutType.Account
+    local characterType = Enum and Enum.EditModeLayoutType and Enum.EditModeLayoutType.Character
+    local slot = #layouts + 1
+    for index = presetCount + 1, #layouts do
+        if layouts[index] and layouts[index].layoutType == characterType then
+            slot = index
+            break
+        end
+    end
+    if accountType and slot > presetCount + 1 then
+        for index = presetCount + 1, slot - 1 do
+            if layouts[index] and layouts[index].layoutType ~= accountType then
+                slot = index
+                break
+            end
+        end
+    end
+    return slot
+end
+
+local function ReconcileEditModeLayout(layout)
+    local mgr = EditModeManagerFrame
+    if mgr and mgr.ReconcileWithModern and type(layout) == "table" then
+        pcall(mgr.ReconcileWithModern, mgr, layout)
+    end
+end
+
+local function GetActiveOakEditModeLayoutIndex(layoutName)
+    local ok, editModeLayouts = pcall(C_EditMode.GetLayouts)
+    if not ok or type(editModeLayouts) ~= "table" or type(editModeLayouts.layouts) ~= "table" then return nil end
+
+    local combined, presetCount = BuildCombinedEditModeLayouts(editModeLayouts)
+    local combinedIndex = FindEditModeLayoutIndex(combined, layoutName)
+    if combinedIndex then
+        return combinedIndex
+    end
+
+    local customIndex = FindEditModeLayoutIndex(editModeLayouts.layouts, layoutName)
+    if customIndex then
+        return presetCount + customIndex
     end
 end
 
@@ -834,12 +890,6 @@ function addonTable.Injectors.EditMode()
         return false
     end
 
-    for index = #editModeLayouts.layouts, 1, -1 do
-        if editModeLayouts.layouts[index].layoutName == layoutName then
-            table.remove(editModeLayouts.layouts, index)
-        end
-    end
-
     local editModeString = GetOakEditModeString()
     if addonTable.ApplyOakEditModeLayoutAdjustmentsString then
         editModeString = addonTable.ApplyOakEditModeLayoutAdjustmentsString(editModeString)
@@ -853,10 +903,26 @@ function addonTable.Injectors.EditMode()
 
     importLayoutInfo.layoutName = layoutName
     importLayoutInfo.layoutType = Enum.EditModeLayoutType.Account
+    ReconcileEditModeLayout(importLayoutInfo)
     if addonTable.ApplyOakEditModeLayoutAdjustmentsInfo then
         pcall(addonTable.ApplyOakEditModeLayoutAdjustmentsInfo, importLayoutInfo)
     end
-    table.insert(editModeLayouts.layouts, importLayoutInfo)
+
+    for _, layout in ipairs(editModeLayouts.layouts) do
+        ReconcileEditModeLayout(layout)
+    end
+
+    local combinedLayouts, presetCount = BuildCombinedEditModeLayouts(editModeLayouts)
+    for index = #combinedLayouts, presetCount + 1, -1 do
+        if combinedLayouts[index].layoutName == layoutName then
+            table.remove(combinedLayouts, index)
+        end
+    end
+
+    local activeIndex = FindEditModeInsertSlot(combinedLayouts, presetCount)
+    table.insert(combinedLayouts, activeIndex, importLayoutInfo)
+    editModeLayouts.layouts = combinedLayouts
+    editModeLayouts.activeLayout = activeIndex
 
     local saveOk, saveErr = pcall(C_EditMode.SaveLayouts, editModeLayouts)
     if not saveOk then
@@ -864,19 +930,21 @@ function addonTable.Injectors.EditMode()
         return false
     end
 
-    ok, editModeLayouts = pcall(C_EditMode.GetLayouts)
-    local customIndex
-    if ok and type(editModeLayouts) == "table" and type(editModeLayouts.layouts) == "table" then
-        customIndex = FindEditModeLayoutIndex(editModeLayouts.layouts, layoutName)
-    end
-    if customIndex then
-        local activeIndex = GetEditModePresetCount() + customIndex
+    activeIndex = GetActiveOakEditModeLayoutIndex(layoutName)
+    if activeIndex then
         if C_EditMode.OnLayoutAdded then
             pcall(C_EditMode.OnLayoutAdded, activeIndex)
         end
         if C_EditMode.SetActiveLayout then
-            pcall(C_EditMode.SetActiveLayout, activeIndex)
+            local activeOk, activeErr = pcall(C_EditMode.SetActiveLayout, activeIndex)
+            if not activeOk then
+                print("|cffff0000[OakUI Error]|r OakUI Edit Mode layout was saved, but could not be activated: " .. tostring(activeErr))
+                return false
+            end
         end
+    else
+        print("|cffff0000[OakUI Error]|r Blizzard did not save the OakUI Edit Mode layout. Delete unused Blizzard Edit Mode layouts and run the install again.")
+        return false
     end
 
     if EditModeManagerFrame then
@@ -884,7 +952,7 @@ function addonTable.Injectors.EditMode()
         pcall(EditModeManagerFrame.Hide, EditModeManagerFrame)
     end
 
-    print("|cff17ee15[OakUI]|r Blizzard Edit Mode layout imported as OakUI.")
+    print("|cff17ee15[OakUI]|r Blizzard Edit Mode layout imported and activated as OakUI.")
     return true
 end
 

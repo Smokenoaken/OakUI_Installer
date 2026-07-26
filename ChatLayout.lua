@@ -30,14 +30,52 @@ local OAK_TRADE_PLAYER_GROUPS = {
     "WHISPER",
 }
 
+local OAK_CHAT_BASE_UI_SCALE = 0.64
 local OAK_LOOT_HEIGHT = 180
-local OAK_LOOT_BASE_GAP = 32
+local OAK_GENERAL_WIDTH = 520
+local OAK_GENERAL_HEIGHT = 180
+local OAK_EDITBOX_BELOW_FRAME_OFFSET = 8
+local OAK_EDITBOX_HEIGHT = 23
+local OAK_LOOT_BASE_GAP = OAK_EDITBOX_BELOW_FRAME_OFFSET + OAK_EDITBOX_HEIGHT
+local OAK_LOOT_FLUSH_NUDGE = 5
+local OAK_GENERAL_BOTTOM_GAP_PP = 15
+local OAK_GENERAL_BOTTOM_GAP_NATIVE = 19
 
 local function ScaleLayoutLength(value)
     if addonTable.ScaleOakLayoutLength then
         return addonTable.ScaleOakLayoutLength(value)
     end
     return value
+end
+
+local function GetLayoutScale()
+    local preset = addonTable.GetOakLayoutPreset and addonTable.GetOakLayoutPreset()
+    local scale = tonumber(preset and preset.scale)
+    if (not scale or scale <= 0) and UIParent and UIParent.GetScale then
+        local ok, uiScale = pcall(UIParent.GetScale, UIParent)
+        scale = ok and tonumber(uiScale)
+    end
+    if not scale or scale <= 0 then
+        scale = OAK_CHAT_BASE_UI_SCALE
+    end
+    return scale
+end
+
+local function ScalePhysicalPixels(value)
+    local scale = GetLayoutScale()
+    return (tonumber(value) or 0) / scale
+end
+
+local function InterpolateByLayoutScale(pixelPerfectValue, nativeValue)
+    local scale = GetLayoutScale()
+    local range = OAK_CHAT_BASE_UI_SCALE - 0.533
+    local t = 0
+    if range > 0 then
+        t = (scale - 0.533) / range
+    end
+    if t < 0 then t = 0 elseif t > 1 then t = 1 end
+
+    return pixelPerfectValue + ((nativeValue - pixelPerfectValue) * t)
 end
 
 local function BaseClearAllPoints(frame)
@@ -59,14 +97,14 @@ local function BaseSetSize(frame, width, height)
 end
 
 local function SaveChatWindowPosition(frame, numID)
-    if not frame or not numID then return end
-    if frame.GetLeft and frame.GetBottom and type(SetChatWindowSavedPosition) == "function" then
+    if not frame then return end
+    if numID and frame.GetLeft and frame.GetBottom and type(SetChatWindowSavedPosition) == "function" then
         local left, bottom = frame:GetLeft(), frame:GetBottom()
         if left and bottom then
             pcall(SetChatWindowSavedPosition, numID, "BOTTOMLEFT", left, bottom)
         end
     end
-    if frame.GetSize and type(SetChatWindowSavedDimensions) == "function" then
+    if numID and frame.GetSize and type(SetChatWindowSavedDimensions) == "function" then
         local width, height = frame:GetSize()
         if width and height then
             pcall(SetChatWindowSavedDimensions, numID, width, height)
@@ -74,6 +112,142 @@ local function SaveChatWindowPosition(frame, numID)
     end
     if type(FCF_SavePositionAndDimensions) == "function" then
         pcall(FCF_SavePositionAndDimensions, frame)
+    end
+    if type(FCF_StopDragging) == "function" then
+        pcall(FCF_StopDragging, frame)
+    end
+end
+
+local function SaveChatWindowState(frame, numID, shown, docked, locked)
+    if not frame or not numID then
+        return
+    end
+
+    if type(SetChatWindowShown) == "function" then
+        pcall(SetChatWindowShown, numID, shown and true or false)
+    end
+    if type(SetChatWindowDocked) == "function" then
+        pcall(SetChatWindowDocked, numID, docked and true or false)
+    end
+    if type(SetChatWindowLocked) == "function" then
+        pcall(SetChatWindowLocked, numID, locked and true or false)
+    end
+    if type(SetChatWindowUninteractable) == "function" then
+        pcall(SetChatWindowUninteractable, numID, false)
+    end
+    if type(FCF_SetLocked) == "function" then
+        pcall(FCF_SetLocked, frame, locked and true or false)
+    end
+end
+
+local function SaveChatWindowFont(frame, numID, size)
+    if not frame or not numID then
+        return
+    end
+    if type(SetChatWindowSize) == "function" then
+        pcall(SetChatWindowSize, numID, size)
+    end
+    if type(FCF_SetChatWindowFontSize) == "function" then
+        pcall(FCF_SetChatWindowFontSize, nil, frame, size)
+    end
+end
+
+local function CaptureFrameGeometry(frame)
+    if not frame or not frame.GetLeft or not frame.GetBottom or not frame.GetSize then
+        return
+    end
+
+    local left, bottom = frame:GetLeft(), frame:GetBottom()
+    local width, height = frame:GetSize()
+    if not left or not bottom or not width or not height then
+        return
+    end
+
+    return {
+        left = left,
+        bottom = bottom,
+        width = width,
+        height = height,
+    }
+end
+
+local function RestoreFrameGeometry(frame, geometry)
+    if not frame or not geometry then
+        return
+    end
+
+    BaseClearAllPoints(frame)
+    BaseSetPoint(frame, "BOTTOMLEFT", UIParent, "BOTTOMLEFT", geometry.left, geometry.bottom)
+    BaseSetSize(frame, geometry.width, geometry.height)
+end
+
+local function GetGeneralChatBottom()
+    local bottomGap = InterpolateByLayoutScale(OAK_GENERAL_BOTTOM_GAP_PP, OAK_GENERAL_BOTTOM_GAP_NATIVE)
+    return ScalePhysicalPixels(bottomGap) + OAK_EDITBOX_BELOW_FRAME_OFFSET + OAK_EDITBOX_HEIGHT
+end
+
+local function BuildGeneralChatGeometry(existing)
+    local width = existing and existing.width
+    local height = existing and existing.height
+
+    if not width or width < 260 or width > 900 then
+        width = ScaleLayoutLength(OAK_GENERAL_WIDTH)
+    end
+    if not height or height < 100 or height > 420 then
+        height = ScaleLayoutLength(OAK_GENERAL_HEIGHT)
+    end
+
+    return {
+        left = 0,
+        bottom = GetGeneralChatBottom(),
+        width = width,
+        height = height,
+    }
+end
+
+local function PlaceLootFrameAboveGeneral(lootFrame, generalFrame)
+    if not lootFrame or not generalFrame then
+        return
+    end
+
+    local generalLeft = generalFrame.GetLeft and generalFrame:GetLeft()
+    local generalTop = generalFrame.GetTop and generalFrame:GetTop()
+    local generalWidth = generalFrame.GetWidth and generalFrame:GetWidth()
+
+    if not generalLeft or not generalTop or not generalWidth then
+        return
+    end
+
+    local left = generalLeft
+    local bottom = generalTop + OAK_LOOT_BASE_GAP + OAK_LOOT_FLUSH_NUDGE
+    local width = generalWidth
+    local height = ScaleLayoutLength(OAK_LOOT_HEIGHT)
+
+    BaseClearAllPoints(lootFrame)
+    BaseSetPoint(lootFrame, "BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
+    BaseSetSize(lootFrame, width, height)
+
+    return true
+end
+
+local function PositionFloatingChatTab(frame)
+    if not frame or not frame.GetName then
+        return
+    end
+
+    local tab = _G[frame:GetName() .. "Tab"]
+    if not tab then
+        return
+    end
+
+    if tab.ClearAllPoints then
+        pcall(tab.ClearAllPoints, tab)
+    end
+    if tab.SetPoint then
+        pcall(tab.SetPoint, tab, "BOTTOMLEFT", frame, "TOPLEFT", 0, 0)
+    end
+    if tab.Show then
+        pcall(tab.Show, tab)
     end
 end
 
@@ -86,6 +260,29 @@ local function ForceTransparency(frame, numID)
     if numID and type(numID) == "number" then
         SetChatWindowColor(numID, 0, 0, 0)
         SetChatWindowAlpha(numID, 0)
+    end
+end
+
+local function SaveDockedChatWindow(frame, numID, locked)
+    if not frame or not numID then
+        return
+    end
+
+    SaveChatWindowState(frame, numID, true, true, locked ~= false)
+    SaveChatWindowFont(frame, numID, 14)
+    ForceTransparency(frame, numID)
+
+    -- Docked chat tabs must not save standalone coordinates. If we persist
+    -- position/dimensions for Trade, Blizzard can restore it as a separate
+    -- chat window after reload instead of keeping it attached to General.
+    if type(FCF_SaveDock) == "function" then
+        pcall(FCF_SaveDock, frame)
+    end
+end
+
+local function SelectDockedChatWindow(frame)
+    if frame and type(FCF_SelectDockFrame) == "function" then
+        pcall(FCF_SelectDockFrame, frame)
     end
 end
 
@@ -207,6 +404,7 @@ end
 
 function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     -- 1. Setup General Window (ChatFrame1)
+    local generalGeometry = BuildGeneralChatGeometry(CaptureFrameGeometry(ChatFrame1))
     if resetFirst and type(FCF_ResetChatWindows) == "function" then
         if InCombatLockdown and InCombatLockdown() then
             if not quiet then
@@ -226,9 +424,12 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     end
 
     FCF_SetWindowName(cf1, "General")
+    RestoreFrameGeometry(cf1, generalGeometry)
     
-    FCF_SetChatWindowFontSize(nil, cf1, 14)
+    SaveChatWindowState(cf1, 1, true, true, true)
+    SaveChatWindowFont(cf1, 1, 14)
     ForceTransparency(cf1, 1)
+    SaveChatWindowPosition(cf1, 1)
     
     SyncChatFrameGroups(cf1, nil, OAK_LOOT_GROUPS)
     ApplyChatFrameGroups(cf1, OAK_GENERAL_PLAYER_GROUPS)
@@ -267,14 +468,17 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
 
     FCF_UnDockFrame(lootFrame)
     lootFrame:SetUserPlaced(true)
-    BaseClearAllPoints(lootFrame)
+    if lootFrame.Show then
+        lootFrame:Show()
+    end
 
-    BaseSetPoint(lootFrame, "BOTTOMLEFT", cf1, "TOPLEFT", 0, ScaleLayoutLength(OAK_LOOT_BASE_GAP))
-    BaseSetSize(lootFrame, cf1:GetWidth(), ScaleLayoutLength(OAK_LOOT_HEIGHT))
+    PlaceLootFrameAboveGeneral(lootFrame, cf1)
+    PositionFloatingChatTab(lootFrame)
 
-    SaveChatWindowPosition(lootFrame, lootID)
-    FCF_SetChatWindowFontSize(nil, lootFrame, 14)
+    SaveChatWindowState(lootFrame, lootID, true, false, true)
+    SaveChatWindowFont(lootFrame, lootID, 14)
     ForceTransparency(lootFrame, lootID)
+    SaveChatWindowPosition(lootFrame, lootID)
 
     SyncChatFrameGroups(lootFrame, OAK_LOOT_GROUPS, nil)
     ApplyChatFrameGroups(lootFrame, OAK_LOOT_PLAYER_GROUPS)
@@ -302,9 +506,6 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     end
     if tradeID then
         SetChatWindowName(tradeID, tradeWindowName)
-        if type(SetChatWindowShown) == "function" then
-            SetChatWindowShown(tradeID, true)
-        end
     end
 
     if tradeFrame then
@@ -316,8 +517,7 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
             FCF_DockFrame(tradeFrame, 3)
         end
 
-        FCF_SetChatWindowFontSize(nil, tradeFrame, 14)
-        ForceTransparency(tradeFrame, tradeID)
+        SaveDockedChatWindow(tradeFrame, tradeID, true)
 
         SyncChatFrameGroups(tradeFrame, { "CHANNEL" }, OAK_LOOT_GROUPS)
         ApplyChatFrameGroups(tradeFrame, OAK_TRADE_PLAYER_GROUPS)
@@ -327,11 +527,18 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     end
     
     FCF_DockUpdate()
+    SaveChatWindowState(cf1, 1, true, true, true)
+    SaveChatWindowState(lootFrame, lootID, true, false, true)
+    PositionFloatingChatTab(lootFrame)
+    if tradeFrame then
+        SaveDockedChatWindow(tradeFrame, tradeID, true)
+    end
+    SelectDockedChatWindow(cf1)
     if addonTable.RefreshChatTabVisibility then
         addonTable.RefreshChatTabVisibility()
     end
     if not quiet then
-        print("|cff17ee15[OakUI]|r OakUI Chat layout applied! General and Trade are docked below, Loot is dynamically tethered above.")
+        print("|cff17ee15[OakUI]|r OakUI Chat layout applied! General and Trade are docked below, Loot is placed above General.")
     end
 
     -- Skip the standalone popup if this was triggered by "Install All"
@@ -352,11 +559,33 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
 end
 
 function addonTable.ScheduleChatWindowsAfterEllesmereProfile(silent)
-    local ok, result = pcall(addonTable.SetupChatWindows, silent, false, false)
+    local ok, result = pcall(addonTable.SetupChatWindows, silent, false, true)
     if not ok then
         print("|cffff0000[OakUI Error]|r Chat layout failed: " .. tostring(result))
     end
     return ok and result == true
+end
+
+function addonTable.QueueOakChatLayoutAfterReload()
+    if addonTable.ScheduleChatWindowsAfterEllesmereProfile then
+        addonTable.ScheduleChatWindowsAfterEllesmereProfile(true)
+    end
+
+    if addonTable.MarkOakChatLayoutAfterReload then
+        addonTable.MarkOakChatLayoutAfterReload()
+    end
+
+    StaticPopupDialogs["OAKUI_CHAT_RELOAD"] = {
+        text = "|cff17ee15OAK UI|r\n\nOakUI will apply the chat layout after your next reload, once Blizzard has finished rebuilding chat windows.",
+        button1 = "Reload UI",
+        button2 = "Later",
+        OnAccept = function() ReloadUI() end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+    }
+    StaticPopup_Show("OAKUI_CHAT_RELOAD")
 end
 
 -- ==========================================

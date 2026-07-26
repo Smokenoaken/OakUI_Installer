@@ -629,10 +629,8 @@ InitChatSettings()
 ChatEnableAllBtn:SetScript("OnClick", function() for _, f in ipairs(chatFiltersConfig) do OakUI_DB.chatFilters[f.key] = true end; for _, cb in ipairs(chatCheckboxes) do cb:UpdateState() end end)
 ChatDisableAllBtn:SetScript("OnClick", function() for _, f in ipairs(chatFiltersConfig) do OakUI_DB.chatFilters[f.key] = false end; for _, cb in ipairs(chatCheckboxes) do cb:UpdateState() end end)
 ChatLayoutBtn:SetScript("OnClick", function()
-    if addonTable.ScheduleChatWindowsAfterEllesmereProfile then
-        addonTable.ScheduleChatWindowsAfterEllesmereProfile(false)
-    elseif addonTable.SetupChatWindows then
-        addonTable.SetupChatWindows(false)
+    if addonTable.QueueOakChatLayoutAfterReload then
+        addonTable.QueueOakChatLayoutAfterReload()
     end
 end)
 
@@ -897,6 +895,16 @@ function addonTable.MarkEllesmereCDMRepopulateAfterReload()
     OakUI_DB.install.characters[GetCharacterInstallKey()] = state
 end
 
+function addonTable.MarkOakChatLayoutAfterReload()
+    if not OakUI_DB then OakUI_DB = {} end
+    if not OakUI_DB.install then OakUI_DB.install = { characters = {} } end
+    if not OakUI_DB.install.characters then OakUI_DB.install.characters = {} end
+    local state = OakUI_DB.install.characters[GetCharacterInstallKey()] or {}
+    state.pendingChatLayout = true
+    state.pendingChatLayoutTime = time and time() or 0
+    OakUI_DB.install.characters[GetCharacterInstallKey()] = state
+end
+
 local function ConsumeEllesmereCDMRepopulateAfterReload()
     if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
     local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
@@ -930,12 +938,51 @@ local function ConsumeEllesmereCDMRepopulateAfterReload()
     end
 end
 
+local function ConsumeOakChatLayoutAfterReload()
+    if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
+    local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
+    if not state or state.pendingChatLayout ~= true then return end
+
+    local attempts = 0
+    local function TryApplyChatLayout()
+        attempts = attempts + 1
+        local done = false
+        if addonTable.SetupChatWindows then
+            local ok, result = pcall(addonTable.SetupChatWindows, true, true, false)
+            done = ok and result == true
+        end
+
+        if done or attempts >= 4 then
+            state.pendingChatLayout = nil
+            state.pendingChatLayoutTime = nil
+            OakUI_DB.install.characters[GetCharacterInstallKey()] = state
+            if done then
+                print("|cff17ee15[OakUI]|r OakUI Chat layout applied after reload.")
+            else
+                print("|cffff0000[OakUI]|r OakUI Chat layout could not be applied after reload. Use /oakui -> Chat Cleaning -> Apply Chat Layout after the UI finishes loading.")
+            end
+            return
+        end
+
+        if C_Timer and C_Timer.After then
+            C_Timer.After(3, TryApplyChatLayout)
+        end
+    end
+
+    if C_Timer and C_Timer.After then
+        C_Timer.After(10, TryApplyChatLayout)
+    else
+        TryApplyChatLayout()
+    end
+end
+
 DB_Frame:HookScript("OnEvent", function(self, event)
     if event ~= "PLAYER_LOGIN" then return end
     if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
 
     CreateOakMinimapButton()
     ClaimEllesmereFirstInstallForOakUI()
+    ConsumeOakChatLayoutAfterReload()
     ConsumeEllesmereCDMRepopulateAfterReload()
     if HideMinimapCheck and HideMinimapCheck.UpdateState then HideMinimapCheck:UpdateState() end
     if addonTable.BypassElvUIInstaller then
