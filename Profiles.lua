@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.20-EllesmereEdition"
+P.VERSION = "2.6.21-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -114,6 +114,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.21-EllesmereEdition",
+        date = "July 27, 2026",
+        notes = {
+            "Improved chat window persistence, docking, and post-reload placement.",
+            "Fixed rounded borders for newly created and emphasized BigWigs bars.",
+        }
+    },
     {
         version = "v2.6.20-EllesmereEdition",
         date = "July 26, 2026",

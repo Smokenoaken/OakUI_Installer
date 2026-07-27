@@ -1,3 +1,8 @@
+## v2.6.21-EllesmereEdition
+
+- Improved chat window persistence, docking, and post-reload placement.
+- Fixed rounded borders for newly created and emphasized BigWigs bars.
+
 ## v2.6.20-EllesmereEdition
 
 - Added 2560 x 1080 resolution.
