@@ -1,3 +1,9 @@
+## v2.6.22-EllesmereEdition
+
+- Added CJK-capable OakFont for Chinese
+- Japanese
+- and Korean text while preserving existing UI metrics.
+
 ## v2.6.21-EllesmereEdition
 
 - Improved chat window persistence, docking, and post-reload placement.
