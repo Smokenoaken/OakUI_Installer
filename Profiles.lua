@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.19-EllesmereEdition"
+P.VERSION = "2.6.20-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -109,6 +109,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.20-EllesmereEdition",
+        date = "July 26, 2026",
+        notes = {
+            "Added 2560 x 1080 resolution.",
+        }
+    },
     {
         version = "v2.6.19-EllesmereEdition",
         date = "July 26, 2026",

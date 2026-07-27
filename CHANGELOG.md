@@ -1,3 +1,7 @@
+## v2.6.20-EllesmereEdition
+
+- Added 2560 x 1080 resolution.
+
 ## v2.6.19-EllesmereEdition
 
 - Updated OakUI Tank/DPS and Healer EUI profile strings.
