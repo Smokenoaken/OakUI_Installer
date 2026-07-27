@@ -8,6 +8,7 @@ local PRESETS = {
     { key = "native", label = "OakUI Native", desc = "2560x1440 at 0.64.", width = 2560, height = 1440, scale = 0.64 },
     { key = "1080p", label = "1080p OakUI 0.64", desc = "1920x1080 at 0.64.", width = 1920, height = 1080, scale = 0.64 },
     { key = "1080p_compact", label = "1080p Compact 0.533", desc = "1920x1080 at 0.533.", width = 1920, height = 1080, scale = 0.533 },
+    { key = "uw2560_oak", label = "2560x1080 Ultrawide 0.64", desc = "2560x1080 at 0.64.", width = 2560, height = 1080, scale = 0.64 },
     { key = "1440p_pp", label = "1440p Pixel Perfect", desc = "2560x1440 at 0.533.", width = 2560, height = 1440, scale = 0.533 },
     { key = "uw3440_oak", label = "3440 Ultrawide 0.64", desc = "3440x1440 at 0.64.", width = 3440, height = 1440, scale = 0.64 },
     { key = "uw3440_pp", label = "3440 Ultrawide 0.533", desc = "3440x1440 at 0.533.", width = 3440, height = 1440, scale = 0.533 },
@@ -35,6 +36,7 @@ local RAID_FRAME_CLAMP_PRESETS = {
     ["1080p"] = true,
     ["1080p_oak"] = true,
     ["1080p_compact"] = true,
+    ["uw2560_oak"] = true,
 }
 local EXTRA_FRAMES_CONTAINER_NAME = "ERFExtraFramesContainer"
 local EXTRA_FRAMES_GAP = 5
