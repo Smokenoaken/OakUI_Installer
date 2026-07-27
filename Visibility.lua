@@ -1575,14 +1575,36 @@ local function IsBossModRoundThinEnabled()
     return EnsureVisibilityDB().roundThinBossModBars == true
 end
 
+local bossModRoundThinRefreshSerial = 0
+
 local function ScheduleBossModRoundThinRefresh()
     if _G.C_Timer and _G.C_Timer.After then
-        _G.C_Timer.After(0, function()
+        bossModRoundThinRefreshSerial = bossModRoundThinRefreshSerial + 1
+        local serial = bossModRoundThinRefreshSerial
+        local function refreshIfCurrent()
+            if serial ~= bossModRoundThinRefreshSerial then return end
             ApplyBossModRoundThinLive(IsBossModRoundThinEnabled())
-        end)
+        end
+        _G.C_Timer.After(0, refreshIfCurrent)
+        _G.C_Timer.After(0.2, refreshIfCurrent)
     else
         ApplyBossModRoundThinLive(IsBossModRoundThinEnabled())
     end
+end
+
+local BossModRoundThinMessageHandler = {}
+
+local function HandleBigWigsRoundThinMessage(...)
+    if not IsBossModRoundThinEnabled() then return end
+
+    for index = 1, select("#", ...) do
+        local value = select(index, ...)
+        if type(value) == "table" and value.candyBarBar then
+            if ApplyBigWigsRoundThinBar(value) then return end
+        end
+    end
+
+    ScheduleBossModRoundThinRefresh()
 end
 
 local function EnsureBossModRoundThinHooks()
@@ -1608,18 +1630,13 @@ local function EnsureBossModRoundThinHooks()
         DBT._oakRoundThinApplyStyleHooked = true
     end
 
-    local plugin = _G.BigWigs and _G.BigWigs.GetPlugin and _G.BigWigs:GetPlugin("Bars", true)
-    if type(plugin) == "table" and type(plugin.BigWigs_StartBar) == "function" and not plugin._oakRoundThinStartBarHooked then
-        hooksecurefunc(plugin, "BigWigs_StartBar", function()
-            if IsBossModRoundThinEnabled() then ScheduleBossModRoundThinRefresh() end
-        end)
-        plugin._oakRoundThinStartBarHooked = true
-    end
-    if type(plugin) == "table" and type(plugin.EmphasizeBar) == "function" and not plugin._oakRoundThinEmphasizeHooked then
-        hooksecurefunc(plugin, "EmphasizeBar", function()
-            if IsBossModRoundThinEnabled() then ScheduleBossModRoundThinRefresh() end
-        end)
-        plugin._oakRoundThinEmphasizeHooked = true
+    local messageBus = _G.BigWigsLoader
+    if type(messageBus) == "table" and type(messageBus.RegisterMessage) == "function" and not BossModRoundThinMessageHandler._oakRegistered then
+        local createdOK = pcall(messageBus.RegisterMessage, BossModRoundThinMessageHandler, "BigWigs_BarCreated", HandleBigWigsRoundThinMessage)
+        local emphasizedOK = pcall(messageBus.RegisterMessage, BossModRoundThinMessageHandler, "BigWigs_BarEmphasized", HandleBigWigsRoundThinMessage)
+        if createdOK and emphasizedOK then
+            BossModRoundThinMessageHandler._oakRegistered = true
+        end
     end
 end
 
@@ -1633,6 +1650,19 @@ local function RefreshBossModRoundThinBorders()
         end
     end
 end
+
+local BossModRoundThinLoadFrame = CreateFrame("Frame")
+BossModRoundThinLoadFrame:RegisterEvent("ADDON_LOADED")
+BossModRoundThinLoadFrame:SetScript("OnEvent", function(self, _, addonName)
+    if addonName ~= "BigWigs_Plugins" then return end
+    self:UnregisterEvent("ADDON_LOADED")
+    if _G.C_Timer and _G.C_Timer.After then
+        _G.C_Timer.After(0, RefreshBossModRoundThinBorders)
+        _G.C_Timer.After(0.5, RefreshBossModRoundThinBorders)
+    else
+        RefreshBossModRoundThinBorders()
+    end
+end)
 
 local function SetBossModRoundThinBorders(state)
     EnsureVisibilityDB().roundThinBossModBars = state == true

@@ -895,15 +895,20 @@ function addonTable.MarkEllesmereCDMRepopulateAfterReload()
     OakUI_DB.install.characters[GetCharacterInstallKey()] = state
 end
 
-function addonTable.MarkOakChatLayoutAfterReload()
+function addonTable.MarkOakChatGeometryAfterReload()
     if not OakUI_DB then OakUI_DB = {} end
     if not OakUI_DB.install then OakUI_DB.install = { characters = {} } end
     if not OakUI_DB.install.characters then OakUI_DB.install.characters = {} end
     local state = OakUI_DB.install.characters[GetCharacterInstallKey()] or {}
-    state.pendingChatLayout = true
-    state.pendingChatLayoutTime = time and time() or 0
+    state.pendingChatGeometry = true
+    state.pendingChatGeometryTime = time and time() or 0
+    state.pendingChatLayout = nil
+    state.pendingChatLayoutTime = nil
     OakUI_DB.install.characters[GetCharacterInstallKey()] = state
 end
+
+-- Retain the old entry point for callers from prior OakUI builds.
+addonTable.MarkOakChatLayoutAfterReload = addonTable.MarkOakChatGeometryAfterReload
 
 local function ConsumeEllesmereCDMRepopulateAfterReload()
     if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
@@ -938,42 +943,108 @@ local function ConsumeEllesmereCDMRepopulateAfterReload()
     end
 end
 
-local function ConsumeOakChatLayoutAfterReload()
+local pendingChatGeometryFrame
+
+local OAK_CHAT_GEOMETRY_SETTLE_DELAY = 0.25
+local OAK_CHAT_GEOMETRY_FALLBACK_DELAY = 2
+local OAK_CHAT_GEOMETRY_RETRY_DELAY = 1
+local OAK_CHAT_GEOMETRY_MAX_ATTEMPTS = 5
+
+local function ConsumeOakChatGeometryAfterReload()
     if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
     local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
-    if not state or state.pendingChatLayout ~= true then return end
+    if not state or (state.pendingChatGeometry ~= true and state.pendingChatLayout ~= true) then return end
+    if pendingChatGeometryFrame then return end
 
+    pendingChatGeometryFrame = CreateFrame("Frame")
+    pendingChatGeometryFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    pendingChatGeometryFrame:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
+
+    local enteredWorld = false
+    local editModeLayoutsUpdated = false
+    local queueGeneration = 0
     local attempts = 0
-    local function TryApplyChatLayout()
+
+    local function StopWaiting(self)
+        self:UnregisterAllEvents()
+        if pendingChatGeometryFrame == self then
+            pendingChatGeometryFrame = nil
+        end
+    end
+
+    local QueueGeometry
+    local function ApplyGeometry(self)
+        local currentState = OakUI_DB
+            and OakUI_DB.install
+            and OakUI_DB.install.characters
+            and OakUI_DB.install.characters[GetCharacterInstallKey()]
+        if not currentState
+            or (currentState.pendingChatGeometry ~= true and currentState.pendingChatLayout ~= true) then
+            StopWaiting(self)
+            return
+        end
+
         attempts = attempts + 1
         local done = false
-        if addonTable.SetupChatWindows then
-            local ok, result = pcall(addonTable.SetupChatWindows, true, true, false)
+        if addonTable.ApplyOakChatWindowGeometry then
+            local ok, result = pcall(addonTable.ApplyOakChatWindowGeometry, true)
             done = ok and result == true
         end
 
-        if done or attempts >= 4 then
-            state.pendingChatLayout = nil
-            state.pendingChatLayoutTime = nil
-            OakUI_DB.install.characters[GetCharacterInstallKey()] = state
-            if done then
-                print("|cff17ee15[OakUI]|r OakUI Chat layout applied after reload.")
+        if not done then
+            if attempts < OAK_CHAT_GEOMETRY_MAX_ATTEMPTS then
+                QueueGeometry(self, OAK_CHAT_GEOMETRY_RETRY_DELAY)
             else
-                print("|cffff0000[OakUI]|r OakUI Chat layout could not be applied after reload. Use /oakui -> Chat Cleaning -> Apply Chat Layout after the UI finishes loading.")
+                -- Leave the pending flag intact so the next login can try again.
+                StopWaiting(self)
             end
             return
         end
 
+        currentState.pendingChatGeometry = nil
+        currentState.pendingChatGeometryTime = nil
+        currentState.pendingChatLayout = nil
+        currentState.pendingChatLayoutTime = nil
+        OakUI_DB.install.characters[GetCharacterInstallKey()] = currentState
+        StopWaiting(self)
+        print("|cff17ee15[OakUI]|r OakUI Chat window placement applied after reload.")
+    end
+
+    QueueGeometry = function(self, delay)
+        queueGeneration = queueGeneration + 1
+        local generation = queueGeneration
+        local function Run()
+            if pendingChatGeometryFrame ~= self or generation ~= queueGeneration then
+                return
+            end
+            ApplyGeometry(self)
+        end
+
         if C_Timer and C_Timer.After then
-            C_Timer.After(3, TryApplyChatLayout)
+            C_Timer.After(delay or 0, Run)
+        else
+            Run()
         end
     end
 
-    if C_Timer and C_Timer.After then
-        C_Timer.After(10, TryApplyChatLayout)
-    else
-        TryApplyChatLayout()
-    end
+    pendingChatGeometryFrame:SetScript("OnEvent", function(self, event)
+        if event == "PLAYER_ENTERING_WORLD" then
+            enteredWorld = true
+            QueueGeometry(
+                self,
+                editModeLayoutsUpdated and OAK_CHAT_GEOMETRY_SETTLE_DELAY or OAK_CHAT_GEOMETRY_FALLBACK_DELAY
+            )
+            return
+        end
+
+        if event == "EDIT_MODE_LAYOUTS_UPDATED" then
+            editModeLayoutsUpdated = true
+            if enteredWorld then
+                -- Blizzard dispatches this event from inside its layout pass.
+                QueueGeometry(self, OAK_CHAT_GEOMETRY_SETTLE_DELAY)
+            end
+        end
+    end)
 end
 
 DB_Frame:HookScript("OnEvent", function(self, event)
@@ -982,7 +1053,7 @@ DB_Frame:HookScript("OnEvent", function(self, event)
 
     CreateOakMinimapButton()
     ClaimEllesmereFirstInstallForOakUI()
-    ConsumeOakChatLayoutAfterReload()
+    ConsumeOakChatGeometryAfterReload()
     ConsumeEllesmereCDMRepopulateAfterReload()
     if HideMinimapCheck and HideMinimapCheck.UpdateState then HideMinimapCheck:UpdateState() end
     if addonTable.BypassElvUIInstaller then

@@ -921,6 +921,7 @@ function addonTable.BuildInstallerUI(parentFrame)
         end
 
         local importedDPS, importedHeals
+        local chatLayoutApplied = false
         if state.mode == "fresh" then
             if state.roles.dps then
                 local ok, err = pcall(Inj.Ellesmere, state.profiles.dps, "dps")
@@ -953,9 +954,9 @@ function addonTable.BuildInstallerUI(parentFrame)
 
         if state.chatLayout then
             if addonTable.ScheduleChatWindowsAfterEllesmereProfile then
-                addonTable.ScheduleChatWindowsAfterEllesmereProfile(true)
+                chatLayoutApplied = addonTable.ScheduleChatWindowsAfterEllesmereProfile(true) == true
             elseif addonTable.SetupChatWindows then
-                addonTable.SetupChatWindows(true)
+                chatLayoutApplied = addonTable.SetupChatWindows(true) == true
             end
         end
 
@@ -1004,8 +1005,12 @@ function addonTable.BuildInstallerUI(parentFrame)
         if state.mode == "fresh" and (importedDPS or importedHeals) and addonTable.MarkEllesmereCDMRepopulateAfterReload then
             addonTable.MarkEllesmereCDMRepopulateAfterReload()
         end
-        if state.chatLayout and addonTable.MarkOakChatLayoutAfterReload then
-            addonTable.MarkOakChatLayoutAfterReload()
+        if state.chatLayout and chatLayoutApplied then
+            if addonTable.MarkOakChatGeometryAfterReload then
+                addonTable.MarkOakChatGeometryAfterReload()
+            elseif addonTable.MarkOakChatLayoutAfterReload then
+                addonTable.MarkOakChatLayoutAfterReload()
+            end
         end
         local function ShowReloadPrompt()
             ShowOakInstallerModal({

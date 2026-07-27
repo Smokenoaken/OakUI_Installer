@@ -96,38 +96,20 @@ local function BaseSetSize(frame, width, height)
     if fn then pcall(fn, frame, width, height) end
 end
 
-local function SaveChatWindowPosition(frame, numID)
+local function SaveChatWindowPosition(frame)
     if not frame then return end
-    if numID and frame.GetLeft and frame.GetBottom and type(SetChatWindowSavedPosition) == "function" then
-        local left, bottom = frame:GetLeft(), frame:GetBottom()
-        if left and bottom then
-            pcall(SetChatWindowSavedPosition, numID, "BOTTOMLEFT", left, bottom)
-        end
-    end
-    if numID and frame.GetSize and type(SetChatWindowSavedDimensions) == "function" then
-        local width, height = frame:GetSize()
-        if width and height then
-            pcall(SetChatWindowSavedDimensions, numID, width, height)
-        end
-    end
     if type(FCF_SavePositionAndDimensions) == "function" then
         pcall(FCF_SavePositionAndDimensions, frame)
     end
-    if type(FCF_StopDragging) == "function" then
-        pcall(FCF_StopDragging, frame)
-    end
 end
 
-local function SaveChatWindowState(frame, numID, shown, docked, locked)
+local function SaveChatWindowPresentation(frame, numID, shown, locked)
     if not frame or not numID then
         return
     end
 
     if type(SetChatWindowShown) == "function" then
         pcall(SetChatWindowShown, numID, shown and true or false)
-    end
-    if type(SetChatWindowDocked) == "function" then
-        pcall(SetChatWindowDocked, numID, docked and true or false)
     end
     if type(SetChatWindowLocked) == "function" then
         pcall(SetChatWindowLocked, numID, locked and true or false)
@@ -230,27 +212,6 @@ local function PlaceLootFrameAboveGeneral(lootFrame, generalFrame)
     return true
 end
 
-local function PositionFloatingChatTab(frame)
-    if not frame or not frame.GetName then
-        return
-    end
-
-    local tab = _G[frame:GetName() .. "Tab"]
-    if not tab then
-        return
-    end
-
-    if tab.ClearAllPoints then
-        pcall(tab.ClearAllPoints, tab)
-    end
-    if tab.SetPoint then
-        pcall(tab.SetPoint, tab, "BOTTOMLEFT", frame, "TOPLEFT", 0, 0)
-    end
-    if tab.Show then
-        pcall(tab.Show, tab)
-    end
-end
-
 local function ForceTransparency(frame, numID)
     if frame then
         FCF_SetWindowColor(frame, 0, 0, 0)
@@ -268,15 +229,39 @@ local function SaveDockedChatWindow(frame, numID, locked)
         return
     end
 
-    SaveChatWindowState(frame, numID, true, true, locked ~= false)
+    SaveChatWindowPresentation(frame, numID, true, locked ~= false)
     SaveChatWindowFont(frame, numID, 14)
     ForceTransparency(frame, numID)
+end
 
-    -- Docked chat tabs must not save standalone coordinates. If we persist
-    -- position/dimensions for Trade, Blizzard can restore it as a separate
-    -- chat window after reload instead of keeping it attached to General.
+local function GetNextDockIndex()
+    if GENERAL_CHAT_DOCK and type(FCFDock_GetChatFrames) == "function" then
+        local ok, frames = pcall(FCFDock_GetChatFrames, GENERAL_CHAT_DOCK)
+        if ok and type(frames) == "table" then
+            return #frames + 1
+        end
+    end
+    return 3
+end
+
+local function DockChatFrame(frame)
+    if not frame or type(FCF_DockFrame) ~= "function" then
+        return false
+    end
+
+    -- Remove stale server-backed dock metadata before assigning the frame to
+    -- Blizzard's current dock list. FCF_DockFrame then persists a numeric slot.
+    if type(FCF_UnDockFrame) == "function" then
+        pcall(FCF_UnDockFrame, frame)
+    end
+
+    local ok = pcall(FCF_DockFrame, frame, GetNextDockIndex())
+    return ok and frame.isDocked and true or false
+end
+
+local function SaveChatDock()
     if type(FCF_SaveDock) == "function" then
-        pcall(FCF_SaveDock, frame)
+        pcall(FCF_SaveDock)
     end
 end
 
@@ -426,10 +411,10 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     FCF_SetWindowName(cf1, "General")
     RestoreFrameGeometry(cf1, generalGeometry)
     
-    SaveChatWindowState(cf1, 1, true, true, true)
+    SaveChatWindowPresentation(cf1, 1, true, true)
     SaveChatWindowFont(cf1, 1, 14)
     ForceTransparency(cf1, 1)
-    SaveChatWindowPosition(cf1, 1)
+    SaveChatWindowPosition(cf1)
     
     SyncChatFrameGroups(cf1, nil, OAK_LOOT_GROUPS)
     ApplyChatFrameGroups(cf1, OAK_GENERAL_PLAYER_GROUPS)
@@ -473,12 +458,11 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     end
 
     PlaceLootFrameAboveGeneral(lootFrame, cf1)
-    PositionFloatingChatTab(lootFrame)
 
-    SaveChatWindowState(lootFrame, lootID, true, false, true)
+    SaveChatWindowPresentation(lootFrame, lootID, true, true)
     SaveChatWindowFont(lootFrame, lootID, 14)
     ForceTransparency(lootFrame, lootID)
-    SaveChatWindowPosition(lootFrame, lootID)
+    SaveChatWindowPosition(lootFrame)
 
     SyncChatFrameGroups(lootFrame, OAK_LOOT_GROUPS, nil)
     ApplyChatFrameGroups(lootFrame, OAK_LOOT_PLAYER_GROUPS)
@@ -513,8 +497,11 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
             tradeFrame:Show()
         end
 
-        if type(FCF_DockFrame) == "function" then
-            FCF_DockFrame(tradeFrame, 3)
+        if not DockChatFrame(tradeFrame) then
+            if not quiet then
+                print("|cffff0000[OakUI Error]|r Could not attach the Trade chat tab to General. Try the chat layout again after the UI finishes loading.")
+            end
+            return false
         end
 
         SaveDockedChatWindow(tradeFrame, tradeID, true)
@@ -526,13 +513,10 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
         print("|cffff0000[OakUI Error]|r Could not create the Trade chat tab. Try again after leaving combat and after the UI finishes loading.")
     end
     
-    FCF_DockUpdate()
-    SaveChatWindowState(cf1, 1, true, true, true)
-    SaveChatWindowState(lootFrame, lootID, true, false, true)
-    PositionFloatingChatTab(lootFrame)
-    if tradeFrame then
-        SaveDockedChatWindow(tradeFrame, tradeID, true)
+    if type(FCF_DockUpdate) == "function" then
+        FCF_DockUpdate()
     end
+    SaveChatDock()
     SelectDockedChatWindow(cf1)
     if addonTable.RefreshChatTabVisibility then
         addonTable.RefreshChatTabVisibility()
@@ -558,6 +542,26 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     return true
 end
 
+function addonTable.ApplyOakChatWindowGeometry(quiet)
+    local generalFrame = ChatFrame1
+    local lootFrame = FindChatWindowByName(LOOT or "Loot", "Loot")
+    if not generalFrame or not lootFrame then
+        return false
+    end
+
+    local generalGeometry = BuildGeneralChatGeometry(CaptureFrameGeometry(generalFrame))
+    RestoreFrameGeometry(generalFrame, generalGeometry)
+    PlaceLootFrameAboveGeneral(lootFrame, generalFrame)
+
+    SaveChatWindowPosition(generalFrame)
+    SaveChatWindowPosition(lootFrame)
+
+    if not quiet then
+        print("|cff17ee15[OakUI]|r OakUI Chat window placement applied.")
+    end
+    return true
+end
+
 function addonTable.ScheduleChatWindowsAfterEllesmereProfile(silent)
     local ok, result = pcall(addonTable.SetupChatWindows, silent, false, true)
     if not ok then
@@ -567,11 +571,16 @@ function addonTable.ScheduleChatWindowsAfterEllesmereProfile(silent)
 end
 
 function addonTable.QueueOakChatLayoutAfterReload()
-    if addonTable.ScheduleChatWindowsAfterEllesmereProfile then
-        addonTable.ScheduleChatWindowsAfterEllesmereProfile(true)
+    local applied = addonTable.ScheduleChatWindowsAfterEllesmereProfile
+        and addonTable.ScheduleChatWindowsAfterEllesmereProfile(true)
+
+    if not applied then
+        return false
     end
 
-    if addonTable.MarkOakChatLayoutAfterReload then
+    if addonTable.MarkOakChatGeometryAfterReload then
+        addonTable.MarkOakChatGeometryAfterReload()
+    elseif addonTable.MarkOakChatLayoutAfterReload then
         addonTable.MarkOakChatLayoutAfterReload()
     end
 
@@ -586,6 +595,7 @@ function addonTable.QueueOakChatLayoutAfterReload()
         preferredIndex = 3,
     }
     StaticPopup_Show("OAKUI_CHAT_RELOAD")
+    return true
 end
 
 -- ==========================================
