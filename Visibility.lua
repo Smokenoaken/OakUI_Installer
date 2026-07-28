@@ -55,6 +55,158 @@ local function EnsureVisibilityDB()
     return OakUI_DB.visibility
 end
 
+local WMARKER_DEFAULT_FADED_ALPHA = 0.15
+local WMARKER_FADE_DURATION = 0.2
+local ApplyWMarkerMouseoverFade
+
+local function GetWMarkerProfile()
+    local wMarkerAce = _G.wMarkerAce
+    local db = wMarkerAce and wMarkerAce.db
+    local profile = db and db.profile
+    return wMarkerAce, profile
+end
+
+local function IsWMarkerAvailable()
+    if _G.wMarkerAce then return true end
+    return C_AddOns and C_AddOns.IsAddOnLoaded
+        and C_AddOns.IsAddOnLoaded("wMarker") == true
+end
+
+local function GetWMarkerMouseoverFadeEnabled()
+    local db = EnsureVisibilityDB()
+    if db.wmarkerMouseoverFade == nil then
+        local _, profile = GetWMarkerProfile()
+        db.wmarkerMouseoverFade = not (type(profile) == "table"
+            and profile.oakuiMouseoverFade == false)
+    end
+    return db.wmarkerMouseoverFade == true
+end
+
+local function GetWMarkerFadedAlpha()
+    local db = EnsureVisibilityDB()
+    local alpha = tonumber(db.wmarkerFadedAlpha)
+    if alpha == nil then
+        local _, profile = GetWMarkerProfile()
+        alpha = tonumber(type(profile) == "table"
+            and profile.oakuiMouseoverFadeAlpha)
+            or WMARKER_DEFAULT_FADED_ALPHA
+        db.wmarkerFadedAlpha = alpha
+    end
+    return math.max(0, math.min(1, alpha))
+end
+
+local function SetWMarkerFadedAlpha(value)
+    local alpha = tonumber(value) or WMARKER_DEFAULT_FADED_ALPHA
+    alpha = math.max(0, math.min(1, alpha))
+    EnsureVisibilityDB().wmarkerFadedAlpha = alpha
+    ApplyWMarkerMouseoverFade()
+end
+
+local function SetWMarkerFrameAlpha(frame, alpha)
+    if not (frame and frame.SetAlpha and frame.GetAlpha) then return end
+    alpha = math.max(0, math.min(1, tonumber(alpha) or 1))
+    if frame._oakWMarkerFadeTarget == alpha then return end
+    local currentAlpha = frame:GetAlpha() or 1
+
+    frame._oakWMarkerFadeTarget = alpha
+    frame._oakWMarkerFadeStart = currentAlpha
+    frame._oakWMarkerFadeElapsed = 0
+    frame._oakWMarkerFadeDuration = WMARKER_FADE_DURATION
+    if math.abs(alpha - currentAlpha) < 0.001 then
+        frame:SetAlpha(alpha)
+        frame._oakWMarkerFadeStart = nil
+        frame._oakWMarkerFadeElapsed = nil
+        frame._oakWMarkerFadeDuration = nil
+    end
+end
+
+local function UpdateWMarkerFrameFade(frame, elapsed)
+    if not (frame and frame.SetAlpha and frame._oakWMarkerFadeTarget) then return end
+
+    local target = frame._oakWMarkerFadeTarget
+    local start = frame._oakWMarkerFadeStart or frame:GetAlpha() or target
+    local duration = frame._oakWMarkerFadeDuration or WMARKER_FADE_DURATION
+    local fadeElapsed = (frame._oakWMarkerFadeElapsed or 0) + (elapsed or 0)
+    local progress = duration > 0 and math.min(1, fadeElapsed / duration) or 1
+    local alpha = start + ((target - start) * progress)
+
+    -- Do not use UIFrameFade here. It may call Show() while fading in, which
+    -- is protected on wMarker's secure-action frame during combat.
+    frame:SetAlpha(alpha)
+    frame._oakWMarkerFadeElapsed = fadeElapsed
+
+    if progress >= 1 then
+        frame:SetAlpha(target)
+        frame._oakWMarkerFadeStart = nil
+        frame._oakWMarkerFadeElapsed = nil
+        frame._oakWMarkerFadeDuration = nil
+    end
+end
+
+local function UpdateWMarkerFadeAnimations(elapsed)
+    local wMarkerAce = _G.wMarkerAce
+    if not wMarkerAce then return end
+    UpdateWMarkerFrameFade(wMarkerAce.raidMain, elapsed)
+    UpdateWMarkerFrameFade(wMarkerAce.worldMain, elapsed)
+end
+
+local function IsWMarkerFrameMouseOver(frame)
+    return frame and frame.IsShown and frame:IsShown()
+        and frame.IsMouseOver and frame:IsMouseOver()
+end
+
+local function IsWMarkerMouseOver(frame)
+    if not frame then return false end
+    if IsWMarkerFrameMouseOver(frame) then return true end
+    if IsWMarkerFrameMouseOver(frame.controlFrame) then return true end
+
+    -- Keep this resilient to wMarker versions that expose the control
+    -- buttons without attaching the control frame to the main frame table.
+    if type(frame.controlButtons) == "table" then
+        for _, button in pairs(frame.controlButtons) do
+            if IsWMarkerFrameMouseOver(button) then return true end
+        end
+    end
+    return false
+end
+
+ApplyWMarkerMouseoverFade = function()
+    local wMarkerAce, profile = GetWMarkerProfile()
+    if not (wMarkerAce and type(profile) == "table") then return false end
+
+    local raidFrame = wMarkerAce.raidMain
+    local worldFrame = wMarkerAce.worldMain
+    local raidAlpha = tonumber(profile.raid and profile.raid.alpha) or 1
+    local worldAlpha = tonumber(profile.world and profile.world.alpha) or 1
+    local enabled = GetWMarkerMouseoverFadeEnabled()
+    local fadedAlpha = GetWMarkerFadedAlpha()
+    local mouseOver = IsWMarkerMouseOver(raidFrame)
+        or IsWMarkerMouseOver(worldFrame)
+
+    if enabled then
+        SetWMarkerFrameAlpha(raidFrame, mouseOver and raidAlpha or fadedAlpha)
+        SetWMarkerFrameAlpha(worldFrame, mouseOver and worldAlpha or fadedAlpha)
+    else
+        SetWMarkerFrameAlpha(raidFrame, raidAlpha)
+        SetWMarkerFrameAlpha(worldFrame, worldAlpha)
+    end
+
+    return true
+end
+
+function addonTable.ApplyOakWMarkerMouseoverFade()
+    return ApplyWMarkerMouseoverFade()
+end
+
+local function SetWMarkerMouseoverFade(state)
+    EnsureVisibilityDB().wmarkerMouseoverFade = state == true
+    ApplyWMarkerMouseoverFade()
+end
+
+local function GetWMarkerMouseoverFade()
+    return GetWMarkerMouseoverFadeEnabled()
+end
+
 local oakErrorFrameOriginalHandler
 local oakErrorFrameHooked
 local OAK_ALLOWED_ERROR_MESSAGES = {}
@@ -2401,6 +2553,46 @@ function addonTable.BuildVisibilityUI(parentFrame)
         return cb
     end
 
+    local function AddSlider(text, updateFunc, getValueFunc, tooltip, x, y, width, minValue, maxValue, valueStep, valueSuffix)
+        minValue = tonumber(minValue) or 0
+        maxValue = tonumber(maxValue) or 1
+        valueStep = tonumber(valueStep) or 0.05
+        valueSuffix = valueSuffix or "%"
+        local label = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        label:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", x, y)
+        label:SetText(cWrap .. text .. "|r")
+
+        local valueLabel = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        valueLabel:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", x + (width or 215) - 32, y)
+        valueLabel:SetJustifyH("RIGHT")
+
+        local slider = CreateFrame("Slider", nil, parentFrame, "OptionsSliderTemplate")
+        slider:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", x, y - 18)
+        slider:SetWidth(width or 215)
+        slider:SetHeight(16)
+        slider:SetMinMaxValues(minValue, maxValue)
+        slider:SetValueStep(valueStep)
+        slider:SetObeyStepOnDrag(true)
+        slider:SetValue(getValueFunc())
+        if slider.Low then slider.Low:SetText(tostring(minValue) .. valueSuffix) end
+        if slider.High then slider.High:SetText(tostring(maxValue) .. valueSuffix) end
+        if slider.Text then slider.Text:SetText("") end
+
+        local function RefreshValueLabel(value)
+            local displayValue = math.floor((value or minValue) + 0.5)
+            valueLabel:SetText(tostring(displayValue) .. valueSuffix)
+        end
+
+        slider:SetScript("OnValueChanged", function(self, value)
+            RefreshValueLabel(value)
+            updateFunc(value)
+        end)
+        RefreshValueLabel(getValueFunc())
+        AddTooltip(slider, text, tooltip)
+        AddTooltip(label, text, tooltip)
+        return slider
+    end
+
     local function AddSection(text, x, y, width)
         local section = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         section:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", x, y)
@@ -2414,7 +2606,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
         local leftX, rightX = 15, 255
         local colWidth = 225
         local rowGap = -30
-        local roundedRowGap = -24
+        local roundedRowGap = -16
 
         AddOption("Apply All", SetAllHidden, GetAllHidden, nil, 300, -23, 150)
 
@@ -2424,22 +2616,29 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -98 + rowGap, colWidth)
         AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade.", rightX, -98 + rowGap, colWidth)
         AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -98 + rowGap * 2, colWidth)
-        AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", rightX, -98 + rowGap * 2, colWidth)
-        AddOption("Hide Error Messages", SetErrorMessagesHidden, GetErrorMessagesHidden, "Suppresses most red UI error text from UIErrorsFrame, useful for GSE macro spam. Important errors like full bags, full quest log, dead player/pet, and LFG boot/teleport messages still show.", leftX, -98 + rowGap * 3, colWidth, true)
-        AddOption("Disable Chat Fade", SetEllesmereDisableChatFade, GetEllesmereDisableChatFade, "Turns off OakUI chat line fade and sets Ellesmere's Idle Fade Strength to 0 so chat stays visible.", rightX, -98 + rowGap * 3, colWidth)
+        AddSlider("Chat Line Fade Delay", addonTable.SetOakChatLineFadeDelay, addonTable.GetOakChatLineFadeDelay, "Controls how long each chat line stays visible before it begins fading. This adjusts EUI's active chat profile delay.", rightX, -158, colWidth, 1, 120, 1, "s")
+        AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", leftX, -198, colWidth)
+        AddOption("Hide Error Messages", SetErrorMessagesHidden, GetErrorMessagesHidden, "Suppresses most red UI error text from UIErrorsFrame, useful for GSE macro spam. Important errors like full bags, full quest log, dead player/pet, and LFG boot/teleport messages still show.", rightX, -198, colWidth, true)
+        AddOption("Disable Chat Fade", SetEllesmereDisableChatFade, GetEllesmereDisableChatFade, "Turns off OakUI chat line fade and sets Ellesmere's Idle Fade Strength to 0 so chat stays visible.", leftX, -228, colWidth)
 
-        AddSection("Player Frame", leftX, -216)
-        AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -236, colWidth)
-        AddSection("Rounded Borders", leftX, -270)
-        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles every OakUI rounded-border option in this section.", leftX, -292, colWidth, true)
-        AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -292, colWidth, true)
-        AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -292 + roundedRowGap, colWidth, true)
-        AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -292 + roundedRowGap, colWidth, true)
-        AddOption("Cast Bars", SetCastBarRoundThinBorders, GetCastBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere cast bars, including unit-frame cast bars and the resource cast bar.", leftX, -292 + roundedRowGap * 2, colWidth, true)
-        AddOption("Boss Frames", SetBossFrameRoundThinBorders, GetBossFrameRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere boss frames without enabling the full EUI Frames/Bars option.", rightX, -292 + roundedRowGap * 2, colWidth, true)
-        AddOption("Nameplates", SetNameplateRoundThinBorders, GetNameplateRoundThinBorders, "Applies OakUI rounded masking to Ellesmere nameplates and their cast bars. Nameplate cast bars use OakUI's standalone rounded status-bar renderer because Ellesmere does not expose the same custom-border path there.", leftX, -292 + roundedRowGap * 3, colWidth, true)
-        AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -292 + roundedRowGap * 3, colWidth, true)
-        AddOption("Tracking Bars", SetTrackingBarRoundThinBorders, GetTrackingBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere Tracking Bars. Turning it off restores their previous saved border settings.", leftX, -292 + roundedRowGap * 4, colWidth, true)
+        AddSection("Tweaks", leftX, -260)
+        AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -280, colWidth)
+        AddOption("OakUI DBM Anchoring", addonTable.SetOakDBMHugeBarAnchoringEnabled, addonTable.GetOakDBMHugeBarAnchoringEnabled, "Keeps OakUI's DBM Large bars positioned above the target frame. Turn this off to customize DBM's own bar position without OakUI reapplying it.", rightX, -280, colWidth, true)
+        AddOption("OakUI Dragon Riding Anchoring", addonTable.SetOakDragonRidingAnchoringEnabled, addonTable.GetOakDragonRidingAnchoringEnabled, "Keeps Dragon Riding attached to the Class Resource bar even if EUI misses the saved anchor. Turn this off to customize Dragon Riding's position through EUI.", leftX, -310, colWidth, true)
+        if IsWMarkerAvailable() then
+            AddOption("wMarker Mouseover Fade", SetWMarkerMouseoverFade, GetWMarkerMouseoverFade, "Fades wMarker when the mouse is away and restores its normal alpha when you move over it.", rightX, -310, colWidth, true)
+            AddSlider("wMarker Faded Opacity", SetWMarkerFadedAlpha, GetWMarkerFadedAlpha, "Controls how visible wMarker remains while the mouse is away. 0% is invisible; 100% disables the visual fade.", rightX, -338, colWidth)
+        end
+        AddSection("Rounded Borders", leftX, -364)
+        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles every OakUI rounded-border option in this section.", leftX, -386, colWidth, true)
+        AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -386, colWidth, true)
+        AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -386 + roundedRowGap, colWidth, true)
+        AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -386 + roundedRowGap, colWidth, true)
+        AddOption("Cast Bars", SetCastBarRoundThinBorders, GetCastBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere cast bars, including unit-frame cast bars and the resource cast bar.", leftX, -386 + roundedRowGap * 2, colWidth, true)
+        AddOption("Boss Frames", SetBossFrameRoundThinBorders, GetBossFrameRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere boss frames without enabling the full EUI Frames/Bars option.", rightX, -386 + roundedRowGap * 2, colWidth, true)
+        AddOption("Nameplates", SetNameplateRoundThinBorders, GetNameplateRoundThinBorders, "Applies OakUI rounded masking to Ellesmere nameplates and their cast bars. Nameplate cast bars use OakUI's standalone rounded status-bar renderer because Ellesmere does not expose the same custom-border path there.", leftX, -386 + roundedRowGap * 3, colWidth, true)
+        AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -386 + roundedRowGap * 3, colWidth, true)
+        AddOption("Tracking Bars", SetTrackingBarRoundThinBorders, GetTrackingBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere Tracking Bars. Turning it off restores their previous saved border settings.", leftX, -386 + roundedRowGap * 4, colWidth, true)
 
         parentFrame.UpdateVisibilityCheckboxes = function()
             for _, cb in ipairs(checkboxes) do cb:UpdateState() end
@@ -2547,4 +2746,21 @@ CleanupFrame:SetScript("OnEvent", function(self)
         end
     end)
     self:UnregisterEvent("PLAYER_LOGIN")
+end)
+
+local WMarkerFadeWatcher = CreateFrame("Frame")
+WMarkerFadeWatcher.elapsed = 0
+WMarkerFadeWatcher:RegisterEvent("ADDON_LOADED")
+WMarkerFadeWatcher:RegisterEvent("PLAYER_LOGIN")
+WMarkerFadeWatcher:RegisterEvent("PLAYER_ENTERING_WORLD")
+WMarkerFadeWatcher:SetScript("OnEvent", function(_, event, loadedAddon)
+    if event == "ADDON_LOADED" and loadedAddon ~= "wMarker" then return end
+    ApplyWMarkerMouseoverFade()
+end)
+WMarkerFadeWatcher:SetScript("OnUpdate", function(self, elapsed)
+    UpdateWMarkerFadeAnimations(elapsed)
+    self.elapsed = self.elapsed + elapsed
+    if self.elapsed < 0.1 then return end
+    self.elapsed = 0
+    ApplyWMarkerMouseoverFade()
 end)

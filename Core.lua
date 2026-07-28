@@ -209,6 +209,7 @@ local QUICK_OPTIONAL_PROFILE_FOLDERS = {
     dbm = "DBM-Core",
     bigwigs = "BigWigs",
     blizzi = "BliZzi_Interrupts",
+    wmarker = "wMarker",
 }
 
 local function IsQuickAddonReady(folder)
@@ -236,6 +237,7 @@ local QuickState = {
         dbm = true,
         bigwigs = true,
         blizzi = true,
+        wmarker = true,
     },
 }
 local QuickTitle = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -377,6 +379,7 @@ local QuickAddonRows = {
     { key = "dbm", row = MakeQuickCheckbox(QuickInstallFrame, "DBM", 18, -246, function() return QuickState.optionalProfiles.dbm end, function(v) QuickState.optionalProfiles.dbm = v end) },
     { key = "bigwigs", row = MakeQuickCheckbox(QuickInstallFrame, "BigWigs", 148, -246, function() return QuickState.optionalProfiles.bigwigs end, function(v) QuickState.optionalProfiles.bigwigs = v end) },
     { key = "blizzi", row = MakeQuickCheckbox(QuickInstallFrame, "Blizzi", 278, -246, function() return QuickState.optionalProfiles.blizzi end, function(v) QuickState.optionalProfiles.blizzi = v end) },
+    { key = "wmarker", row = MakeQuickCheckbox(QuickInstallFrame, "wMarker", 408, -246, function() return QuickState.optionalProfiles.wmarker end, function(v) QuickState.optionalProfiles.wmarker = v end) },
 }
 
 local function RefreshQuickAddonProfileChoices()
@@ -495,6 +498,7 @@ QuickInstallApply:SetScript("OnClick", function()
             dbm = QuickState.optionalProfiles.dbm,
             bigwigs = QuickState.optionalProfiles.bigwigs,
             blizzi = QuickState.optionalProfiles.blizzi,
+            wmarker = QuickState.optionalProfiles.wmarker,
         },
     })
 end)

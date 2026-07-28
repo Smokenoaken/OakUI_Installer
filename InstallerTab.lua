@@ -19,6 +19,7 @@ local OPTIONAL_PROFILE_FOLDERS = {
     dbm = "DBM-Core",
     bigwigs = "BigWigs",
     blizzi = "BliZzi_Interrupts",
+    wmarker = "wMarker",
 }
 
 local function IsOptionalProfileReady(key)
@@ -63,6 +64,7 @@ local function BuildInstallerAddons(Inj, cWrap, ShowCopyBox)
         { name = "DBM (Optional)", folder = "DBM-Core", url = "https://www.curseforge.com/wow/addons/deadly-boss-mods", func = Inj.DBM, requiresReload = false },
         { name = "BigWigs (Optional)", folder = "BigWigs", url = "https://www.curseforge.com/wow/addons/big-wigs", func = Inj.BigWigs, requiresReload = false },
         { name = "Blizzi Party Tools (Optional)", folder = "BliZzi_Interrupts", url = "https://www.curseforge.com/wow/addons/blizzi-party-tools", func = Inj.BlizziPartyTools, requiresReload = false },
+        { name = "wMarker (Optional)", folder = "wMarker", url = "https://www.curseforge.com/wow/addons/wmarker", func = Inj.WMarker, requiresReload = false },
     }
 end
 
@@ -120,6 +122,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             dbm = true,
             bigwigs = true,
             blizzi = true,
+            wmarker = true,
         },
         visibility = {
             unitFrames = true,
@@ -152,6 +155,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             dbm = OptionalProfileEnabled(options, "dbm"),
             bigwigs = OptionalProfileEnabled(options, "bigwigs"),
             blizzi = OptionalProfileEnabled(options, "blizzi"),
+            wmarker = OptionalProfileEnabled(options, "wmarker"),
         }
         state.visibility = {
             unitFrames = true,
@@ -535,13 +539,19 @@ function addonTable.BuildInstallerUI(parentFrame)
         else
             state.optionalProfiles.blizzi = false
         end
+        if IsOptionalProfileReady("wmarker") then
+            MakeCheckbox(page, "Install wMarker Profile", "Imports OakUI's raid marker, ready check, and countdown layout into wMarker.", function() return state.optionalProfiles.wmarker end, function(v) state.optionalProfiles.wmarker = v end, y, 0, "addons")
+            y = y - 48
+        else
+            state.optionalProfiles.wmarker = false
+        end
         if y == -64 then
             local none = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             none:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -66)
             none:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -66)
             none:SetJustifyH("LEFT")
             none:SetTextColor(0.72, 0.72, 0.72)
-            none:SetText("No supported optional addon profiles are available. Install and enable DBM, BigWigs, or Blizzi Party Tools to import those profiles.")
+            none:SetText("No supported optional addon profiles are available. Install and enable DBM, BigWigs, Blizzi Party Tools, or wMarker to import those profiles.")
         end
         return page
     end
@@ -695,7 +705,8 @@ function addonTable.BuildInstallerUI(parentFrame)
             cWrap .. "EUI Spec Assignment:|r " .. auto .. "\n\n" ..
             cWrap .. "Addon Profiles:|r DBM " .. (state.optionalProfiles.dbm and "Install" or "Skip") ..
             ", BigWigs " .. (state.optionalProfiles.bigwigs and "Install" or "Skip") ..
-            ", Blizzi " .. (state.optionalProfiles.blizzi and "Install" or "Skip") .. "\n" ..
+            ", Blizzi " .. (state.optionalProfiles.blizzi and "Install" or "Skip") ..
+            ", wMarker " .. (state.optionalProfiles.wmarker and "Install" or "Skip") .. "\n" ..
             cWrap .. "Chat Layout:|r " .. (state.chatLayout and "Apply" or "Skip") .. "\n" ..
             cWrap .. "Visibility:|r Chat " .. HiddenShown(state.visibility.chat) ..
             ", Unit Frames " .. HiddenShown(state.visibility.unitFrames) ..
@@ -983,6 +994,8 @@ function addonTable.BuildInstallerUI(parentFrame)
                 elseif addon.name == "BigWigs (Optional)" and state.optionalProfiles.bigwigs then
                     ApplyOptionalProfile(addon, "dps")
                 end
+            elseif addon.name == "wMarker (Optional)" and state.optionalProfiles.wmarker then
+                ApplyOptionalProfile(addon, "dps")
             end
         end
 

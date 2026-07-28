@@ -302,6 +302,7 @@ end
 
 local originalResetIdleTimer
 local chatFadeApplied
+local CHAT_LINE_FADE_DEFAULT_DELAY = 15
 
 local function GetEllesmereChatAddon()
     if _G.EllesmereUI and _G.EllesmereUI.Lite and _G.EllesmereUI.Lite.GetAddon then
@@ -322,7 +323,23 @@ end
 
 local function GetChatLineFadeDelay()
     local cfg = GetEllesmereChatConfig()
-    return (cfg and cfg.idleFadeDelay) or 15
+    local delay = tonumber(cfg and cfg.idleFadeDelay) or CHAT_LINE_FADE_DEFAULT_DELAY
+    return math.max(1, math.min(120, delay))
+end
+
+function addonTable.GetOakChatLineFadeDelay()
+    return GetChatLineFadeDelay()
+end
+
+function addonTable.SetOakChatLineFadeDelay(value)
+    local delay = tonumber(value) or CHAT_LINE_FADE_DEFAULT_DELAY
+    delay = math.max(1, math.min(120, math.floor(delay + 0.5)))
+    local cfg = GetEllesmereChatConfig()
+    if type(cfg) ~= "table" then return end
+    cfg.idleFadeDelay = delay
+    if addonTable.RefreshEllesmereChatLineFade then
+        addonTable.RefreshEllesmereChatLineFade()
+    end
 end
 
 local function ApplyChatLineFadeToFrame(chatFrame)
@@ -625,6 +642,8 @@ end
 
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:RegisterEvent("UPDATE_CHAT_WINDOWS")
+frame:RegisterEvent("UPDATE_FLOATING_CHAT_WINDOWS")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("UNIT_HEALTH")
 frame:RegisterEvent("UNIT_MAXHEALTH")
@@ -646,6 +665,12 @@ frame:SetScript("OnEvent", function(_, event, unit)
     if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
         ScheduleLayoutRefresh()
         ScheduleRefresh("chat", 0.1, addonTable.RefreshEllesmereChatLineFade, 1)
+    elseif event == "UPDATE_CHAT_WINDOWS" or event == "UPDATE_FLOATING_CHAT_WINDOWS" then
+        -- EUI turns fading off when it skins a newly created chat frame. The
+        -- OakUI Loot window is created after the initial chat pass, so apply
+        -- the selected per-line fade settings again after Blizzard/EUI finish
+        -- rebuilding the chat windows.
+        ScheduleRefresh("chat", 0.1, addonTable.RefreshEllesmereChatLineFade, 0.1)
     elseif event == "PLAYER_TARGET_CHANGED" or event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" then
         if event == "UNIT_HEALTH" and unit == "player" then
             SetPlayerHealthChanging()

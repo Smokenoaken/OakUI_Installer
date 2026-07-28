@@ -16,45 +16,6 @@ function addonTable.Injectors.Details(profileName, role)
     if Details:GetCurrentProfileName() ~= profileName then Details:ApplyProfile(profileName) end
 end
 
-function addonTable.Injectors.Platynator(profileName, role)
-    if _G.Platynator and _G.Platynator.API and type(_G.Platynator.API.ImportString) == "function" then
-        local encoded = TrimProfileString(P.PLATYNATOR_PROFILE)
-        if encoded == "" then
-            print("|cffff0000[OakUI Error]|r Platynator profile string is missing or empty.")
-            return
-        end
-
-        local ok, result = pcall(_G.Platynator.API.ImportString, encoded, profileName)
-        if not ok then
-            print("|cffff0000[OakUI Error]|r Platynator import failed: " .. tostring(result))
-            return
-        elseif result == false then
-            print("|cffff0000[OakUI Error]|r Platynator import failed.")
-            return
-        end
-    end
-end
-
-function addonTable.Injectors.XIV(profileName, role)
-    local AceAddon = _G.LibStub("AceAddon-3.0", true)
-    if not AceAddon then return end
-    local XIVBar = AceAddon:GetAddon("XIV_Databar_Continued", true)
-    if XIVBar and type(XIVBar.ImportProfile) == "function" then
-        local encoded = TrimProfileString(P.XIV_PROFILE)
-        if encoded == "" then
-            print("|cffff0000[OakUI Error]|r XIV_Databar profile string is missing or empty.")
-            return
-        end
-
-        local ok, result = pcall(XIVBar.ImportProfile, XIVBar, encoded)
-        if not ok then
-            print("|cffff0000[OakUI Error]|r XIV_Databar import failed: " .. tostring(result))
-        elseif result == false then
-            print("|cffff0000[OakUI Error]|r XIV_Databar import failed.")
-        end
-    end
-end
-
 local function DecodeChonkyProfile(encoded)
     local LibDeflate = _G.LibStub and _G.LibStub("LibDeflate", true)
     if not LibDeflate then return nil, "LibDeflate is unavailable." end
@@ -195,36 +156,10 @@ local function HideElvUIInstaller(E)
     if _G.ElvUIInstallFrame and _G.ElvUIInstallFrame.Hide then _G.ElvUIInstallFrame:Hide() end
 end
 
-local function DisablePlatynatorConflictWarning(E)
-    if not E then return end
-    local addons = E.INCOMPATIBLE_ADDONS and E.INCOMPATIBLE_ADDONS.NamePlates
-    if type(addons) == "table" then
-        for i = #addons, 1, -1 do
-            if addons[i] == "Platynator" then
-                table.remove(addons, i)
-            end
-        end
-    end
-
-    if type(E.IncompatibleAddOn) == "function" and not E.OakUIIncompatibleHooked then
-        local original = E.IncompatibleAddOn
-        E.IncompatibleAddOn = function(self, addon, module, info)
-            if addon == "Platynator" then return end
-            return original(self, addon, module, info)
-        end
-        E.OakUIIncompatibleHooked = true
-    end
-
-    if E.StaticPopup_Hide then
-        pcall(E.StaticPopup_Hide, E, "INCOMPATIBLE_ADDON")
-    end
-end
-
 function addonTable.BypassElvUIInstaller()
     if not C_AddOns.IsAddOnLoaded("ElvUI") then return end
     local E = GetElvUICore()
     HideElvUIInstaller(E)
-    DisablePlatynatorConflictWarning(E)
 end
 
 local function RefreshEllesmereAfterProfileImport()
@@ -663,6 +598,96 @@ function addonTable.Injectors.DBM(profileName, role)
                 LibDBIcon:Show("DBM")
             end
         end
+    end
+end
+
+local function DecodeWMarkerProfile(encoded)
+    local loader, err = loadstring("return " .. encoded)
+    if not loader then return nil, err or "Could not parse the wMarker profile data." end
+
+    local ok, profile = pcall(loader)
+    if not ok or type(profile) ~= "table" then
+        return nil, profile or "wMarker profile data was not a table."
+    end
+    return profile
+end
+
+local function CopyWMarkerProfile(value, seen)
+    if type(value) ~= "table" then return value end
+    seen = seen or {}
+    if seen[value] then return seen[value] end
+
+    local copy = {}
+    seen[value] = copy
+    for key, child in pairs(value) do
+        copy[CopyWMarkerProfile(key, seen)] = CopyWMarkerProfile(child, seen)
+    end
+    return copy
+end
+
+local function ActivateWMarkerProfile(db, profileName, profile)
+    local currentName = type(db.GetCurrentProfile) == "function" and db:GetCurrentProfile() or nil
+    if currentName ~= profileName then
+        db.profiles[profileName] = profile
+        return pcall(db.SetProfile, db, profileName)
+    end
+
+    -- AceDB intentionally ignores SetProfile when the requested profile is
+    -- already active. Switch through a temporary profile so reinstalling the
+    -- same OakUI profile also refreshes wMarker's cached config references.
+    local refreshName = profileName .. " (OakUI Refresh)"
+    local suffix = 2
+    while db.profiles[refreshName] do
+        refreshName = profileName .. " (OakUI Refresh " .. suffix .. ")"
+        suffix = suffix + 1
+    end
+
+    db.profiles[profileName] = profile
+    db.profiles[refreshName] = profile
+    local switched, switchError = pcall(db.SetProfile, db, refreshName)
+    if switched then
+        switched, switchError = pcall(db.SetProfile, db, profileName)
+    end
+    db.profiles[refreshName] = nil
+    return switched, switchError
+end
+
+function addonTable.Injectors.WMarker(profileName, role)
+    if not C_AddOns.IsAddOnLoaded("wMarker") then return end
+
+    local encoded = TrimProfileString(P.WMARKER_PROFILE)
+    if encoded == "" then
+        print("|cffff0000[OakUI Error]|r wMarker profile string is missing or empty.")
+        return
+    end
+
+    local profile, err = DecodeWMarkerProfile(encoded)
+    if not profile then
+        print("|cffff0000[OakUI Error]|r wMarker import failed: " .. tostring(err))
+        return
+    end
+
+    local wMarkerAce = _G.wMarkerAce
+    local db = wMarkerAce and wMarkerAce.db
+    if type(db) ~= "table" or type(db.SetProfile) ~= "function" then
+        print("|cffff0000[OakUI Error]|r wMarker profile API is unavailable.")
+        return
+    end
+
+    profileName = TrimProfileString(profileName)
+    if profileName == "" then profileName = "OakUI" end
+
+    db.profiles = db.profiles or {}
+    -- New characters and existing characters that still use wMarker's
+    -- default profile should receive OakUI automatically. Keep this as a
+    -- separate table so a named profile can be customized independently.
+    db.profiles.Default = profileName == "Default" and profile or CopyWMarkerProfile(profile)
+    local ok, setError = ActivateWMarkerProfile(db, profileName, profile)
+    if addonTable.ApplyOakWMarkerMouseoverFade then
+        pcall(addonTable.ApplyOakWMarkerMouseoverFade)
+    end
+    if not ok then
+        print("|cffff0000[OakUI Error]|r wMarker profile activation failed: " .. tostring(setError))
     end
 end
 

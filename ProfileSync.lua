@@ -200,21 +200,19 @@ local function SyncFromEllesmere(profileName)
     if syncingProfiles then return end
     if GetEllesmereActiveProfile() ~= profileName then return end
 
-    local role = GetOakProfileRole(profileName)
-    if not role then return end
-
-    SyncBlizziToProfile(GetOakRoleProfileName(role))
+    -- Follow the profile the user actually selected in EUI. OakUI-created
+    -- Blizzi profiles use the same name, including custom names entered in
+    -- the installer, so a role lookup would unnecessarily block sync for
+    -- any profile that was not registered as one of OakUI's two roles.
+    SyncBlizziToProfile(profileName)
 end
 
 local function SyncFromBlizzi(profileName)
     if syncingProfiles then return end
     if GetBlizziActiveProfile() ~= profileName then return end
 
-    local role = GetOakProfileRole(profileName)
-    if not role then return end
-
     QueueBlizziProfileRefresh()
-    SyncEllesmereToProfile(GetOakRoleProfileName(role))
+    SyncEllesmereToProfile(profileName)
 end
 
 local function TryHookEllesmere()
@@ -251,6 +249,13 @@ local function TryInstallProfileSyncHooks()
     end
 end
 
+local function SyncCurrentEllesmereProfile()
+    local profileName = GetEllesmereActiveProfile()
+    if profileName then
+        SyncFromEllesmere(profileName)
+    end
+end
+
 syncFrame = CreateFrame("Frame")
 syncFrame:RegisterEvent("ADDON_LOADED")
 syncFrame:RegisterEvent("PLAYER_LOGIN")
@@ -265,13 +270,25 @@ syncFrame:SetScript("OnEvent", function(self, event, loadedAddon)
 
     TryInstallProfileSyncHooks()
 
+    if event == "ADDON_LOADED" and (loadedAddon == "EllesmereUI" or loadedAddon == "BliZzi_Interrupts") then
+        SyncCurrentEllesmereProfile()
+    end
+
     if event == "PLAYER_LOGIN" then
         self:UnregisterEvent("PLAYER_LOGIN")
+        SyncCurrentEllesmereProfile()
         if C_Timer and C_Timer.After then
-            C_Timer.After(0.25, TryInstallProfileSyncHooks)
-            C_Timer.After(1, TryInstallProfileSyncHooks)
+            C_Timer.After(0.25, function()
+                TryInstallProfileSyncHooks()
+                SyncCurrentEllesmereProfile()
+            end)
+            C_Timer.After(1, function()
+                TryInstallProfileSyncHooks()
+                SyncCurrentEllesmereProfile()
+            end)
             C_Timer.After(3, function()
                 TryInstallProfileSyncHooks()
+                SyncCurrentEllesmereProfile()
                 if syncFrame and not (ellesmereHooked and blizziHooked) then
                     syncFrame:UnregisterEvent("ADDON_LOADED")
                 end

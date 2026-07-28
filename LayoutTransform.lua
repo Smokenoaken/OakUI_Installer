@@ -31,7 +31,7 @@ local EDGE_MARGIN_BY_PRESET = {
 }
 local RAID_FRAME_KEY = "RF_RaidFrames"
 local DRAGON_RIDING_KEY = "EDR_Cluster"
-local DRAGON_RIDING_TARGET_KEY = "ERB_Power"
+local DRAGON_RIDING_TARGET_KEY = "ERB_ClassResource"
 local RAID_FRAME_CLAMP_PRESETS = {
     ["1080p"] = true,
     ["1080p_oak"] = true,
@@ -625,7 +625,16 @@ local function PatchDamageMeterAnchor(anchors, preset, offsetX)
     return true
 end
 
+local function IsOakDragonRidingAnchoringEnabled()
+    local visibility = OakUI_DB and OakUI_DB.visibility
+    return not (type(visibility) == "table" and visibility.dragonRidingAnchoring == false)
+end
+
+local ScheduleOakDragonRidingLiveAnchor
+local EnsureOakDragonRidingHooks
+
 local function PatchDragonRidingAnchor(anchors)
+    if not IsOakDragonRidingAnchoringEnabled() then return false end
     if type(anchors) ~= "table" then return false end
     local anchor = anchors[DRAGON_RIDING_KEY]
     local changed = false
@@ -643,6 +652,7 @@ local function PatchDragonRidingAnchor(anchors)
 end
 
 local function PatchDragonRidingWidthMatch(widthMatch)
+    if not IsOakDragonRidingAnchoringEnabled() then return false end
     if type(widthMatch) ~= "table" then return false end
     if widthMatch[DRAGON_RIDING_KEY] == DRAGON_RIDING_TARGET_KEY then return false end
     widthMatch[DRAGON_RIDING_KEY] = DRAGON_RIDING_TARGET_KEY
@@ -650,6 +660,7 @@ local function PatchDragonRidingWidthMatch(widthMatch)
 end
 
 local function PatchDragonRidingLayer(layer)
+    if not IsOakDragonRidingAnchoringEnabled() then return false end
     if type(layer) ~= "table" then return false end
     layer.anchors = layer.anchors or {}
     layer.widthMatch = layer.widthMatch or {}
@@ -659,6 +670,7 @@ local function PatchDragonRidingLayer(layer)
 end
 
 local function PatchDragonRidingProfile(profile)
+    if not IsOakDragonRidingAnchoringEnabled() then return false end
     if type(profile) ~= "table" then return false end
 
     profile.unlockLayout = profile.unlockLayout or {}
@@ -675,6 +687,7 @@ local function PatchDragonRidingProfile(profile)
 end
 
 local function ClearDragonRidingModuleUnlockPos(profileName)
+    if not IsOakDragonRidingAnchoringEnabled() then return false end
     local db = _G.EllesmereUIDragonRidingDB
     local profiles = type(db) == "table" and db.profiles
     if not profileName or type(profiles) ~= "table" or type(profiles[profileName]) ~= "table" then
@@ -802,6 +815,88 @@ local function ResolveUnlockFrame(key)
     return elem.frame
 end
 
+local function ApplyOakDragonRidingLiveAnchor()
+    if not IsOakDragonRidingAnchoringEnabled() then return false end
+    if InCombatLockdown and InCombatLockdown() then return false end
+
+    local dragonRiding = ResolveUnlockFrame(DRAGON_RIDING_KEY)
+    local classResource = ResolveUnlockFrame(DRAGON_RIDING_TARGET_KEY)
+    if not (dragonRiding and classResource
+        and dragonRiding.GetPoint and dragonRiding.ClearAllPoints
+        and dragonRiding.SetPoint) then
+        return false
+    end
+
+    -- EUI's TOP side means the child's bottom edge meets the target's top
+    -- edge. Apply that relationship directly after EUI rebuilds the frame;
+    -- this keeps the live frame in sync even when EUI misses the saved link.
+    local point, relativeTo, relativePoint, offsetX, offsetY = dragonRiding:GetPoint(1)
+    if point == "BOTTOM" and relativeTo == classResource and relativePoint == "TOP"
+        and (tonumber(offsetX) or 0) == 0 and (tonumber(offsetY) or 0) == 0 then
+        return false
+    end
+
+    dragonRiding:ClearAllPoints()
+    dragonRiding:SetPoint("BOTTOM", classResource, "TOP", 0, 0)
+    return true
+end
+
+local dragonRidingHooked = {}
+local dragonRidingScheduled = {}
+
+ScheduleOakDragonRidingLiveAnchor = function(delay)
+    if not IsOakDragonRidingAnchoringEnabled() then return false end
+
+    local key = tostring(delay or 0)
+    if dragonRidingScheduled[key] then return true end
+    dragonRidingScheduled[key] = true
+
+    local function Apply()
+        dragonRidingScheduled[key] = nil
+        ApplyOakDragonRidingLiveAnchor()
+    end
+
+    if C_Timer and C_Timer.After then
+        C_Timer.After(delay or 0, Apply)
+    else
+        Apply()
+    end
+    return true
+end
+
+local function HookOakDragonRidingFunction(tbl, name)
+    if dragonRidingHooked[name] or type(tbl) ~= "table"
+        or type(tbl[name]) ~= "function" or type(hooksecurefunc) ~= "function" then
+        return
+    end
+
+    hooksecurefunc(tbl, name, function()
+        ScheduleOakDragonRidingLiveAnchor(0.05)
+    end)
+    dragonRidingHooked[name] = true
+end
+
+local function HookOakDragonRidingGlobal(name)
+    if dragonRidingHooked[name] or type(_G[name]) ~= "function" or type(hooksecurefunc) ~= "function" then
+        return
+    end
+
+    hooksecurefunc(name, function()
+        ScheduleOakDragonRidingLiveAnchor(0.05)
+    end)
+    dragonRidingHooked[name] = true
+end
+
+EnsureOakDragonRidingHooks = function()
+    local EUI = _G.EllesmereUI
+    HookOakDragonRidingFunction(EUI, "RefreshAllAddons")
+    HookOakDragonRidingFunction(EUI, "ReapplyAllUnlockAnchors")
+    HookOakDragonRidingFunction(EUI, "ReapplyAllUnlockAnchorsForced")
+    HookOakDragonRidingFunction(EUI, "ApplyAllWidthHeightMatches")
+    HookOakDragonRidingGlobal("_EDR_Rebuild")
+    HookOakDragonRidingGlobal("_ERB_Apply")
+end
+
 local function ResolveDBMHugeBarTargetFrame()
     return ResolveUnlockFrame("target")
         or _G.EllesmereUIUnitFrames_Target
@@ -867,6 +962,52 @@ local function ComputeDBMHugeBarCenterOffset(options)
     return ((GetDBMHugeIconWidth(options) - GetDBMHugeRightIconWidth(options)) * hugeScale) / 2
 end
 
+local function IsOakDBMHugeBarAnchoringEnabled()
+    local visibility = OakUI_DB and OakUI_DB.visibility
+    return not (type(visibility) == "table" and visibility.dbmAnchoring == false)
+end
+
+function addonTable.GetOakDBMHugeBarAnchoringEnabled()
+    return IsOakDBMHugeBarAnchoringEnabled()
+end
+
+function addonTable.SetOakDBMHugeBarAnchoringEnabled(enabled)
+    OakUI_DB = OakUI_DB or {}
+    OakUI_DB.visibility = OakUI_DB.visibility or {}
+    OakUI_DB.visibility.dbmAnchoring = enabled == true
+
+    if enabled and addonTable.ScheduleOakDBMHugeBarsToTarget then
+        addonTable.ScheduleOakDBMHugeBarsToTarget()
+    end
+end
+
+function addonTable.GetOakDragonRidingAnchoringEnabled()
+    return IsOakDragonRidingAnchoringEnabled()
+end
+
+function addonTable.SetOakDragonRidingAnchoringEnabled(enabled)
+    OakUI_DB = OakUI_DB or {}
+    OakUI_DB.visibility = OakUI_DB.visibility or {}
+    OakUI_DB.visibility.dragonRidingAnchoring = enabled == true
+
+    local EUI = _G.EllesmereUI
+    if enabled then
+        EnsureOakDragonRidingHooks()
+        if type(_G.EllesmereUIDB) == "table" and addonTable.ApplyOakEllesmereLayoutAdjustments then
+            pcall(addonTable.ApplyOakEllesmereLayoutAdjustments, _G.EllesmereUIDB, GetActiveEllesmereProfileName())
+        else
+            ScheduleOakDragonRidingLiveAnchor(0)
+            ScheduleOakDragonRidingLiveAnchor(0.25)
+        end
+    elseif not enabled and EUI then
+        if type(EUI.ReapplyOwnAnchor) == "function" then
+            pcall(EUI.ReapplyOwnAnchor, DRAGON_RIDING_KEY)
+        elseif type(EUI.ReapplyAllUnlockAnchors) == "function" then
+            pcall(EUI.ReapplyAllUnlockAnchors)
+        end
+    end
+end
+
 SnapLayoutCoord = function(value)
     local EUI = _G.EllesmereUI
     if EUI and EUI.PP and type(EUI.PP.Scale) == "function" then
@@ -881,6 +1022,7 @@ SnapLayoutCoord = function(value)
 end
 
 function addonTable.ApplyOakDBMHugeBarsToTarget(profileName)
+    if not IsOakDBMHugeBarAnchoringEnabled() then return false end
     if InCombatLockdown and InCombatLockdown() then return false end
     if not UIParent then return false end
 
@@ -976,6 +1118,7 @@ local function EnsureDBMHugeHooks()
 end
 
 function addonTable.ScheduleOakDBMHugeBarsToTarget(profileName)
+    if not IsOakDBMHugeBarAnchoringEnabled() then return false end
     EnsureDBMHugeHooks()
     ScheduleDBMHugeBars(profileName, 0)
     ScheduleDBMHugeBars(profileName, 0.25)
@@ -1021,6 +1164,9 @@ local function RefreshEllesmereLayout()
     elseif EUI and EUI.ReapplyAllUnlockAnchors then
         pcall(EUI.ReapplyAllUnlockAnchors)
     end
+    EnsureOakDragonRidingHooks()
+    ApplyOakDragonRidingLiveAnchor()
+    ScheduleOakDragonRidingLiveAnchor(0.05)
 end
 
 local function RefreshEllesmereRaidFramesOnly()
@@ -1318,6 +1464,7 @@ function addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName, role)
     local offsetX = ComputeDamageMeterOffsetX(preset)
     local changed = false
     local extraChanged = false
+    EnsureOakDragonRidingHooks()
     if profileName and db.profiles and db.profiles[profileName] then
         changed = PatchProfileLayout(db.profiles[profileName], preset, offsetX) or changed
         changed = ClearDragonRidingModuleUnlockPos(profileName) or changed
@@ -1350,6 +1497,11 @@ function addonTable.ApplyOakEllesmereLayoutAdjustments(db, profileName, role)
         RefreshEllesmereRaidFramesOnly()
     end
     if IsTankDPSProfile(profileName, role) then ScheduleInstallExtraFramesPosition(profileName, role) end
+    if IsOakDragonRidingAnchoringEnabled() then
+        ScheduleOakDragonRidingLiveAnchor(0)
+        ScheduleOakDragonRidingLiveAnchor(0.25)
+        ScheduleOakDragonRidingLiveAnchor(1)
+    end
     return changed or extraChanged
 end
 
@@ -1358,3 +1510,22 @@ function addonTable.TransformOakLayoutOffset(x, y)
     if not factors or not factors.active then return x, y end
     return (tonumber(x) or 0) * factors.x, (tonumber(y) or 0) * factors.y
 end
+
+local OakDragonRidingAnchorEvents = CreateFrame("Frame")
+OakDragonRidingAnchorEvents:RegisterEvent("ADDON_LOADED")
+OakDragonRidingAnchorEvents:RegisterEvent("PLAYER_LOGIN")
+OakDragonRidingAnchorEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
+OakDragonRidingAnchorEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+OakDragonRidingAnchorEvents:SetScript("OnEvent", function(_, event, loadedAddon)
+    if event == "ADDON_LOADED" and type(loadedAddon) == "string"
+        and not loadedAddon:match("^EllesmereUI") then
+        return
+    end
+
+    EnsureOakDragonRidingHooks()
+    if IsOakDragonRidingAnchoringEnabled() then
+        ScheduleOakDragonRidingLiveAnchor(0)
+        ScheduleOakDragonRidingLiveAnchor(0.25)
+        ScheduleOakDragonRidingLiveAnchor(1)
+    end
+end)

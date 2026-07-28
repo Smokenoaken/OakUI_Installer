@@ -68,6 +68,8 @@ local function GetLSM()
     return _G.LibStub and _G.LibStub("LibSharedMedia-3.0", true)
 end
 
+-- Keep OakUI's bundled fonts available through EUI's resolver. This is separate
+-- from EUI's handling of late-loading external SharedMedia font addons.
 local function RegisterOakFontsWithEllesmere()
     local E = _G.EllesmereUI
     if type(E) ~= "table" then return end
