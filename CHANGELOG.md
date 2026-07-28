@@ -1,3 +1,14 @@
+## v2.6.23-EllesmereEdition
+
+- Added optional wMarker profile support, including reliable profile switching for alts.
+- Added configurable wMarker mouseover fading with gradual transitions, shared bar hover behavior, and Control Button detection.
+- Added an OakUI slider to adjust EUI's Chat Line Fade delay.
+- Fixed Chat Line Fade reapplication for the Loot chat window.
+- Restored Dragon Riding anchoring to the EUI Class Resource bar.
+- Added Dragon Riding and DBM anchoring opt-out toggles for user customization.
+- Removed obsolete Platynator and XIV Databar integrations now handled by EUI.
+- Cleaned unused optional-profile code and improved profile activation handling and profile syncing between Blizzi and EUI.
+
 ## v2.6.22-EllesmereEdition
 
 - Added CJK-capable OakFont for Chinese
