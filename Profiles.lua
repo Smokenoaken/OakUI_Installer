@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.23-EllesmereEdition"
+P.VERSION = "2.6.24-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -153,6 +153,15 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.24-EllesmereEdition",
+        date = "July 28, 2026",
+        notes = {
+            "Updated OakUI Tank/DPS and Healer EllesmereUI profile strings.",
+            "Hardened Chat Line Fade so EllesmereUI's full-window idle fade cannot override OakUI's per-line fading, with profile-specific EUI setting preservation and the fix limited to the Chat Line Fade option.",
+            "Fixed rounded-border opt-out fallback for EllesmereUI nameplates and imported or switched profiles.",
+        }
+    },
     {
         version = "v2.6.23-EllesmereEdition",
         date = "July 28, 2026",

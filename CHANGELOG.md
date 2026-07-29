@@ -1,3 +1,9 @@
+## v2.6.24-EllesmereEdition
+
+- Updated OakUI Tank/DPS and Healer EllesmereUI profile strings.
+- Hardened Chat Line Fade so EllesmereUI's full-window idle fade cannot override OakUI's per-line fading, with profile-specific EUI setting preservation and the fix limited to the Chat Line Fade option.
+- Fixed rounded-border opt-out fallback for EllesmereUI nameplates and imported or switched profiles.
+
 ## v2.6.23-EllesmereEdition
 
 - Added optional wMarker profile support, including reliable profile switching for alts.
