@@ -200,6 +200,10 @@ local function SyncFromEllesmere(profileName)
     if syncingProfiles then return end
     if GetEllesmereActiveProfile() ~= profileName then return end
 
+    if addonTable.ApplyOakRoundedBorderPreferenceToProfile then
+        pcall(addonTable.ApplyOakRoundedBorderPreferenceToProfile, profileName)
+    end
+
     -- Follow the profile the user actually selected in EUI. OakUI-created
     -- Blizzi profiles use the same name, including custom names entered in
     -- the installer, so a role lookup would unnecessarily block sync for
@@ -223,6 +227,9 @@ local function TryHookEllesmere()
 
     local ok = pcall(hooksecurefunc, EUI, "SwitchProfile", function(profileName)
         SyncFromEllesmere(profileName)
+        if addonTable.QueueEllesmereChatLineFadeRefresh then
+            addonTable.QueueEllesmereChatLineFadeRefresh()
+        end
     end)
     ellesmereHooked = ok == true
 end

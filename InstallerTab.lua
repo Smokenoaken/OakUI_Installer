@@ -931,6 +931,13 @@ function addonTable.BuildInstallerUI(parentFrame)
             addonTable.SetOakLayoutPreset(state.layoutKey)
         end
 
+        -- Set the rounded-border preference before importing profile strings.
+        -- The import hooks then normalize every imported profile using the
+        -- same preference, including opt-out fallback borders.
+        if addonTable.ApplyOakInstallerRoundedBorders then
+            addonTable.ApplyOakInstallerRoundedBorders(state.rounded)
+        end
+
         local importedDPS, importedHeals
         local chatLayoutApplied = false
         if state.mode == "fresh" then

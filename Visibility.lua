@@ -478,9 +478,10 @@ local function IsOakRoundThinBorderValue(value)
     return value == mediaName or value == ("sm:" .. mediaName) or value == mediaPath
 end
 
-local function RestoreBorderFieldsOrFallback(backup, settings, fields, fallbackFunc)
+local function RestoreBorderFieldsOrFallback(backup, settings, fields, fallbackFunc, fallbackField)
     RestoreBorderFields(backup, settings, fields)
-    if fallbackFunc and type(settings) == "table" and IsOakRoundThinBorderValue(settings.borderTexture) then
+    local borderValue = type(settings) == "table" and settings[fallbackField or "borderTexture"]
+    if fallbackFunc and type(settings) == "table" and IsOakRoundThinBorderValue(borderValue) then
         fallbackFunc(settings)
     end
 end
@@ -776,13 +777,14 @@ end
 
 function addonTable.ApplyOakRoundThinBordersIfEnabled(profileName)
     local db = EnsureVisibilityDB()
-    if db.roundThinBorders ~= true then return end
+    local enabled = db.roundThinBorders == true
+    if not enabled and not profileName then return end
     local activeProfile = GetActiveEllesmereProfileName(profileName)
-    if activeProfile then
+    if enabled and activeProfile then
         db.roundThinBorderBackups = db.roundThinBorderBackups or {}
         db.roundThinBorderBackups[activeProfile] = nil
     end
-    ApplyEllesmereRoundThinBorders(true, profileName)
+    ApplyEllesmereRoundThinBorders(enabled, profileName)
 end
 
 local function IsDamageMeterHeaderFrame(frame)
@@ -1024,13 +1026,14 @@ end
 
 function addonTable.ApplyOakRoundThinDamageMetersIfEnabled(profileName)
     local db = EnsureVisibilityDB()
-    if db.roundThinDamageMeters ~= true then return end
+    local enabled = db.roundThinDamageMeters == true
+    if not enabled and not profileName then return end
     local activeProfile = GetActiveEllesmereProfileName(profileName)
-    if activeProfile then
+    if enabled and activeProfile then
         db.roundThinDamageMeterBackups = db.roundThinDamageMeterBackups or {}
         db.roundThinDamageMeterBackups[activeProfile] = nil
     end
-    ApplyDamageMeterRoundThinBorders(true, profileName)
+    ApplyDamageMeterRoundThinBorders(enabled, profileName)
 end
 
 local function RefreshEllesmereTrackingBars()
@@ -1127,11 +1130,14 @@ end
 
 function addonTable.ApplyOakRoundThinTrackingBarsIfEnabled(profileName)
     local db = EnsureVisibilityDB()
-    if db.roundThinTrackingBars ~= true then return end
+    local enabled = db.roundThinTrackingBars == true
+    if not enabled and not profileName then return end
     local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
-    db.roundThinTrackingBarBackups = db.roundThinTrackingBarBackups or {}
-    db.roundThinTrackingBarBackups[activeProfile] = nil
-    ApplyTrackingBarRoundThinBorders(true, profileName)
+    if enabled then
+        db.roundThinTrackingBarBackups = db.roundThinTrackingBarBackups or {}
+        db.roundThinTrackingBarBackups[activeProfile] = nil
+    end
+    ApplyTrackingBarRoundThinBorders(enabled, profileName)
 end
 
 local function HideFramePPBorders(frame)
@@ -1321,13 +1327,14 @@ end
 
 function addonTable.ApplyOakRoundThinCastBarsIfEnabled(profileName)
     local db = EnsureVisibilityDB()
-    if db.roundThinCastBars ~= true then return end
+    local enabled = db.roundThinCastBars == true
+    if not enabled and not profileName then return end
     local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
-    if activeProfile then
+    if enabled and activeProfile then
         db.roundThinCastBarBackups = db.roundThinCastBarBackups or {}
         db.roundThinCastBarBackups[activeProfile] = nil
     end
-    ApplyCastBarRoundThinBorders(true, profileName)
+    ApplyCastBarRoundThinBorders(enabled, profileName)
 end
 
 local function ApplyNameplateCastbarRoundThinToPlate(plate, state)
@@ -1522,7 +1529,7 @@ local function ApplyNameplateRoundThinBorders(state, profileName, skipRefresh)
             end
             ApplyNameplateRoundThin(nameplates, borderKey)
         else
-            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.profile, nameplates, OAK_NAMEPLATE_BORDER_FIELDS, FallbackNameplateBorder)
+            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.profile, nameplates, OAK_NAMEPLATE_BORDER_FIELDS, FallbackNameplateBorder, "customBorderTexture")
         end
     end
 
@@ -1536,7 +1543,7 @@ local function ApplyNameplateRoundThinBorders(state, profileName, skipRefresh)
             end
             ApplyNameplateRoundThin(liveSettings, borderKey)
         else
-            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.live, liveSettings, OAK_NAMEPLATE_BORDER_FIELDS, FallbackNameplateBorder)
+            RestoreBorderFieldsOrFallback(profileBackup and profileBackup.live, liveSettings, OAK_NAMEPLATE_BORDER_FIELDS, FallbackNameplateBorder, "customBorderTexture")
         end
     end
 
@@ -1559,13 +1566,14 @@ end
 
 function addonTable.ApplyOakRoundThinNameplatesIfEnabled(profileName)
     local db = EnsureVisibilityDB()
-    if db.roundThinNameplates ~= true then return end
+    local enabled = db.roundThinNameplates == true
+    if not enabled and not profileName then return end
     local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
-    if activeProfile then
+    if enabled and activeProfile then
         db.roundThinNameplateBackups = db.roundThinNameplateBackups or {}
         db.roundThinNameplateBackups[activeProfile] = nil
     end
-    ApplyNameplateRoundThinBorders(true, profileName)
+    ApplyNameplateRoundThinBorders(enabled, profileName)
 end
 
 local function ApplyBossFrameRoundThinBorders(state, profileName, skipRefresh)
@@ -1635,13 +1643,36 @@ end
 
 function addonTable.ApplyOakRoundThinBossFramesIfEnabled(profileName)
     local db = EnsureVisibilityDB()
-    if db.roundThinBossFrames ~= true then return end
+    local enabled = db.roundThinBossFrames == true
+    if not enabled and not profileName then return end
     local activeProfile = GetActiveEllesmereProfileName(profileName)
-    if activeProfile then
+    if enabled and activeProfile then
         db.roundThinBossFrameBackups = db.roundThinBossFrameBackups or {}
         db.roundThinBossFrameBackups[activeProfile] = nil
     end
-    ApplyBossFrameRoundThinBorders(true, profileName)
+    ApplyBossFrameRoundThinBorders(enabled, profileName)
+end
+
+function addonTable.ApplyOakRoundedBorderPreferenceToProfile(profileName)
+    if not profileName or profileName == "" then return end
+    if addonTable.ApplyOakRoundThinBordersIfEnabled then
+        addonTable.ApplyOakRoundThinBordersIfEnabled(profileName)
+    end
+    if addonTable.ApplyOakRoundThinDamageMetersIfEnabled then
+        addonTable.ApplyOakRoundThinDamageMetersIfEnabled(profileName)
+    end
+    if addonTable.ApplyOakRoundThinTrackingBarsIfEnabled then
+        addonTable.ApplyOakRoundThinTrackingBarsIfEnabled(profileName)
+    end
+    if addonTable.ApplyOakRoundThinCastBarsIfEnabled then
+        addonTable.ApplyOakRoundThinCastBarsIfEnabled(profileName)
+    end
+    if addonTable.ApplyOakRoundThinNameplatesIfEnabled then
+        addonTable.ApplyOakRoundThinNameplatesIfEnabled(profileName)
+    end
+    if addonTable.ApplyOakRoundThinBossFramesIfEnabled then
+        addonTable.ApplyOakRoundThinBossFramesIfEnabled(profileName)
+    end
 end
 
 local function HideDBMSquareBorder(frame)
@@ -2615,11 +2646,11 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddOption("Hide Cooldown Manager", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -98, colWidth, true)
         AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -98 + rowGap, colWidth)
         AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade.", rightX, -98 + rowGap, colWidth)
-        AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -98 + rowGap * 2, colWidth)
+        AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -98 + rowGap * 2, colWidth, true)
         AddSlider("Chat Line Fade Delay", addonTable.SetOakChatLineFadeDelay, addonTable.GetOakChatLineFadeDelay, "Controls how long each chat line stays visible before it begins fading. This adjusts EUI's active chat profile delay.", rightX, -158, colWidth, 1, 120, 1, "s")
         AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", leftX, -198, colWidth)
         AddOption("Hide Error Messages", SetErrorMessagesHidden, GetErrorMessagesHidden, "Suppresses most red UI error text from UIErrorsFrame, useful for GSE macro spam. Important errors like full bags, full quest log, dead player/pet, and LFG boot/teleport messages still show.", rightX, -198, colWidth, true)
-        AddOption("Disable Chat Fade", SetEllesmereDisableChatFade, GetEllesmereDisableChatFade, "Turns off OakUI chat line fade and sets Ellesmere's Idle Fade Strength to 0 so chat stays visible.", leftX, -228, colWidth)
+        AddOption("Disable Chat Fade", SetEllesmereDisableChatFade, GetEllesmereDisableChatFade, "Turns off OakUI chat line fade and sets Ellesmere's Idle Fade Strength to 0 so chat stays visible.", leftX, -228, colWidth, true)
 
         AddSection("Tweaks", leftX, -260)
         AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -280, colWidth)

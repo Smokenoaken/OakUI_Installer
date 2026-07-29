@@ -26,6 +26,11 @@ local function GetEllesmereChatConfig()
     return chat and chat.chat
 end
 
+local function GetEllesmereChatProfileKey()
+    local profileDB = _G.EllesmereUIDB
+    return type(profileDB) == "table" and profileDB.activeProfile or "__default"
+end
+
 local function UnitIsInjured(unit)
     if not UnitExists(unit) then return false end
     local ok, injured = pcall(function()
@@ -369,6 +374,58 @@ local function ApplyEllesmereIdleFadePreference()
     local cfg = GetEllesmereChatConfig()
     if type(cfg) ~= "table" then return false end
 
+    if ChatLineFadeEnabled() then
+        -- A user can switch directly from Disable Chat Fade to Chat Line
+        -- Fade. Restore that older suppression before saving the line-fade
+        -- baseline, otherwise the two saved states would overlap.
+        if db.chatFadeDisabledApplied then
+            if cfg.idleFadeStrength == 0 then
+                cfg.idleFadeStrength = db.chatIdleFadeStrengthBeforeDisable or 100
+            end
+            db.chatIdleFadeStrengthBeforeDisable = nil
+            db.chatFadeDisabledApplied = nil
+        end
+        db.chatLineFadeSuppressionProfiles = db.chatLineFadeSuppressionProfiles or {}
+        local profileKey = GetEllesmereChatProfileKey()
+        if type(db.chatLineFadeSuppressionProfiles[profileKey]) ~= "table" then
+            local enabledBefore = cfg.idleFadeEnabled
+            local strengthBefore = cfg.idleFadeStrength
+
+            -- Migrate the pre-profile-specific baseline once, if one exists.
+            if db.chatLineFadeSuppressionApplied then
+                enabledBefore = db.chatLineFadeIdleFadeEnabledBefore
+                strengthBefore = db.chatLineFadeIdleFadeStrengthBefore
+                db.chatLineFadeSuppressionApplied = nil
+                db.chatLineFadeIdleFadeEnabledBefore = nil
+                db.chatLineFadeIdleFadeStrengthBefore = nil
+            end
+
+            db.chatLineFadeSuppressionProfiles[profileKey] = {
+                idleFadeEnabled = enabledBefore,
+                idleFadeStrength = strengthBefore,
+            }
+        end
+        -- Blizzard owns the per-line fade. Disable EUI's independent
+        -- full-window timer so the two fade controllers cannot fight.
+        cfg.idleFadeEnabled = false
+        cfg.idleFadeStrength = 0
+        return true
+    end
+
+    local lineFadeRestored = false
+    local suppressionProfiles = db.chatLineFadeSuppressionProfiles
+    local profileKey = GetEllesmereChatProfileKey()
+    local baseline = type(suppressionProfiles) == "table" and suppressionProfiles[profileKey]
+    if type(baseline) == "table" then
+        cfg.idleFadeEnabled = baseline.idleFadeEnabled
+        cfg.idleFadeStrength = baseline.idleFadeStrength
+        suppressionProfiles[profileKey] = nil
+        lineFadeRestored = true
+        if next(suppressionProfiles) == nil then
+            db.chatLineFadeSuppressionProfiles = nil
+        end
+    end
+
     if ChatFadeDisabled() then
         if not db.chatFadeDisabledApplied and cfg.idleFadeStrength ~= 0 then
             db.chatIdleFadeStrengthBeforeDisable = cfg.idleFadeStrength
@@ -386,7 +443,7 @@ local function ApplyEllesmereIdleFadePreference()
         return true
     end
 
-    return false
+    return lineFadeRestored
 end
 
 local function ApplyChatLineFade()
@@ -399,6 +456,12 @@ local function ApplyChatLineFade()
     local enabled = ChatLineFadeEnabled()
     local fadeDisabled = ChatFadeDisabled()
 
+    -- Run EUI's original reset once while idle fading is disabled. This
+    -- cancels any already-running EUI idle timer and clears its active state.
+    if ECHAT and originalResetIdleTimer and enabled and idleFadeChanged then
+        pcall(originalResetIdleTimer)
+    end
+
     for i = 1, NUM_CHAT_WINDOWS or 20 do
         ApplyChatLineFadeToFrame(_G["ChatFrame" .. i])
     end
@@ -406,6 +469,14 @@ local function ApplyChatLineFade()
     if ECHAT and originalResetIdleTimer then
         if enabled then
             ECHAT.ResetIdleTimer = function()
+                local cfg = GetEllesmereChatConfig()
+                if type(cfg) == "table" and (cfg.idleFadeEnabled ~= false or cfg.idleFadeStrength ~= 0) then
+                    cfg.idleFadeEnabled = false
+                    cfg.idleFadeStrength = 0
+                    -- EUI may have enabled its timer from an options refresh;
+                    -- cancel that timer before keeping the chat fully opaque.
+                    pcall(originalResetIdleTimer)
+                end
                 if ECHAT.SetIdleFadeAlpha then
                     ECHAT.SetIdleFadeAlpha(1)
                 end
@@ -628,6 +699,25 @@ local function ScheduleRefresh(key, delay, func, minInterval)
     end)
 end
 
+local function ScheduleChatLineFadeRefresh()
+    local db = EnsureVisibilityDB()
+    if not IsEllesmereProvider()
+        or (not ChatLineFadeEnabled() and not ChatFadeDisabled() and not db.chatFadeDisabledApplied and not chatFadeApplied)
+    then
+        return
+    end
+
+    -- EUI can finish a chat skin pass after UPDATE_CHAT_WINDOWS, especially
+    -- when it creates or rebuilds the Loot window. Reapply only in response
+    -- to those lifecycle events; do not poll chat frames every frame.
+    ScheduleRefresh("chat", 0.1, addonTable.RefreshEllesmereChatLineFade, 0.1)
+    ScheduleRefresh("chatLate", 0.3, addonTable.RefreshEllesmereChatLineFade, 0.1)
+end
+
+function addonTable.QueueEllesmereChatLineFadeRefresh()
+    ScheduleChatLineFadeRefresh()
+end
+
 local function ScheduleLayoutRefresh()
     ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     ScheduleRefresh("visibilityInit", 0.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
@@ -664,13 +754,13 @@ frame:SetScript("OnEvent", function(_, event, unit)
 
     if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
         ScheduleLayoutRefresh()
-        ScheduleRefresh("chat", 0.1, addonTable.RefreshEllesmereChatLineFade, 1)
+        ScheduleChatLineFadeRefresh()
     elseif event == "UPDATE_CHAT_WINDOWS" or event == "UPDATE_FLOATING_CHAT_WINDOWS" then
         -- EUI turns fading off when it skins a newly created chat frame. The
         -- OakUI Loot window is created after the initial chat pass, so apply
         -- the selected per-line fade settings again after Blizzard/EUI finish
         -- rebuilding the chat windows.
-        ScheduleRefresh("chat", 0.1, addonTable.RefreshEllesmereChatLineFade, 0.1)
+        ScheduleChatLineFadeRefresh()
     elseif event == "PLAYER_TARGET_CHANGED" or event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" then
         if event == "UNIT_HEALTH" and unit == "player" then
             SetPlayerHealthChanging()
