@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.24-EllesmereEdition"
+P.VERSION = "2.6.25-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -153,6 +153,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.25-EllesmereEdition",
+        date = "July 29, 2026",
+        notes = {
+            "Added OakUI-only Mythic+ enemy forces percentages to Ellesmere nameplates, enabled by default for new installs.",
+            "Added Oak font size, X/Y placement controls, and a live test display for the nameplate forces text.",
+        }
+    },
     {
         version = "v2.6.24-EllesmereEdition",
         date = "July 28, 2026",

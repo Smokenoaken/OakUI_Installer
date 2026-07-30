@@ -1,3 +1,8 @@
+## v2.6.25-EllesmereEdition
+
+- Added OakUI-only Mythic+ enemy forces percentages to Ellesmere nameplates, enabled by default for new installs.
+- Added Oak font size, X/Y placement controls, and a live test display for the nameplate forces text.
+
 ## v2.6.24-EllesmereEdition
 
 - Updated OakUI Tank/DPS and Healer EllesmereUI profile strings.
