@@ -22,6 +22,7 @@ Widgets.lua
 InstallerTab.lua
 Visibility.lua
 EllesmereTweaks.lua
+OakEllesmereMythicForces.lua
 EllesmereSelectiveTab.lua
 RawImports.lua
 FontsTab.lua

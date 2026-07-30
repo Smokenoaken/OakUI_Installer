@@ -2656,6 +2656,10 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -280, colWidth)
         AddOption("OakUI DBM Anchoring", addonTable.SetOakDBMHugeBarAnchoringEnabled, addonTable.GetOakDBMHugeBarAnchoringEnabled, "Keeps OakUI's DBM Large bars positioned above the target frame. Turn this off to customize DBM's own bar position without OakUI reapplying it.", rightX, -280, colWidth, true)
         AddOption("OakUI Dragon Riding Anchoring", addonTable.SetOakDragonRidingAnchoringEnabled, addonTable.GetOakDragonRidingAnchoringEnabled, "Keeps Dragon Riding attached to the Class Resource bar even if EUI misses the saved anchor. Turn this off to customize Dragon Riding's position through EUI.", leftX, -310, colWidth, true)
+        local mplusForcesCheckbox = AddOption("M+ Enemy Forces", addonTable.SetOakEllesmereMythicForcesEnabled, addonTable.GetOakEllesmereMythicForcesEnabled, "OakUI-only: shows each enemy's Mythic+ forces percentage in OakUI's nameplate font to the right of the enemy cast bar. The default text size is 15; use the resize icon for Size and X/Y offset controls. It is active only inside an active Mythic+ key.", leftX, -340, colWidth, true)
+        if addonTable.BuildOakEllesmereMythicForcesCog then
+            addonTable.BuildOakEllesmereMythicForcesCog(parentFrame, mplusForcesCheckbox)
+        end
         if IsWMarkerAvailable() then
             AddOption("wMarker Mouseover Fade", SetWMarkerMouseoverFade, GetWMarkerMouseoverFade, "Fades wMarker when the mouse is away and restores its normal alpha when you move over it.", rightX, -310, colWidth, true)
             AddSlider("wMarker Faded Opacity", SetWMarkerFadedAlpha, GetWMarkerFadedAlpha, "Controls how visible wMarker remains while the mouse is away. 0% is invisible; 100% disables the visual fade.", rightX, -338, colWidth)
@@ -2762,6 +2766,9 @@ CleanupFrame:SetScript("OnEvent", function(self)
         end
         if addonTable.ApplyOakRoundThinNameplatesIfEnabled then
             pcall(addonTable.ApplyOakRoundThinNameplatesIfEnabled)
+        end
+        if addonTable.ApplyOakEllesmereMythicForcesIfEnabled then
+            pcall(addonTable.ApplyOakEllesmereMythicForcesIfEnabled)
         end
         if addonTable.ApplyOakRoundThinBossFramesIfEnabled then
             pcall(addonTable.ApplyOakRoundThinBossFramesIfEnabled)
