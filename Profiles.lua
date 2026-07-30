@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.25-EllesmereEdition"
+P.VERSION = "2.6.26-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -153,6 +153,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.26-EllesmereEdition",
+        date = "July 29, 2026",
+        notes = {
+            "Updated the Tank/DPS and Healer profiles with a 1px-thicker important-cast highlight.",
+        }
+    },
     {
         version = "v2.6.25-EllesmereEdition",
         date = "July 29, 2026",

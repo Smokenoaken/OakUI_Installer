@@ -1,3 +1,7 @@
+## v2.6.26-EllesmereEdition
+
+- Updated the Tank/DPS and Healer profiles with a 1px-thicker important-cast highlight.
+
 ## v2.6.25-EllesmereEdition
 
 - Added OakUI-only Mythic+ enemy forces percentages to Ellesmere nameplates, enabled by default for new installs.
