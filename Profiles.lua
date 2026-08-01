@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.26-EllesmereEdition"
+P.VERSION = "2.6.27-EllesmereEdition"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -154,6 +154,17 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.27-EllesmereEdition",
+        date = "July 31, 2026",
+        notes = {
+            "Streamlined installer integrations and removed obsolete ElvUI and unused addon code.",
+            "Removed the redundant ActionBarFader because EllesmereUI handles action-bar fading.",
+            "Moved global font application into EllesmereUI while preserving OakUI font registration and expanded language and glyph support.",
+            "Optimized chat cleanup, visibility updates, rounded-border rendering, and event handling to reduce background work.",
+            "Added dwayne baldock and MadCow to the Patreon supporters list.",
+        }
+    },
     {
         version = "v2.6.26-EllesmereEdition",
         date = "July 29, 2026",
