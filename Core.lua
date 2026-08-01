@@ -118,8 +118,6 @@ DB_Frame:SetScript("OnEvent", function(self, event, addon)
         if not OakUI_DB.minimap then OakUI_DB.minimap = { hide = false, angle = -45 } end
         if OakUI_DB.minimap.hide == nil then OakUI_DB.minimap.hide = false end
         if not OakUI_DB.minimap.angle then OakUI_DB.minimap.angle = -45 end
-        if not OakUI_DB.actionBars then OakUI_DB.actionBars = { hide = false } end
-        if OakUI_DB.actionBars.hide == nil then OakUI_DB.actionBars.hide = false end
         if not OakUI_DB.chatFilters then
             OakUI_DB.chatFilters = {
                 achievements = true, auctions = true, channels = true, experience = true,
@@ -132,8 +130,6 @@ DB_Frame:SetScript("OnEvent", function(self, event, addon)
         elseif addonTable.RegisterOakFonts then
             addonTable.RegisterOakFonts()
         end
-        if addonTable.EnsureFontDB then addonTable.EnsureFontDB() end
-        if addonTable.BypassElvUIInstaller then addonTable.BypassElvUIInstaller() end
         ClaimEllesmereFirstInstallForOakUI()
         self:UnregisterEvent("ADDON_LOADED")
     end
@@ -598,7 +594,6 @@ local ChatView = CreateFrame("Frame", nil, RightPane); ChatView:SetAllPoints(); 
 local VisibilityView = CreateFrame("Frame", nil, RightPane); VisibilityView:SetAllPoints(); VisibilityView:Hide()
 local EllesmereSelectiveView = CreateFrame("Frame", nil, RightPane); EllesmereSelectiveView:SetAllPoints(); EllesmereSelectiveView:Hide()
 local RawImportsView = CreateFrame("Frame", nil, RightPane); RawImportsView:SetAllPoints(); RawImportsView:Hide()
-local FontsView = CreateFrame("Frame", nil, RightPane); FontsView:SetAllPoints(); FontsView:Hide()
 local ChangelogView = CreateFrame("Frame", nil, RightPane); ChangelogView:SetAllPoints(); ChangelogView:Hide()
 local SupportersView = CreateFrame("Frame", nil, RightPane); SupportersView:SetAllPoints(); SupportersView:Hide()
 
@@ -728,7 +723,7 @@ local function CreateNavButton(parent, text, yOffset, viewFrame)
     btn:SetScript("OnEnter", function(self) if not self.selected then bg:SetColorTexture(1, 1, 1, 0.05) end end)
     btn:SetScript("OnLeave", function(self) if not self.selected then bg:SetColorTexture(0, 0, 0, 0) end end)
     -- Hide all frames
-    btn:SetScript("OnClick", function(self) UpdateMenuHighlight(self); HomeView:Hide(); InstallerView:Hide(); ChatView:Hide(); VisibilityView:Hide(); EllesmereSelectiveView:Hide(); RawImportsView:Hide(); FontsView:Hide(); ChangelogView:Hide(); SupportersView:Hide(); viewFrame:Show() end)
+    btn:SetScript("OnClick", function(self) UpdateMenuHighlight(self); HomeView:Hide(); InstallerView:Hide(); ChatView:Hide(); VisibilityView:Hide(); EllesmereSelectiveView:Hide(); RawImportsView:Hide(); ChangelogView:Hide(); SupportersView:Hide(); viewFrame:Show() end)
     table.insert(navButtons, btn); return btn
 end
 
@@ -739,15 +734,13 @@ local ChatNavBtn = CreateNavButton(LeftPane, "Chat Cleaning", -80, ChatView)
 local VisNavBtn = CreateNavButton(LeftPane, "Visibility/Tweaks", -110, VisibilityView)
 local EllesmereSelectiveNavBtn = CreateNavButton(LeftPane, "Selective Import", -140, EllesmereSelectiveView)
 local RawImportsNavBtn = CreateNavButton(LeftPane, "Raw Imports", -170, RawImportsView)
-local FontsNavBtn = CreateNavButton(LeftPane, "Custom Fonts", -200, FontsView)
-local ChangelogNavBtn = CreateNavButton(LeftPane, "Changelog", -230, ChangelogView)
-local SuppNavBtn = CreateNavButton(LeftPane, "Supporters", -260, SupportersView)
+local ChangelogNavBtn = CreateNavButton(LeftPane, "Changelog", -200, ChangelogView)
+local SuppNavBtn = CreateNavButton(LeftPane, "Supporters", -230, SupportersView)
 
-local visibilityBuilt, ellesmereSelectiveBuilt, rawImportsBuilt, fontsBuilt, changelogBuilt = false, false, false, false, false
+local visibilityBuilt, ellesmereSelectiveBuilt, rawImportsBuilt, changelogBuilt = false, false, false, false
 VisNavBtn:HookScript("OnClick", function() if not visibilityBuilt and addonTable.BuildVisibilityUI then addonTable.BuildVisibilityUI(VisibilityView); visibilityBuilt = true end end)
 EllesmereSelectiveNavBtn:HookScript("OnClick", function() if not ellesmereSelectiveBuilt and addonTable.BuildEllesmereSelectiveUI then addonTable.BuildEllesmereSelectiveUI(EllesmereSelectiveView); ellesmereSelectiveBuilt = true end end)
 RawImportsNavBtn:HookScript("OnClick", function() if not rawImportsBuilt and addonTable.BuildRawImportsUI then addonTable.BuildRawImportsUI(RawImportsView); rawImportsBuilt = true end end)
-FontsNavBtn:HookScript("OnClick", function() if not fontsBuilt and addonTable.BuildFontsUI then addonTable.BuildFontsUI(FontsView); fontsBuilt = true end end)
 ChangelogNavBtn:HookScript("OnClick", function() if not changelogBuilt and addonTable.BuildChangelogUI then addonTable.BuildChangelogUI(ChangelogView); changelogBuilt = true end end)
 
 local MinimapButton
@@ -1060,16 +1053,9 @@ DB_Frame:HookScript("OnEvent", function(self, event)
     ConsumeOakChatGeometryAfterReload()
     ConsumeEllesmereCDMRepopulateAfterReload()
     if HideMinimapCheck and HideMinimapCheck.UpdateState then HideMinimapCheck:UpdateState() end
-    if addonTable.BypassElvUIInstaller then
-        addonTable.BypassElvUIInstaller()
-        C_Timer.After(0.2, addonTable.BypassElvUIInstaller)
-        C_Timer.After(1.2, addonTable.BypassElvUIInstaller)
-    end
-
     local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
     if not state or state.seen ~= true then
         C_Timer.After(1, function()
-            if addonTable.BypassElvUIInstaller then addonTable.BypassElvUIInstaller() end
             if addonTable.OpenInstaller then
                 addonTable.OpenInstaller("home")
                 addonTable.MarkInstallerSeen()

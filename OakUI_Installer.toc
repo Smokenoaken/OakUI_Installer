@@ -6,10 +6,10 @@
 ## Version: 2.6.26-EllesmereEdition
 ## X-Wago-ID: QNlzj8Ke
 ## DefaultState: enabled
-## OptionalDeps: EllesmereUI, EllesmereUIActionBars, EllesmereUIAuraBuffReminders, EllesmereUIBags, EllesmereUIBasics, EllesmereUIBlizzardSkin, EllesmereUIChat, EllesmereUICooldownManager, EllesmereUIDataBars, EllesmereUIDamageMeters, EllesmereUIFriends, EllesmereUIMinimap, EllesmereUIMythicTimer, EllesmereUINameplates, EllesmereUIQoL, EllesmereUIQuestTracker, EllesmereUIRaidFrames, EllesmereUIResourceBars, EllesmereUIUnitFrames, ElvUI, ElvUI_Libraries, SharedMedia, DBM-Core, DBM-GUI, DBM-StatusBarTimers, BigWigs, BliZzi_Interrupts, wMarker
+## OptionalDeps: EllesmereUI, EllesmereUIActionBars, EllesmereUIAuraBuffReminders, EllesmereUIBags, EllesmereUIBlizzardSkin, EllesmereUIChat, EllesmereUICooldownManager, EllesmereUIDataBars, EllesmereUIDamageMeters, EllesmereUIFriends, EllesmereUIMinimap, EllesmereUIMythicTimer, EllesmereUINameplates, EllesmereUIQoL, EllesmereUIQuestTracker, EllesmereUIRaidFrames, EllesmereUIResourceBars, EllesmereUIUnitFrames, SharedMedia, DBM-Core, BigWigs, BliZzi_Interrupts, wMarker
 ## SavedVariables: OakUI_DB
 Profiles.lua
-ExternalProfiles.lua
+OakRoundThinBorder.lua
 FontEngine.lua
 LayoutTransform.lua
 EllesmereSelectiveImport.lua
@@ -17,7 +17,6 @@ InstallLogic.lua
 ProfileSync.lua
 ChatLayout.lua
 ChatFilters.lua
-ActionBarFader.lua
 Widgets.lua
 InstallerTab.lua
 Visibility.lua
@@ -25,6 +24,5 @@ EllesmereTweaks.lua
 OakEllesmereMythicForces.lua
 EllesmereSelectiveTab.lua
 RawImports.lua
-FontsTab.lua
 ChangelogTab.lua
 Core.lua

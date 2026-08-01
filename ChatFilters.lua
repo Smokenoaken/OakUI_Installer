@@ -26,6 +26,38 @@ local P = setmetatable({}, { __index = function(t,k)
 end})
 
 local pfx = "|cff888888+|r "
+local GOLD_ICON = "|TInterface\\AddOns\\OakUI_Installer\\Media\\coins.tga:16:16:-2:0:64:64:0:32:0:32|t"
+local SILVER_ICON = "|TInterface\\AddOns\\OakUI_Installer\\Media\\coins.tga:16:16:-2:0:64:64:32:64:0:32|t"
+local COPPER_ICON = "|TInterface\\AddOns\\OakUI_Installer\\Media\\coins.tga:16:16:-2:0:64:64:0:32:32:64|t"
+local channelReplacements
+
+local function GetChannelReplacements()
+    if channelReplacements then return channelReplacements end
+
+    local formats = {
+        { CHAT_PARTY_LEADER_GET, "PL" },
+        { CHAT_PARTY_GET, "P" },
+        { CHAT_RAID_LEADER_GET, "RL" },
+        { CHAT_RAID_GET, "R" },
+        { CHAT_INSTANCE_CHAT_LEADER_GET, "IL" },
+        { CHAT_INSTANCE_CHAT_GET, "I" },
+        { CHAT_GUILD_GET, "G" },
+        { CHAT_OFFICER_GET, "O" },
+        { CHAT_RAID_WARNING_GET, "|cffff0000!|r" },
+    }
+    channelReplacements = {}
+    for _, entry in ipairs(formats) do
+        local format, replacement = entry[1], entry[2]
+        local token = type(format) == "string" and string.match(format, "%[(.-)%]")
+        if token then
+            channelReplacements[#channelReplacements + 1] = {
+                "%[" .. token .. "%]",
+                replacement,
+            }
+        end
+    end
+    return channelReplacements
+end
 
 local function IsSecretValue(value)
     if type(issecretvalue) ~= "function" then return false end
@@ -96,14 +128,10 @@ local function FormatMoneyText(msg)
     local c = tonumber(string.match(msg, "(%d+)%s*[Cc]opper")) or tonumber(string.match(msg, P[COPPER_AMOUNT])) or 0
     
     if g > 0 or s > 0 or c > 0 then
-        local gIcon = "|TInterface\\AddOns\\OakUI_Installer\\Media\\coins.tga:16:16:-2:0:64:64:0:32:0:32|t"
-        local sIcon = "|TInterface\\AddOns\\OakUI_Installer\\Media\\coins.tga:16:16:-2:0:64:64:32:64:0:32|t"
-        local cIcon = "|TInterface\\AddOns\\OakUI_Installer\\Media\\coins.tga:16:16:-2:0:64:64:0:32:32:64|t"
-        
         local out = ""
-        if g > 0 then out = out .. g .. gIcon .. " " end
-        if s > 0 then out = out .. s .. sIcon .. " " end
-        if c > 0 then out = out .. c .. cIcon end
+        if g > 0 then out = out .. g .. GOLD_ICON .. " " end
+        if s > 0 then out = out .. s .. SILVER_ICON .. " " end
+        if c > 0 then out = out .. c .. COPPER_ICON end
         
         return out:gsub("%s+$", "")
     end
@@ -114,19 +142,14 @@ end
 -- ENGINE: CHAT FILTERS
 -- ==========================================
 local function FilterChannels(self, event, msg, author, ...)
+    local db = GetDB()
+    if not db.channels and not db.names then return false, msg, author, ... end
     if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
 
-    local db = GetDB()
     if db.channels then
-        msg = string.gsub(msg, "%["..string.match(CHAT_PARTY_LEADER_GET, "%[(.-)%]").."%]", "PL")
-        msg = string.gsub(msg, "%["..string.match(CHAT_PARTY_GET, "%[(.-)%]").."%]", "P")
-        msg = string.gsub(msg, "%["..string.match(CHAT_RAID_LEADER_GET, "%[(.-)%]").."%]", "RL")
-        msg = string.gsub(msg, "%["..string.match(CHAT_RAID_GET, "%[(.-)%]").."%]", "R")
-        msg = string.gsub(msg, "%["..string.match(CHAT_INSTANCE_CHAT_LEADER_GET, "%[(.-)%]").."%]", "IL")
-        msg = string.gsub(msg, "%["..string.match(CHAT_INSTANCE_CHAT_GET, "%[(.-)%]").."%]", "I")
-        msg = string.gsub(msg, "%["..string.match(CHAT_GUILD_GET, "%[(.-)%]").."%]", "G")
-        msg = string.gsub(msg, "%["..string.match(CHAT_OFFICER_GET, "%[(.-)%]").."%]", "O")
-        msg = string.gsub(msg, "%["..string.match(CHAT_RAID_WARNING_GET, "%[(.-)%]").."%]", "|cffff0000!|r")
+        for _, entry in ipairs(GetChannelReplacements()) do
+            msg = string.gsub(msg, entry[1], entry[2])
+        end
         msg = string.gsub(msg, "|Hchannel:(.-):(%d+)|h%[(%d)%. (.-)%]|h", "|Hchannel:%1:%2|h%3.|h")
     end
     if db.names then
@@ -137,9 +160,13 @@ local function FilterChannels(self, event, msg, author, ...)
 end
 
 local function FilterSystem(self, event, msg, author, ...)
+    local db = GetDB()
+    local relevant = event == "CHAT_MSG_ACHIEVEMENT" and db.achievements
+        or event == "CHAT_MSG_COMBAT_XP_GAIN" and db.experience
+        or event == "CHAT_MSG_SYSTEM" and (db.status or db.quests or db.experience or db.money or db.collections)
+    if not relevant then return false, msg, author, ... end
     if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
 
-    local db = GetDB()
     if db.status then
         if msg == MARKED_AFK then return false, "|cff888888You are now AFK.|r", author, ... end
         if msg == CLEARED_AFK then return false, "|cff888888You are no longer AFK.|r", author, ... end
@@ -189,9 +216,8 @@ local function FilterSystem(self, event, msg, author, ...)
 end
 
 local function FilterReputation(self, event, msg, author, ...)
-    if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
-
     if not GetDB().reputation then return false, msg, author, ... end
+    if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
     local isWarband = false
     local faction, val = string.match(msg, P[FACTION_STANDING_INCREASED])
     if not faction then faction, val = string.match(msg, "Warband.-reputation.-with (.-) increased by (%d+)"); if faction then isWarband = true end end
@@ -212,9 +238,8 @@ end
 -- SURGICAL LOOT PARSER
 -- ==========================================
 local function FilterLoot(self, event, msg, author, ...)
-    if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
-
     if not GetDB().loot then return false, msg, author, ... end
+    if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
     
     if event == "CHAT_MSG_CURRENCY" then
         local count = string.match(msg, "x(%d+)")
@@ -243,9 +268,8 @@ local function FilterLoot(self, event, msg, author, ...)
 end
 
 local function FilterMoney(self, event, msg, author, ...)
-    if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
-
     if not GetDB().money then return false, msg, author, ... end
+    if HasSecretChatArg(msg, author, ...) then return false, msg, author, ... end
     local coinText = FormatMoneyText(msg)
     if coinText then return false, pfx .. coinText, author, ... end
     return false, msg, author, ...
@@ -258,6 +282,7 @@ engine:SetScript("OnEvent", function()
     -- Returning modified args from an addon taints Blizzard's HistoryKeeper path.
     ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", FilterSystem)
     ChatFrame_AddMessageEventFilter("CHAT_MSG_COMBAT_XP_GAIN", FilterSystem)
+    ChatFrame_AddMessageEventFilter("CHAT_MSG_ACHIEVEMENT", FilterSystem)
     ChatFrame_AddMessageEventFilter("CHAT_MSG_COMBAT_FACTION_CHANGE", FilterReputation)
     ChatFrame_AddMessageEventFilter("CHAT_MSG_LOOT", FilterLoot)
     ChatFrame_AddMessageEventFilter("CHAT_MSG_CURRENCY", FilterLoot)

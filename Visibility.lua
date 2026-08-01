@@ -58,6 +58,8 @@ end
 local WMARKER_DEFAULT_FADED_ALPHA = 0.15
 local WMARKER_FADE_DURATION = 0.2
 local ApplyWMarkerMouseoverFade
+local WMarkerFadeWatcher
+local wMarkerFadeHooked = setmetatable({}, { __mode = "k" })
 
 local function GetWMarkerProfile()
     local wMarkerAce = _G.wMarkerAce
@@ -117,7 +119,21 @@ local function SetWMarkerFrameAlpha(frame, alpha)
         frame._oakWMarkerFadeStart = nil
         frame._oakWMarkerFadeElapsed = nil
         frame._oakWMarkerFadeDuration = nil
+    elseif WMarkerFadeWatcher then
+        WMarkerFadeWatcher:Show()
     end
+end
+
+local function HookWMarkerMouseoverFrame(frame)
+    if not (frame and frame.HookScript) or wMarkerFadeHooked[frame] then return end
+    wMarkerFadeHooked[frame] = true
+    local function Refresh()
+        if ApplyWMarkerMouseoverFade then ApplyWMarkerMouseoverFade() end
+    end
+    frame:HookScript("OnEnter", Refresh)
+    frame:HookScript("OnLeave", Refresh)
+    frame:HookScript("OnShow", Refresh)
+    frame:HookScript("OnHide", Refresh)
 end
 
 local function UpdateWMarkerFrameFade(frame, elapsed)
@@ -176,6 +192,16 @@ ApplyWMarkerMouseoverFade = function()
 
     local raidFrame = wMarkerAce.raidMain
     local worldFrame = wMarkerAce.worldMain
+    HookWMarkerMouseoverFrame(raidFrame)
+    HookWMarkerMouseoverFrame(worldFrame)
+    HookWMarkerMouseoverFrame(raidFrame and raidFrame.controlFrame)
+    HookWMarkerMouseoverFrame(worldFrame and worldFrame.controlFrame)
+    if raidFrame and type(raidFrame.controlButtons) == "table" then
+        for _, button in pairs(raidFrame.controlButtons) do HookWMarkerMouseoverFrame(button) end
+    end
+    if worldFrame and type(worldFrame.controlButtons) == "table" then
+        for _, button in pairs(worldFrame.controlButtons) do HookWMarkerMouseoverFrame(button) end
+    end
     local raidAlpha = tonumber(profile.raid and profile.raid.alpha) or 1
     local worldAlpha = tonumber(profile.world and profile.world.alpha) or 1
     local enabled = GetWMarkerMouseoverFadeEnabled()
@@ -292,24 +318,25 @@ function addonTable.ApplyOakErrorMessageVisibility()
     SetErrorMessagesHidden(GetErrorMessagesHidden())
 end
 
-local function GetElvUI()
-    if type(_G.ElvUI) ~= "table" then return nil end
-    return _G.ElvUI[1]
-end
-
-local function IsEllesmereProvider()
-    return addonTable.Profiles and addonTable.Profiles.BASE_UI_PROVIDER == "Ellesmere"
-end
-
-local function GetEllesmereAddonProfile(addonKey)
+local function GetEllesmereAddonProfile(addonKey, create)
     if type(_G.EllesmereUIDB) ~= "table" then return nil end
     local profileKey = _G.EllesmereUIDB.activeProfile
     local profiles = _G.EllesmereUIDB.profiles
     local profile = profileKey and profiles and profiles[profileKey]
     if type(profile) ~= "table" then return nil end
-    profile.addons = profile.addons or {}
-    profile.addons[addonKey] = profile.addons[addonKey] or {}
-    return profile.addons[addonKey]
+    local addons = profile.addons
+    if type(addons) ~= "table" then
+        if not create then return nil end
+        addons = {}
+        profile.addons = addons
+    end
+    local addonProfile = addons[addonKey]
+    if type(addonProfile) ~= "table" then
+        if not create then return nil end
+        addonProfile = {}
+        addons[addonKey] = addonProfile
+    end
+    return addonProfile
 end
 
 local function GetEllesmereUnitHideNoTarget(unit)
@@ -871,10 +898,14 @@ local function RemoveDamageMeterRoundThinArtifacts()
             pcall(addonTable.RemoveOakRoundThinMaskOnly, window)
         end
         ForEachDamageMeterChildFrame(window, function(frame)
-            if addonTable.HideOakRoundThinBorderFrame and frame._oakRoundThinBorderTexture then
+            if addonTable.HideOakRoundThinBorderFrame
+                and addonTable.HasOakRoundThinBorderFrame
+                and addonTable.HasOakRoundThinBorderFrame(frame) then
                 pcall(addonTable.HideOakRoundThinBorderFrame, frame)
             end
-            if addonTable.RemoveOakRoundThinMaskOnly and frame._oakRoundThinMaskOnlyEntries then
+            if addonTable.RemoveOakRoundThinMaskOnly
+                and addonTable.HasOakRoundThinMaskOnly
+                and addonTable.HasOakRoundThinMaskOnly(frame) then
                 pcall(addonTable.RemoveOakRoundThinMaskOnly, frame)
             end
         end, 6)
@@ -1169,9 +1200,6 @@ ApplyStandaloneStatusBarRoundThin = function(statusbar, bgTexture)
     EnsureOakRoundThinRenderer()
     if not addonTable.ApplyOakRoundThinBorderFrame then return false end
 
-    if bgTexture and bgTexture.AddMaskTexture then
-        statusbar._bg = bgTexture
-    end
     HideFramePPBorders(statusbar)
 
     local borderFrame = statusbar._oakRoundThinStandaloneBorder
@@ -1184,7 +1212,7 @@ ApplyStandaloneStatusBarRoundThin = function(statusbar, bgTexture)
     borderFrame:SetFrameLevel((GetFrameLevelSafe(statusbar) or 0) + 8)
     borderFrame:EnableMouse(false)
 
-    addonTable.ApplyOakRoundThinBorderFrame(borderFrame, 1, 0, 0, 0, 1, 0, 0, 0, 0)
+    addonTable.ApplyOakRoundThinBorderFrame(borderFrame, 1, 0, 0, 0, 1, 0, 0, 0, 0, bgTexture)
 
     local auxParent = GetFrameParentSafe(bgTexture)
     if bgTexture and auxParent and auxParent ~= statusbar and addonTable.ApplyOakRoundThinMaskOnly then
@@ -1360,7 +1388,9 @@ local function ApplyNameplateHealthBackgroundRoundThinToPlate(plate, state)
 
         if roundedBg then roundedBg:Hide() end
         if squareBg and squareBg.Show then squareBg:Show() end
-        if plate._oakRoundThinMaskedHealthBG and health._oakRoundThinMaskOnlyEntries then return end
+        if plate._oakRoundThinMaskedHealthBG
+            and addonTable.HasOakRoundThinMaskOnly
+            and addonTable.HasOakRoundThinMaskOnly(health) then return end
 
         local masked = squareBg and addonTable.ApplyOakRoundThinMaskOnly and addonTable.ApplyOakRoundThinMaskOnly(health, squareBg, health)
         if masked then
@@ -1655,22 +1685,29 @@ end
 
 function addonTable.ApplyOakRoundedBorderPreferenceToProfile(profileName)
     if not profileName or profileName == "" then return end
-    if addonTable.ApplyOakRoundThinBordersIfEnabled then
+    local db = EnsureVisibilityDB()
+    local function HasBackup(key)
+        local backups = db[key]
+        local backup = type(backups) == "table" and (backups[profileName] or backups.__default)
+        return type(backup) == "table" and next(backup) ~= nil
+    end
+
+    if db.roundThinBorders == true or HasBackup("roundThinBorderBackups") then
         addonTable.ApplyOakRoundThinBordersIfEnabled(profileName)
     end
-    if addonTable.ApplyOakRoundThinDamageMetersIfEnabled then
+    if db.roundThinDamageMeters == true or HasBackup("roundThinDamageMeterBackups") then
         addonTable.ApplyOakRoundThinDamageMetersIfEnabled(profileName)
     end
-    if addonTable.ApplyOakRoundThinTrackingBarsIfEnabled then
+    if db.roundThinTrackingBars == true or HasBackup("roundThinTrackingBarBackups") then
         addonTable.ApplyOakRoundThinTrackingBarsIfEnabled(profileName)
     end
-    if addonTable.ApplyOakRoundThinCastBarsIfEnabled then
+    if db.roundThinCastBars == true or HasBackup("roundThinCastBarBackups") then
         addonTable.ApplyOakRoundThinCastBarsIfEnabled(profileName)
     end
-    if addonTable.ApplyOakRoundThinNameplatesIfEnabled then
+    if db.roundThinNameplates == true or HasBackup("roundThinNameplateBackups") then
         addonTable.ApplyOakRoundThinNameplatesIfEnabled(profileName)
     end
-    if addonTable.ApplyOakRoundThinBossFramesIfEnabled then
+    if db.roundThinBossFrames == true or HasBackup("roundThinBossFrameBackups") then
         addonTable.ApplyOakRoundThinBossFramesIfEnabled(profileName)
     end
 end
@@ -1998,7 +2035,7 @@ end
 local function SetEllesmerePlayerFrame(state)
     local db = EnsureVisibilityDB()
     db.playerFrameHidden = state == true
-    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
+    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames", true)
     if unitFrames then
         unitFrames.player = unitFrames.player or {}
         unitFrames.pet = unitFrames.pet or {}
@@ -2028,7 +2065,7 @@ end
 
 local function SetEllesmereActionBars(state)
     EnsureVisibilityDB().actionBarsHidden = state == true
-    local actionBars = GetEllesmereAddonProfile("EllesmereUIActionBars")
+    local actionBars = GetEllesmereAddonProfile("EllesmereUIActionBars", true)
     if not actionBars then return end
 
     actionBars.mouseoverShowAll = state == true
@@ -2125,7 +2162,7 @@ end
 
 local function SetEllesmereChatBackground(state)
     EnsureVisibilityDB().chatBackgroundHidden = state == true
-    local chat = GetEllesmereAddonProfile("EllesmereUIChat")
+    local chat = GetEllesmereAddonProfile("EllesmereUIChat", true)
     if chat then
         chat.chat = chat.chat or {}
         chat.chat.bgAlpha = state and 0 or 0.65
@@ -2200,7 +2237,7 @@ end
 
 local function SetEllesmereCDM(state)
     EnsureVisibilityDB().cdmFading = state == true
-    local cdm = GetEllesmereAddonProfile("EllesmereUICooldownManager")
+    local cdm = GetEllesmereAddonProfile("EllesmereUICooldownManager", true)
     local bars = cdm and cdm.cdmBars and cdm.cdmBars.bars
     if type(bars) == "table" then
         local wanted = { cooldowns = true, utility = true, buffs = true }
@@ -2341,160 +2378,36 @@ local function GetEllesmereTooltipAnchor()
     return false
 end
 
-local function RefreshElvUIUnitFrames(E)
-    if not E or type(E.GetModule) ~= "function" then return end
-    local UF = E:GetModule("UnitFrames", true)
-    if UF and type(UF.Update_AllFrames) == "function" then
-        pcall(UF.Update_AllFrames, UF)
-    end
-end
-
-local function RestoreAccidentallyForcedGroupVisibility(E)
-    local db = EnsureVisibilityDB()
-    if not E or not E.db or not E.db.unitframe or not E.db.unitframe.units then return false end
-
-    local units = E.db.unitframe.units
-    local changed = false
-    for _, unit in ipairs({ "player", "target", "targettarget", "focus", "pet" }) do
-        if units[unit] and units[unit].visibility == "show" then
-            units[unit].visibility = nil
-            changed = true
-        end
-    end
-    if units.party and units.party.visibility == "show" then
-        units.party.visibility = "[@raid6,exists][@party1,noexists] hide;show"
-        changed = true
-    end
-    if units.raid1 and units.raid1.visibility == "show" then
-        units.raid1.visibility = "[@raid6,noexists][@raid21,exists] hide;show"
-        changed = true
-    end
-    if units.raid2 and units.raid2.visibility == "show" then
-        units.raid2.visibility = "[@raid21,noexists][@raid31,exists] hide;show"
-        changed = true
-    end
-    if units.raid3 and units.raid3.visibility == "show" then
-        units.raid3.visibility = "[@raid31,noexists] hide;show"
-        changed = true
-    end
-
-    db.unitframesAlways = nil
-    return changed
-end
-
 local function SetUnitframes(state)
-    if IsEllesmereProvider() then
-        SetEllesmerePlayerFrame(state)
-        return
-    end
-    local db = EnsureVisibilityDB()
-    db.playerFrameHidden = state == true
-    local E = GetElvUI()
-    if E and E.db and E.db.unitframe and E.db.unitframe.units and E.db.unitframe.units.player then
-        RestoreAccidentallyForcedGroupVisibility(E)
-        local player = E.db.unitframe.units.player
-        player.fader = player.fader or {}
-        player.fader.enable = state == true
-        RefreshElvUIUnitFrames(E)
-    elseif E and RestoreAccidentallyForcedGroupVisibility(E) then
-        RefreshElvUIUnitFrames(E)
-    end
+    SetEllesmerePlayerFrame(state)
 end
 
 local function GetUnitframes()
-    if IsEllesmereProvider() then
-        return GetEllesmerePlayerFrame()
-    end
-    local E = GetElvUI()
-    if E and RestoreAccidentallyForcedGroupVisibility(E) then
-        RefreshElvUIUnitFrames(E)
-    end
-    if E and E.db and E.db.unitframe and E.db.unitframe.units and E.db.unitframe.units.player and E.db.unitframe.units.player.fader then
-        return E.db.unitframe.units.player.fader.enable == true
-    end
-    return EnsureVisibilityDB().playerFrameHidden == true
+    return GetEllesmerePlayerFrame()
 end
 
 local function SetMouseover(state)
-    if IsEllesmereProvider() then
-        SetEllesmereActionBars(state)
-        return
-    end
-    if addonTable.SetActionBarsHidden then
-        addonTable.SetActionBarsHidden(state)
-    end
+    SetEllesmereActionBars(state)
 end
 
 local function GetMouseover()
-    if IsEllesmereProvider() then
-        return GetEllesmereActionBars()
-    end
-    if addonTable.GetActionBarsHidden then
-        return addonTable.GetActionBarsHidden()
-    end
-    return false
-end
-
-local function RefreshElvUIChat(E)
-    if not E or type(E.GetModule) ~= "function" then return end
-    local LO = E:GetModule("Layout", true)
-    if LO and type(LO.ToggleChatPanels) == "function" then
-        pcall(LO.ToggleChatPanels, LO)
-    end
+    return GetEllesmereActionBars()
 end
 
 local function SetChatBackgroundHidden(state)
-    if IsEllesmereProvider() then
-        SetEllesmereChatBackground(state)
-        return
-    end
-    EnsureVisibilityDB().chatBackgroundHidden = state == true
-    local E = GetElvUI()
-    if E and E.db and E.db.chat then
-        E.db.chat.panelBackdrop = state and "HIDEBOTH" or "SHOWBOTH"
-        RefreshElvUIChat(E)
-    end
+    SetEllesmereChatBackground(state)
 end
 
 local function GetChatBackgroundHidden()
-    if IsEllesmereProvider() then
-        return GetEllesmereChatBackground()
-    end
-    local E = GetElvUI()
-    if E and E.db and E.db.chat then
-        return E.db.chat.panelBackdrop == "HIDEBOTH"
-    end
-    return EnsureVisibilityDB().chatBackgroundHidden == true
-end
-
-local function GetCDM()
-    return _G.Ayije_CDM
+    return GetEllesmereChatBackground()
 end
 
 local function SetCDMFading(state)
-    if IsEllesmereProvider() then
-        SetEllesmereCDM(state)
-        return
-    end
-    EnsureVisibilityDB().cdmFading = state == true
-    local CDM = GetCDM()
-    if CDM and CDM.db then
-        CDM.db.fadingEnabled = state == true
-        if type(CDM.Refresh) == "function" then
-            pcall(CDM.Refresh, CDM, "STYLE")
-        end
-    end
+    SetEllesmereCDM(state)
 end
 
 local function GetCDMFading()
-    if IsEllesmereProvider() then
-        return GetEllesmereCDM()
-    end
-    local CDM = GetCDM()
-    if CDM and CDM.db and CDM.db.fadingEnabled ~= nil then
-        return CDM.db.fadingEnabled == true
-    end
-    return EnsureVisibilityDB().cdmFading == true
+    return GetEllesmereCDM()
 end
 
 local function SetAllHidden(state)
@@ -2502,21 +2415,16 @@ local function SetAllHidden(state)
     SetMouseover(state)
     SetChatBackgroundHidden(state)
     SetCDMFading(state)
-    if IsEllesmereProvider() then
-        SetEllesmereSmartPlayerPetVisibility(state)
-        SetEllesmereShowPlayerInParty(state)
-        SetEllesmereChatLineFade(state)
-        SetEllesmereTooltipAnchor(state)
-    end
+    SetEllesmereSmartPlayerPetVisibility(state)
+    SetEllesmereShowPlayerInParty(state)
+    SetEllesmereChatLineFade(state)
+    SetEllesmereTooltipAnchor(state)
     EnsureVisibilityDB().allHidden = state == true
 end
 
 local function GetAllHidden()
     local baseState = GetUnitframes() and GetMouseover() and GetChatBackgroundHidden() and GetCDMFading()
-    if IsEllesmereProvider() then
-        return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmereShowPlayerInParty() and GetEllesmereChatLineFade() and GetEllesmereTooltipAnchor()
-    end
-    return baseState
+    return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmereShowPlayerInParty() and GetEllesmereChatLineFade() and GetEllesmereTooltipAnchor()
 end
 
 function addonTable.ApplyOakInstallerVisibilityTweaks(options)
@@ -2525,11 +2433,9 @@ function addonTable.ApplyOakInstallerVisibilityTweaks(options)
     if options.actionBars ~= nil then SetMouseover(options.actionBars) end
     if options.chat ~= nil then SetChatBackgroundHidden(options.chat) end
     if options.cdm ~= nil then SetCDMFading(options.cdm) end
-    if IsEllesmereProvider() then
-        if options.showPlayerInGroup ~= nil then SetEllesmereShowPlayerInParty(options.showPlayerInGroup) end
-        if options.chatLineFade ~= nil then SetEllesmereChatLineFade(options.chatLineFade) end
-        if options.disableChatFade ~= nil then SetEllesmereDisableChatFade(options.disableChatFade) end
-    end
+    if options.showPlayerInGroup ~= nil then SetEllesmereShowPlayerInParty(options.showPlayerInGroup) end
+    if options.chatLineFade ~= nil then SetEllesmereChatLineFade(options.chatLineFade) end
+    if options.disableChatFade ~= nil then SetEllesmereDisableChatFade(options.disableChatFade) end
 end
 
 function addonTable.ApplyOakInstallerRoundedBorders(options)
@@ -2548,14 +2454,14 @@ function addonTable.BuildVisibilityUI(parentFrame)
     local Title = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     Title:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -16)
     Title:SetJustifyH("LEFT")
-    Title:SetText(cWrap .. (IsEllesmereProvider() and "Visibility/Tweaks" or "Visibility") .. "|r")
+    Title:SetText(cWrap .. "Visibility/Tweaks|r")
 
     local Desc = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     Desc:SetPoint("TOPLEFT", Title, "BOTTOMLEFT", 0, -6)
     Desc:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, -10)
     Desc:SetFontObject("GameFontHighlightSmall")
     Desc:SetJustifyH("LEFT")
-    Desc:SetText(IsEllesmereProvider() and "Tune OakUI's Ellesmere visibility and fade behavior." or "Control OakUI visibility behavior for the selected base UI.")
+    Desc:SetText("Tune OakUI's Ellesmere visibility and fade behavior.")
 
     local checkboxes = {}
     local function AddTooltip(frame, title, tooltip)
@@ -2633,8 +2539,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
         return section
     end
 
-    if IsEllesmereProvider() then
-        local leftX, rightX = 15, 255
+    local leftX, rightX = 15, 255
         local colWidth = 225
         local rowGap = -30
         local roundedRowGap = -16
@@ -2685,60 +2590,6 @@ function addonTable.BuildVisibilityUI(parentFrame)
         end
 
         parentFrame:UpdateVisibilityCheckboxes()
-        parentFrame:SetScript("OnShow", function(self)
-            self:UpdateVisibilityCheckboxes()
-        end)
-        return
-    end
-
-    local cbAll, lblAll = MakeVisibilityCheckbox(parentFrame, cWrap .. "Apply All|r", SetAllHidden, GetAllHidden)
-    cbAll:SetPoint("TOPLEFT", Desc, "BOTTOMLEFT", 0, -40)
-    local dAll = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    dAll:SetPoint("LEFT", lblAll, "RIGHT", 15, 0); dAll:SetText("- Applies every visibility toggle below."); dAll:SetTextColor(0.6, 0.6, 0.6)
-    table.insert(checkboxes, cbAll)
-
-    local cb1, lbl1 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide Unit Frames|r", SetUnitframes, GetUnitframes)
-    cb1:SetPoint("TOPLEFT", cbAll, "BOTTOMLEFT", 0, -30)
-    local d1 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    d1:SetPoint("LEFT", lbl1, "RIGHT", 15, 0); d1:SetText(IsEllesmereProvider() and "- Sets player/pet Hide without Target." or "- Toggles ElvUI Player > Fader."); d1:SetTextColor(0.6, 0.6, 0.6)
-    table.insert(checkboxes, cb1)
-
-    local cb2, lbl2 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide Action Bars|r", SetMouseover, GetMouseover)
-    cb2:SetPoint("TOPLEFT", cb1, "BOTTOMLEFT", 0, -30)
-    local d2 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    d2:SetPoint("LEFT", lbl2, "RIGHT", 15, 0); d2:SetText("- Fades all action bars in together on mouseover."); d2:SetTextColor(0.6, 0.6, 0.6)
-    table.insert(checkboxes, cb2)
-
-    local cb3, lbl3 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide Chat|r", SetChatBackgroundHidden, GetChatBackgroundHidden)
-    cb3:SetPoint("TOPLEFT", cb2, "BOTTOMLEFT", 0, -30)
-    local d3 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    d3:SetPoint("LEFT", lbl3, "RIGHT", 15, 0); d3:SetText(IsEllesmereProvider() and "- Opacity 0, idle fade 100." or "- Sets ElvUI chat panels."); d3:SetTextColor(0.6, 0.6, 0.6)
-    table.insert(checkboxes, cb3)
-
-    local cb4, lbl4 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide Cooldown Manager|r", SetCDMFading, GetCDMFading)
-    cb4:SetPoint("TOPLEFT", cb3, "BOTTOMLEFT", 0, -30)
-    local d4 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    d4:SetPoint("LEFT", lbl4, "RIGHT", 15, 0); d4:SetText(IsEllesmereProvider() and "- Cooldowns hide without target." or "- Toggles Ayije CDM fading."); d4:SetTextColor(0.6, 0.6, 0.6)
-    table.insert(checkboxes, cb4)
-
-    local cb5, lbl5 = MakeVisibilityCheckbox(parentFrame, cWrap .. "Hide Error Messages|r", SetErrorMessagesHidden, GetErrorMessagesHidden, true)
-    cb5:SetPoint("TOPLEFT", cb4, "BOTTOMLEFT", 0, -30)
-    local d5 = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    d5:SetPoint("LEFT", lbl5, "RIGHT", 15, 0); d5:SetText("- Suppresses most red UI error text while keeping important errors visible."); d5:SetTextColor(0.6, 0.6, 0.6)
-    table.insert(checkboxes, cb5)
-
-    parentFrame.UpdateVisibilityCheckboxes = function()
-        for _, cb in ipairs(checkboxes) do cb:UpdateState() end
-    end
-    addonTable.RefreshVisibilityCheckboxes = function()
-        if parentFrame:IsShown() then
-            parentFrame:UpdateVisibilityCheckboxes()
-        end
-    end
-
-    parentFrame:UpdateVisibilityCheckboxes()
-
-    -- Also update states when the frame is shown (if toggled via other means)
     parentFrame:SetScript("OnShow", function(self)
         self:UpdateVisibilityCheckboxes()
     end)
@@ -2748,10 +2599,6 @@ local CleanupFrame = CreateFrame("Frame")
 CleanupFrame:RegisterEvent("PLAYER_LOGIN")
 CleanupFrame:SetScript("OnEvent", function(self)
     C_Timer.After(1, function()
-        local E = GetElvUI()
-        if E and RestoreAccidentallyForcedGroupVisibility(E) then
-            RefreshElvUIUnitFrames(E)
-        end
         if addonTable.ApplyOakRoundThinBordersIfEnabled then
             pcall(addonTable.ApplyOakRoundThinBordersIfEnabled)
         end
@@ -2786,8 +2633,7 @@ CleanupFrame:SetScript("OnEvent", function(self)
     self:UnregisterEvent("PLAYER_LOGIN")
 end)
 
-local WMarkerFadeWatcher = CreateFrame("Frame")
-WMarkerFadeWatcher.elapsed = 0
+WMarkerFadeWatcher = CreateFrame("Frame")
 WMarkerFadeWatcher:RegisterEvent("ADDON_LOADED")
 WMarkerFadeWatcher:RegisterEvent("PLAYER_LOGIN")
 WMarkerFadeWatcher:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -2797,8 +2643,9 @@ WMarkerFadeWatcher:SetScript("OnEvent", function(_, event, loadedAddon)
 end)
 WMarkerFadeWatcher:SetScript("OnUpdate", function(self, elapsed)
     UpdateWMarkerFadeAnimations(elapsed)
-    self.elapsed = self.elapsed + elapsed
-    if self.elapsed < 0.1 then return end
-    self.elapsed = 0
-    ApplyWMarkerMouseoverFade()
+    local wMarkerAce = _G.wMarkerAce
+    local raidActive = wMarkerAce and wMarkerAce.raidMain and wMarkerAce.raidMain._oakWMarkerFadeStart
+    local worldActive = wMarkerAce and wMarkerAce.worldMain and wMarkerAce.worldMain._oakWMarkerFadeStart
+    if not raidActive and not worldActive then self:Hide() end
 end)
+WMarkerFadeWatcher:Hide()

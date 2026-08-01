@@ -16,9 +16,8 @@ local function GetEllesmereAddonProfile(addonKey)
     local profiles = _G.EllesmereUIDB.profiles
     local profile = profileKey and profiles and profiles[profileKey]
     if type(profile) ~= "table" then return nil end
-    profile.addons = profile.addons or {}
-    profile.addons[addonKey] = profile.addons[addonKey] or {}
-    return profile.addons[addonKey]
+    local addons = profile.addons
+    return type(addons) == "table" and addons[addonKey] or nil
 end
 
 local function GetEllesmereChatConfig()
@@ -76,7 +75,7 @@ end
 
 local ellesmereUnitFrameVisibilityHooked
 local applyingEllesmereVisibility
-local playerVisibilityWatchFrame
+local visibilityRefreshPending
 
 local function SetFrameVisible(frame, visible)
     if not frame then return end
@@ -187,7 +186,10 @@ local function HookEllesmereUnitFrameVisibility()
     ellesmereUnitFrameVisibilityHooked = true
     hooksecurefunc(ns, "UpdateFrameVisibility", function()
         if applyingEllesmereVisibility then return end
+        if visibilityRefreshPending then return end
+        visibilityRefreshPending = true
         C_Timer.After(0, function()
+            visibilityRefreshPending = nil
             if addonTable.RefreshEllesmereVisibilityTweaks then
                 addonTable.RefreshEllesmereVisibilityTweaks(true)
             end
@@ -214,29 +216,6 @@ local function ApplyPlayerFrameVisibilityOverride()
     end
 end
 
-local function UpdatePlayerVisibilityWatcher()
-    if not playerVisibilityWatchFrame then
-        playerVisibilityWatchFrame = CreateFrame("Frame")
-        playerVisibilityWatchFrame.elapsed = 0
-        playerVisibilityWatchFrame:SetScript("OnUpdate", function(self, elapsed)
-            self.elapsed = (self.elapsed or 0) + elapsed
-            if self.elapsed < 0.05 then return end
-            self.elapsed = 0
-            if ShouldForcePlayerFrameShown() then
-                ApplyPlayerFrameVisibilityOverride()
-            else
-                self:Hide()
-            end
-        end)
-    end
-
-    if ShouldForcePlayerFrameShown() then
-        playerVisibilityWatchFrame:Show()
-    else
-        playerVisibilityWatchFrame:Hide()
-    end
-end
-
 function addonTable.RefreshEllesmereVisibilityTweaks()
     HookEllesmereUnitFrameVisibility()
     SyncPlayerPetVisibilityState()
@@ -248,7 +227,6 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
         ReleaseFrameVisibility(playerFrame and playerFrame._visWrap or playerFrame)
         ReleasePetFrameVisibility(_G.EllesmereUIUnitFrames_Pet)
         ReleasePetFrameVisibility(GetDandersPlayerPetFrame())
-        UpdatePlayerVisibilityWatcher()
         return
     end
 
@@ -268,7 +246,6 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
             ReleasePetFrameVisibility(_G.EllesmereUIUnitFrames_Pet)
             ReleasePetFrameVisibility(GetDandersPlayerPetFrame())
         end
-        UpdatePlayerVisibilityWatcher()
         return
     end
 
@@ -302,7 +279,6 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
         ReleasePetFrameVisibility(petFrame)
         ReleasePetFrameVisibility(dandersPetFrame)
     end
-    UpdatePlayerVisibilityWatcher()
 end
 
 local originalResetIdleTimer
