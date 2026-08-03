@@ -1,3 +1,8 @@
+## v2.6.28
+
+- Restored 1920×1080 at 0.711 with a dedicated Edit Mode profile and on-screen General window placement.
+- Fixed “Show Player in Group” visibility for EUI player and pet unit frames.
+
 ## v2.6.27-EllesmereEdition
 
 - Streamlined installer integrations and removed obsolete ElvUI and unused addon code.

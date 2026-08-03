@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.27-EllesmereEdition"
+P.VERSION = "2.6.28"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -155,6 +155,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.28",
+        date = "August 3, 2026",
+        notes = {
+            "Restored 1920×1080 at 0.711 with a dedicated Edit Mode profile and on-screen General window placement.",
+            "Fixed “Show Player in Group” visibility for EUI player and pet unit frames.",
+        }
+    },
     {
         version = "v2.6.27-EllesmereEdition",
         date = "July 31, 2026",
