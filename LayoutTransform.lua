@@ -7,6 +7,7 @@ local BASE_UI_SCALE = 0.64
 local PRESETS = {
     { key = "native", label = "OakUI Native", desc = "2560x1440 at 0.64.", width = 2560, height = 1440, scale = 0.64 },
     { key = "1080p", label = "1080p OakUI 0.64", desc = "1920x1080 at 0.64.", width = 1920, height = 1080, scale = 0.64 },
+    { key = "1080p_0711", label = "1080p OakUI 0.711", desc = "1920x1080 at 0.711.", width = 1920, height = 1080, scale = 0.711 },
     { key = "1080p_compact", label = "1080p Compact 0.533", desc = "1920x1080 at 0.533.", width = 1920, height = 1080, scale = 0.533 },
     { key = "uw2560_oak", label = "2560x1080 Ultrawide 0.64", desc = "2560x1080 at 0.64.", width = 2560, height = 1080, scale = 0.64 },
     { key = "1440p_pp", label = "1440p Pixel Perfect", desc = "2560x1440 at 0.533.", width = 2560, height = 1440, scale = 0.533 },
@@ -28,6 +29,7 @@ local BASE_DAMAGE_METER_1_OFFSET_X = 939.1666666666666
 local EDGE_MARGIN = 0
 local EDGE_MARGIN_BY_PRESET = {
     ["1080p"] = 0,
+    ["1080p_0711"] = 0,
 }
 local RAID_FRAME_KEY = "RF_RaidFrames"
 local DRAGON_RIDING_KEY = "EDR_Cluster"
@@ -35,6 +37,7 @@ local DRAGON_RIDING_TARGET_KEY = "ERB_ClassResource"
 local RAID_FRAME_CLAMP_PRESETS = {
     ["1080p"] = true,
     ["1080p_oak"] = true,
+    ["1080p_0711"] = true,
     ["1080p_compact"] = true,
     ["uw2560_oak"] = true,
 }

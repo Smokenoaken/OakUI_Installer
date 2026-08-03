@@ -690,6 +690,8 @@ local function GetOakEditModeString()
 
     if scale and math.abs(scale - 0.356) < 0.0005 then
         profile = P.EDITMODE_PROFILE_0356
+    elseif scale and math.abs(scale - 0.711) < 0.0005 then
+        profile = P.EDITMODE_PROFILE_0711 or P.EDITMODE_PROFILE_064
     elseif scale and math.abs(scale - 0.533) < 0.0005 then
         profile = P.EDITMODE_PROFILE_0533
     else
