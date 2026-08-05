@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.28"
+P.VERSION = "2.6.29"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -155,6 +155,16 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.29",
+        date = "August 5, 2026",
+        notes = {
+            "Temporarily switched Damage Numbers to an EUI-provided font while EUI resolves its SharedMedia font issue.",
+            "Updated OakUI bar textures to EUI-shipped textures to prevent missing backgrounds on installs.",
+            "Added additional UI scale options for 4K resolutions.",
+            "Fixed OakUI Edit Mode profile selection during installation.",
+        }
+    },
     {
         version = "v2.6.28",
         date = "August 3, 2026",

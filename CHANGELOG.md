@@ -1,3 +1,10 @@
+## v2.6.29
+
+- Temporarily switched Damage Numbers to an EUI-provided font while EUI resolves its SharedMedia font issue.
+- Updated OakUI bar textures to EUI-shipped textures to prevent missing backgrounds on installs.
+- Added additional UI scale options for 4K resolutions.
+- Fixed OakUI Edit Mode profile selection during installation.
+
 ## v2.6.28
 
 - Restored 1920×1080 at 0.711 with a dedicated Edit Mode profile and on-screen General window placement.
