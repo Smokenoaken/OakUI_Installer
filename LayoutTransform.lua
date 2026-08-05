@@ -7,15 +7,17 @@ local BASE_UI_SCALE = 0.64
 local PRESETS = {
     { key = "native", label = "OakUI Native", desc = "2560x1440 at 0.64.", width = 2560, height = 1440, scale = 0.64 },
     { key = "1080p", label = "1080p OakUI 0.64", desc = "1920x1080 at 0.64.", width = 1920, height = 1080, scale = 0.64 },
-    { key = "1080p_0711", label = "1080p OakUI 0.711", desc = "1920x1080 at 0.711.", width = 1920, height = 1080, scale = 0.711 },
+    { key = "1080p_0711", label = "1080p Pixel Perfect 0.711", desc = "1920x1080 at 0.711.", width = 1920, height = 1080, scale = 0.711 },
     { key = "1080p_compact", label = "1080p Compact 0.533", desc = "1920x1080 at 0.533.", width = 1920, height = 1080, scale = 0.533 },
     { key = "uw2560_oak", label = "2560x1080 Ultrawide 0.64", desc = "2560x1080 at 0.64.", width = 2560, height = 1080, scale = 0.64 },
     { key = "1440p_pp", label = "1440p Pixel Perfect", desc = "2560x1440 at 0.533.", width = 2560, height = 1440, scale = 0.533 },
     { key = "uw3440_oak", label = "3440 Ultrawide 0.64", desc = "3440x1440 at 0.64.", width = 3440, height = 1440, scale = 0.64 },
-    { key = "uw3440_pp", label = "3440 Ultrawide 0.533", desc = "3440x1440 at 0.533.", width = 3440, height = 1440, scale = 0.533 },
-    { key = "4k", label = "4K", desc = "3840x2160 at 0.356.", width = 3840, height = 2160, scale = 0.356 },
+    { key = "uw3440_pp", label = "3440 Ultrawide Pixel Perfect 0.533", desc = "3440x1440 at 0.533.", width = 3440, height = 1440, scale = 0.533 },
+    { key = "4k_064", label = "4K OakUI 0.64", desc = "3840x2160 at 0.64.", width = 3840, height = 2160, scale = 0.64 },
+    { key = "4k_0533", label = "4K OakUI 0.533", desc = "3840x2160 at 0.533.", width = 3840, height = 2160, scale = 0.533 },
+    { key = "4k", label = "4K Pixel Perfect 0.356", desc = "3840x2160 at 0.356.", width = 3840, height = 2160, scale = 0.356 },
     { key = "uw_oak", label = "5120 Super Ultrawide 0.64", desc = "5120x1440 at 0.64.", width = 5120, height = 1440, scale = 0.64 },
-    { key = "uw_pp", label = "5120 Super Ultrawide 0.533", desc = "5120x1440 at 0.533.", width = 5120, height = 1440, scale = 0.533 },
+    { key = "uw_pp", label = "5120 Super Ultrawide Pixel Perfect 0.533", desc = "5120x1440 at 0.533.", width = 5120, height = 1440, scale = 0.533 },
 }
 
 local PRESET_BY_KEY = {}

@@ -774,6 +774,30 @@ local function GetActiveOakEditModeLayoutIndex(layoutName)
     end
 end
 
+-- Re-assert the OakUI layout after the importer or another addon has finished
+-- rebuilding Blizzard's Edit Mode layout list. This is deliberately exposed
+-- for the one-time post-install retry in Core.lua; it is not a persistent
+-- layout lock and will not interfere with later user-selected layouts.
+function addonTable.EnsureOakEditModeActive()
+    if InCombatLockdown and InCombatLockdown() then return false end
+    if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SetActiveLayout) then
+        return false
+    end
+
+    local activeIndex = GetActiveOakEditModeLayoutIndex("OakUI")
+    if not activeIndex then return false end
+
+    local ok = pcall(C_EditMode.SetActiveLayout, activeIndex)
+    if not ok then return false end
+
+    -- SetActiveLayout may update asynchronously. Confirm the saved active index
+    -- when available; the retry caller will try again if Blizzard has not caught
+    -- up yet.
+    local readOk, layouts = pcall(C_EditMode.GetLayouts)
+    if not readOk or type(layouts) ~= "table" then return false end
+    return tonumber(layouts.activeLayout) == activeIndex
+end
+
 function addonTable.Injectors.EditMode()
     local layoutName = "OakUI"
 
@@ -844,6 +868,9 @@ function addonTable.Injectors.EditMode()
                 print("|cffff0000[OakUI Error]|r OakUI Edit Mode layout was saved, but could not be activated: " .. tostring(activeErr))
                 return false
             end
+        end
+        if addonTable.MarkOakEditModeActivationAfterReload then
+            addonTable.MarkOakEditModeActivationAfterReload()
         end
     else
         print("|cffff0000[OakUI Error]|r Blizzard did not save the OakUI Edit Mode layout. Delete unused Blizzard Edit Mode layouts and run the install again.")

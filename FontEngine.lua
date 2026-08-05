@@ -7,6 +7,7 @@ local DEFAULT_FONT = "OakUI Font"
 local OAK_FONTS = {
     ["OakUI Font"] = MEDIA_PATH .. "OakFont.ttf",
     ["Basic OakUI Font"] = MEDIA_PATH .. "OakFont.ttf",
+    ["OakCombatFont"] = MEDIA_PATH .. "OakCombatFont.ttf",
     ["OakUI Arial Narrow"] = FONT_PATH .. "ARIALN.ttf",
     ["Electrofied"] = FONT_PATH .. "electr.ttf",
     ["Electrofied Bold"] = FONT_PATH .. "electrb.ttf",

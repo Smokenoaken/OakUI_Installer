@@ -882,6 +882,48 @@ function addonTable.MarkInstallerComplete()
     OakUI_DB.install.characters[GetCharacterInstallKey()] = state
 end
 
+function addonTable.MarkOakEditModeActivationAfterReload()
+    if not OakUI_DB then OakUI_DB = {} end
+    if not OakUI_DB.install then OakUI_DB.install = { characters = {} } end
+    if not OakUI_DB.install.characters then OakUI_DB.install.characters = {} end
+    local state = OakUI_DB.install.characters[GetCharacterInstallKey()] or {}
+    state.pendingOakEditModeActivation = true
+    state.pendingOakEditModeActivationTime = time and time() or 0
+    OakUI_DB.install.characters[GetCharacterInstallKey()] = state
+end
+
+local function ConsumeOakEditModeActivationAfterReload()
+    if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
+    local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
+    if not state or state.pendingOakEditModeActivation ~= true then return end
+
+    local attempts = 0
+    local function TryActivate()
+        attempts = attempts + 1
+        local ok, active = false, false
+        if addonTable.EnsureOakEditModeActive then
+            ok, active = pcall(addonTable.EnsureOakEditModeActive)
+        end
+
+        if ok and active == true then
+            state.pendingOakEditModeActivation = nil
+            state.pendingOakEditModeActivationTime = nil
+            OakUI_DB.install.characters[GetCharacterInstallKey()] = state
+            return
+        end
+
+        -- Edit Mode can finish rebuilding its account layouts after PLAYER_LOGIN,
+        -- and another addon may restore its previous layout shortly afterward.
+        -- Retry only for this one pending install operation, then leave the flag
+        -- for the next login if Blizzard never exposes the layout in time.
+        if attempts < 8 and C_Timer and C_Timer.After then
+            C_Timer.After(1, TryActivate)
+        end
+    end
+
+    TryActivate()
+end
+
 function addonTable.MarkEllesmereCDMRepopulateAfterReload()
     if not OakUI_DB then OakUI_DB = {} end
     if not OakUI_DB.install then OakUI_DB.install = { characters = {} } end
@@ -1050,6 +1092,7 @@ DB_Frame:HookScript("OnEvent", function(self, event)
 
     CreateOakMinimapButton()
     ClaimEllesmereFirstInstallForOakUI()
+    ConsumeOakEditModeActivationAfterReload()
     ConsumeOakChatGeometryAfterReload()
     ConsumeEllesmereCDMRepopulateAfterReload()
     if HideMinimapCheck and HideMinimapCheck.UpdateState then HideMinimapCheck:UpdateState() end
