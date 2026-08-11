@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.29"
+P.VERSION = "2.6.30"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -150,6 +150,16 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.30",
+        date = "August 10, 2026",
+        notes = {
+            "Added OakUI rounded borders for Dragon Riding bars in default installs, plus optional chat-window borders applied after reload.",
+            "Fixed Hide Unit Frames preference resetting when joining or leaving a group.",
+            "Updated bundled profiles to restore the OakUI damage font now that EllesmereUI's font issue is resolved.",
+            "Refreshed supporter credits from paid active Patreon members; future releases update the list automatically.",
+        }
+    },
     {
         version = "v2.6.29",
         date = "August 5, 2026",

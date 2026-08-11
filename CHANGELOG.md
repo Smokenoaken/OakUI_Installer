@@ -1,3 +1,10 @@
+## v2.6.30
+
+- Added OakUI rounded borders for Dragon Riding bars in default installs, plus optional chat-window borders applied after reload.
+- Fixed Hide Unit Frames preference resetting when joining or leaving a group.
+- Updated bundled profiles to restore the OakUI damage font now that EllesmereUI's font issue is resolved.
+- Refreshed supporter credits from paid active Patreon members; future releases update the list automatically.
+
 ## v2.6.29
 
 - Temporarily switched Damage Numbers to an EUI-provided font while EUI resolves its SharedMedia font issue.
