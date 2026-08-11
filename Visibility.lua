@@ -2000,6 +2000,9 @@ local function SetAllRoundedBorders(state)
     SetBossModRoundThinBorders(state)
     SetBlizziRoundThinBorders(state)
     SetDamageMeterRoundThinBorders(state)
+    if addonTable.SetOakRoundThinDragonRidingBorders then
+        addonTable.SetOakRoundThinDragonRidingBorders(state)
+    end
 end
 
 local function GetAllRoundedBorders()
@@ -2011,6 +2014,8 @@ local function GetAllRoundedBorders()
         and GetBossModRoundThinBorders()
         and GetBlizziRoundThinBorders()
         and GetDamageMeterRoundThinBorders()
+        and addonTable.GetOakRoundThinDragonRidingBorders
+        and addonTable.GetOakRoundThinDragonRidingBorders()
 end
 
 local function RefreshEllesmereUnitFrameSettings()
@@ -2022,14 +2027,19 @@ local function RefreshEllesmereUnitFrameSettings()
 end
 
 local function SyncEllesmerePlayerFrameState()
+    local db = EnsureVisibilityDB()
+    if db.playerFrameHidden ~= nil then
+        return db.playerFrameHidden == true
+    end
+
     local playerHidden = GetEllesmereUnitHideNoTarget("player")
     local petHidden = GetEllesmereUnitHideNoTarget("pet")
     if playerHidden ~= nil or petHidden ~= nil then
         local enabled = playerHidden == true and petHidden == true
-        EnsureVisibilityDB().playerFrameHidden = enabled
+        db.playerFrameHidden = enabled
         return enabled
     end
-    return EnsureVisibilityDB().playerFrameHidden == true
+    return false
 end
 
 local function SetEllesmerePlayerFrame(state)
@@ -2161,24 +2171,57 @@ local function RefreshEllesmereChat()
 end
 
 local function SetEllesmereChatBackground(state)
-    EnsureVisibilityDB().chatBackgroundHidden = state == true
+    local visibility = EnsureVisibilityDB()
+    visibility.chatBackgroundHidden = state == true
     local chat = GetEllesmereAddonProfile("EllesmereUIChat", true)
+    local config = chat and (chat.chat or {})
     if chat then
-        chat.chat = chat.chat or {}
-        chat.chat.bgAlpha = state and 0 or 0.65
-        chat.chat.idleFadeStrength = state and 100 or 40
+        chat.chat = config
+    end
+
+    local function ApplyChatBackgroundConfig(settings)
+        if type(settings) ~= "table" then return false end
+        settings.bgAlpha = state and 0 or 0.5
+        settings.idleFadeStrength = state and 100 or 40
+        return true
+    end
+
+    local changed = ApplyChatBackgroundConfig(config)
+    local ECHAT = GetEllesmereChatAddon()
+    if ECHAT and type(ECHAT.DB) == "function" then
+        local ok, liveConfig = pcall(ECHAT.DB)
+        if ok and type(liveConfig) == "table" and liveConfig ~= config then
+            changed = ApplyChatBackgroundConfig(liveConfig) or changed
+        end
+    end
+
+    if changed then
         RefreshEllesmereChat()
     end
 end
 
 local function GetEllesmereChatBackground()
+    local visibility = EnsureVisibilityDB()
+    if visibility.chatBackgroundHidden ~= nil then
+        return visibility.chatBackgroundHidden == true
+    end
+
     local chat = GetEllesmereAddonProfile("EllesmereUIChat")
-    if chat and chat.chat then
-        local hidden = (chat.chat.bgAlpha or 0.65) <= 0.01 and (chat.chat.idleFadeStrength or 40) >= 100
-        EnsureVisibilityDB().chatBackgroundHidden = hidden
+    local config = chat and chat.chat
+    if not config then
+        local ECHAT = GetEllesmereChatAddon()
+        if ECHAT and type(ECHAT.DB) == "function" then
+            local ok, liveConfig = pcall(ECHAT.DB)
+            if ok then config = liveConfig end
+        end
+    end
+    if type(config) == "table" then
+        local hidden = (config.bgAlpha or 0.5) <= 0.01
+            and (config.idleFadeStrength or 40) >= 100
+        visibility.chatBackgroundHidden = hidden
         return hidden
     end
-    return EnsureVisibilityDB().chatBackgroundHidden == true
+    return false
 end
 
 local function RefreshEllesmereCDM()
@@ -2542,7 +2585,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
     local leftX, rightX = 15, 255
         local colWidth = 225
         local rowGap = -30
-        local roundedRowGap = -16
+        local roundedRowGap = -13
 
         AddOption("Apply All", SetAllHidden, GetAllHidden, nil, 300, -23, 150)
 
@@ -2550,7 +2593,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddOption("Hide Unit Frames", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options between None and Hide without Target for Player/Pet.", leftX, -98, colWidth, true)
         AddOption("Hide Cooldown Manager", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -98, colWidth, true)
         AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -98 + rowGap, colWidth)
-        AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade.", rightX, -98 + rowGap, colWidth)
+        AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade. EUI Chat applies this after a UI reload.", rightX, -98 + rowGap, colWidth)
         AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -98 + rowGap * 2, colWidth, true)
         AddSlider("Chat Line Fade Delay", addonTable.SetOakChatLineFadeDelay, addonTable.GetOakChatLineFadeDelay, "Controls how long each chat line stays visible before it begins fading. This adjusts EUI's active chat profile delay.", rightX, -158, colWidth, 1, 120, 1, "s")
         AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", leftX, -198, colWidth)
@@ -2570,7 +2613,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
             AddSlider("wMarker Faded Opacity", SetWMarkerFadedAlpha, GetWMarkerFadedAlpha, "Controls how visible wMarker remains while the mouse is away. 0% is invisible; 100% disables the visual fade.", rightX, -338, colWidth)
         end
         AddSection("Rounded Borders", leftX, -364)
-        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles every OakUI rounded-border option in this section.", leftX, -386, colWidth, true)
+        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles the rounded-border options used by OakUI default installs. Chat Windows remains a separate opt-in.", leftX, -386, colWidth, true)
         AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -386, colWidth, true)
         AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -386 + roundedRowGap, colWidth, true)
         AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -386 + roundedRowGap, colWidth, true)
@@ -2579,6 +2622,8 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddOption("Nameplates", SetNameplateRoundThinBorders, GetNameplateRoundThinBorders, "Applies OakUI rounded masking to Ellesmere nameplates and their cast bars. Nameplate cast bars use OakUI's standalone rounded status-bar renderer because Ellesmere does not expose the same custom-border path there.", leftX, -386 + roundedRowGap * 3, colWidth, true)
         AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -386 + roundedRowGap * 3, colWidth, true)
         AddOption("Tracking Bars", SetTrackingBarRoundThinBorders, GetTrackingBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere Tracking Bars. Turning it off restores their previous saved border settings.", leftX, -386 + roundedRowGap * 4, colWidth, true)
+        AddOption("Dragon Riding", addonTable.SetOakRoundThinDragonRidingBorders, addonTable.GetOakRoundThinDragonRidingBorders, "Applies the OakUI very thin rounded border to Ellesmere's Dragon Riding bar cluster. The border follows the bars when EUI rebuilds or reanchors them.", rightX, -386 + roundedRowGap * 4, colWidth, true)
+        AddOption("Chat Windows", addonTable.SetOakRoundThinChatBorders, addonTable.GetOakRoundThinChatBorders, "Opt-in: applies the OakUI very thin rounded border to Blizzard chat windows. This is independent of Hide Chat and is disabled by default. EUI Chat applies this after a UI reload.", leftX, -386 + roundedRowGap * 5, colWidth)
 
         parentFrame.UpdateVisibilityCheckboxes = function()
             for _, cb in ipairs(checkboxes) do cb:UpdateState() end
@@ -2622,6 +2667,16 @@ CleanupFrame:SetScript("OnEvent", function(self)
         end
         if addonTable.ApplyOakRoundThinBossModBarsIfEnabled then
             pcall(addonTable.ApplyOakRoundThinBossModBarsIfEnabled)
+        end
+        if addonTable.ApplyOakRoundThinDragonRidingIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinDragonRidingIfEnabled)
+        end
+        if addonTable.ApplyOakRoundThinChatBordersIfEnabled then
+            pcall(addonTable.ApplyOakRoundThinChatBordersIfEnabled)
+        end
+        local visibility = EnsureVisibilityDB()
+        if visibility.chatBackgroundHidden ~= nil then
+            pcall(SetChatBackgroundHidden, visibility.chatBackgroundHidden)
         end
         if addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled then
             pcall(addonTable.ApplyOakRoundThinBlizziInterruptsIfEnabled)

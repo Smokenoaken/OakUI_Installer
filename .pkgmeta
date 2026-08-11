@@ -8,4 +8,4 @@ ignore:
   - RELEASING.md
   - README.md
   - NEXT_CHANGELOG.md
-
+  - sync-patreon-supporters.ps1

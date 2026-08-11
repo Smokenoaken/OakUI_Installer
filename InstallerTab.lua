@@ -638,7 +638,7 @@ function addonTable.BuildInstallerUI(parentFrame)
         local heading = page:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         heading:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -2)
         heading:SetText(cWrap .. "Rounded Borders|r")
-        MakeCheckbox(page, "OakUI Rounded Borders", "Apply OakUI's rounded border renderer to supported EUI frames, bars, nameplates, boss mods, damage meters, and Blizzi interrupts.", function() return state.rounded.all end, function(v) state.rounded.all = v end, -42, 0, "rounded")
+        MakeCheckbox(page, "OakUI Rounded Borders", "Apply OakUI's rounded border renderer to supported EUI frames, bars, Dragon Riding bars, nameplates, boss mods, damage meters, and Blizzi interrupts.", function() return state.rounded.all end, function(v) state.rounded.all = v end, -42, 0, "rounded")
         return page
     end
 

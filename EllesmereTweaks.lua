@@ -76,7 +76,6 @@ end
 local ellesmereUnitFrameVisibilityHooked
 local applyingEllesmereVisibility
 local visibilityRefreshPending
-local groupVisibilityOverrideActive
 
 local function SetFrameVisible(frame, visible)
     if not frame then return end
@@ -131,16 +130,16 @@ local function GetEllesmereUnitHideNoTarget(unit)
 end
 
 local function SyncPlayerPetVisibilityState()
+    local db = EnsureVisibilityDB()
     local playerHidden = GetEllesmereUnitHideNoTarget("player")
     local petHidden = GetEllesmereUnitHideNoTarget("pet")
-    -- While grouped, the EUI values are temporarily cleared by OakUI's
-    -- group override. Do not let those temporary values change OakUI's
-    -- persistent Hide Unit Frames preference.
-    if groupVisibilityOverrideActive then
+    -- Once OakUI has a saved preference, EUI's live values are not authoritative.
+    -- EUI can temporarily clear visHideNoTarget while joining a group or rebuilding
+    -- its unit frames; that transient state must not turn OakUI's checkbox off.
+    if db.playerFrameHidden ~= nil then
         return playerHidden, petHidden
     end
     if playerHidden ~= nil or petHidden ~= nil then
-        local db = EnsureVisibilityDB()
         local enabled = playerHidden == true and petHidden == true
         local changed = db.playerFrameHidden ~= enabled
         db.playerFrameHidden = enabled
@@ -159,16 +158,24 @@ end
 
 local function PlayerVisibilityOverrideEnabled()
     if not PlayerPetVisibilityOptionsEnabled() then return false end
+    local db = EnsureVisibilityDB()
+    if db.playerFrameHidden ~= nil then
+        return db.playerFrameHidden == true
+    end
     local playerHidden = GetEllesmereUnitHideNoTarget("player")
     if playerHidden ~= nil then return playerHidden == true end
-    return EnsureVisibilityDB().playerFrameHidden == true
+    return false
 end
 
 local function PetVisibilityOverrideEnabled()
     if not PlayerPetVisibilityOptionsEnabled() then return false end
+    local db = EnsureVisibilityDB()
+    if db.playerFrameHidden ~= nil then
+        return db.playerFrameHidden == true
+    end
     local petHidden = GetEllesmereUnitHideNoTarget("pet")
     if petHidden ~= nil then return petHidden == true end
-    return EnsureVisibilityDB().playerFrameHidden == true
+    return false
 end
 
 local function PlayerIsInGroup()
@@ -203,7 +210,6 @@ local function RestoreGroupVisibilityOverride()
     wipe(groupVisibilityOverride.saved)
     groupVisibilityOverride.active = false
     groupVisibilityOverride.profileKey = nil
-    groupVisibilityOverrideActive = false
     return true
 end
 
@@ -227,7 +233,6 @@ local function ApplyGroupVisibilityOverride(profileKey)
 
     groupVisibilityOverride.active = #groupVisibilityOverride.saved > 0
     groupVisibilityOverride.profileKey = groupVisibilityOverride.active and profileKey or nil
-    groupVisibilityOverrideActive = groupVisibilityOverride.active
     return groupVisibilityOverride.active
 end
 
@@ -269,6 +274,25 @@ local function RefreshEllesmereUnitFrameVisibility()
     pcall(ns.UpdateFrameVisibility)
     applyingEllesmereVisibility = nil
     return true
+end
+
+local function RestoreSavedPlayerFrameSettings()
+    local db = EnsureVisibilityDB()
+    if db.playerFrameHidden == nil or groupVisibilityOverride.active then return false end
+
+    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
+    if type(unitFrames) ~= "table" then return false end
+
+    local changed = false
+    local wanted = db.playerFrameHidden == true
+    for _, unit in ipairs({ "player", "pet" }) do
+        local settings = unitFrames[unit]
+        if type(settings) == "table" and settings.visHideNoTarget ~= wanted then
+            settings.visHideNoTarget = wanted
+            changed = true
+        end
+    end
+    return changed
 end
 
 local function SmartPlayerVisibilityEnabled()
@@ -327,6 +351,9 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
     if groupVisibilityChanged then
         nativeVisibilityRefreshed = RefreshEllesmereUnitFrameVisibility()
         SyncPlayerPetVisibilityState()
+    end
+    if RestoreSavedPlayerFrameSettings() then
+        nativeVisibilityRefreshed = RefreshEllesmereUnitFrameVisibility() or nativeVisibilityRefreshed
     end
     local playerOverrideEnabled = PlayerVisibilityOverrideEnabled()
     local petOverrideEnabled = PetVisibilityOverrideEnabled()

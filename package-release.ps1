@@ -51,7 +51,8 @@ $excludeFiles = @(
     "CHANGELOG.md",
     "NEXT_CHANGELOG.md",
     "package-release.ps1",
-    "release-addon.ps1"
+    "release-addon.ps1",
+    "sync-patreon-supporters.ps1"
 )
 
 $zip = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
@@ -98,4 +99,3 @@ finally {
 
 Write-Host "Created release zip:"
 Write-Host $zipPath
-
