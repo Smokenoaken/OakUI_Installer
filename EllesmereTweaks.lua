@@ -76,6 +76,7 @@ end
 local ellesmereUnitFrameVisibilityHooked
 local applyingEllesmereVisibility
 local visibilityRefreshPending
+local groupVisibilityOverride
 
 local function SetFrameVisible(frame, visible)
     if not frame then return end
@@ -133,10 +134,12 @@ local function SyncPlayerPetVisibilityState()
     local db = EnsureVisibilityDB()
     local playerHidden = GetEllesmereUnitHideNoTarget("player")
     local petHidden = GetEllesmereUnitHideNoTarget("pet")
-    -- Once OakUI has a saved preference, EUI's live values are not authoritative.
-    -- EUI can temporarily clear visHideNoTarget while joining a group or rebuilding
-    -- its unit frames; that transient state must not turn OakUI's checkbox off.
-    if db.playerFrameHidden ~= nil then
+    -- While grouped, OakUI temporarily clears EUI's visibility predicates so the
+    -- player frame can be shown in a group. Do not let those temporary values
+    -- change OakUI's persistent Hide Unit Frames preference. Outside that
+    -- override, EUI's setting is authoritative so an explicit user opt-out is
+    -- preserved by OakUI too.
+    if groupVisibilityOverride and groupVisibilityOverride.active then
         return playerHidden, petHidden
     end
     if playerHidden ~= nil or petHidden ~= nil then
@@ -194,7 +197,7 @@ local GROUP_VISIBILITY_FIELDS = {
     "visHideNoTarget",
     "visHideNoEnemy",
 }
-local groupVisibilityOverride = {
+groupVisibilityOverride = {
     active = false,
     profileKey = nil,
     saved = {},
