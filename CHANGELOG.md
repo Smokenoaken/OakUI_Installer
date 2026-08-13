@@ -1,3 +1,8 @@
+## v2.6.31
+
+- Fixed the Loot chat window shifting right after interacting with it under WoW 12.1.
+- Updated the EllesmereUI profiles for the latest 12.1 layout.
+
 ## v2.6.30
 
 - Added OakUI rounded borders for Dragon Riding bars in default installs, plus optional chat-window borders applied after reload.

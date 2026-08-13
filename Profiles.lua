@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.30"
+P.VERSION = "2.6.31"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -92,19 +92,19 @@ P.PATREONS = {
     "Jermaine Adams",
     "Justin Vaughn",
     "Allan Nielsen",
-    "chris hellmuth",
+    "Doc_waffle",
     "Jon Jordan",
     "michael arguedas",
     "Tenelle Mallard",
     "coot",
     "Edwin Cridland",
-    "Robert D Jones",
     "stephiemarie78",
     "Edrick Nickerson",
     "B 87",
     "Nalu Rider",
     "Mark Hart",
     "Khalifa Almajid",
+    "Andrew Steltz",
     "Scott Mortell",
     "Donald Ross",
     "Peter O'Toole",
@@ -144,12 +144,24 @@ P.PATREONS = {
     "Sumith Imtiaz",
     "Grotesk",
     "Alex Tegnazian",
+    "Laurie Timothy",
+    "evans starzinger",
+    "JimmyJam",
+    "Mack",
 }
 
 -- ==========================================
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.31",
+        date = "August 12, 2026",
+        notes = {
+            "Fixed the Loot chat window shifting right after interacting with it under WoW 12.1.",
+            "Updated the EllesmereUI profiles for the latest 12.1 layout.",
+        }
+    },
     {
         version = "v2.6.30",
         date = "August 10, 2026",
