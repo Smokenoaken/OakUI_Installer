@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.31"
+P.VERSION = "2.6.32"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -154,6 +154,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.32",
+        date = "August 13, 2026",
+        notes = {
+            "Respect an explicit EUI Hide without Target opt-out and preserve it when Show Player In Group is enabled.",
+        }
+    },
     {
         version = "v2.6.31",
         date = "August 12, 2026",

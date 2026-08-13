@@ -1,3 +1,7 @@
+## v2.6.32
+
+- Respect an explicit EUI Hide without Target opt-out and preserve it when Show Player In Group is enabled.
+
 ## v2.6.31
 
 - Fixed the Loot chat window shifting right after interacting with it under WoW 12.1.
