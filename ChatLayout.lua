@@ -38,6 +38,7 @@ local OAK_EDITBOX_BELOW_FRAME_OFFSET = 8
 local OAK_EDITBOX_HEIGHT = 23
 local OAK_LOOT_BASE_GAP = OAK_EDITBOX_BELOW_FRAME_OFFSET + OAK_EDITBOX_HEIGHT
 local OAK_LOOT_FLUSH_NUDGE = 5
+local OAK_LOOT_LEFT_INSET_PP = 1
 local OAK_GENERAL_BOTTOM_GAP_PP = 15
 local OAK_GENERAL_BOTTOM_GAP_NATIVE = 19
 
@@ -200,7 +201,10 @@ local function PlaceLootFrameAboveGeneral(lootFrame, generalFrame)
         return
     end
 
-    local left = generalLeft
+    -- In 12.1, FCF_UpdateButtonSide treats an exact left edge (leftDist == 0)
+    -- as the right-side button layout. Keep the Blizzard frame one physical
+    -- pixel inside the edge; EUI's background still provides the visual flush.
+    local left = generalLeft + ScalePhysicalPixels(OAK_LOOT_LEFT_INSET_PP)
     local bottom = generalTop + OAK_LOOT_BASE_GAP + OAK_LOOT_FLUSH_NUDGE
     local width = generalWidth
     local height = ScaleLayoutLength(OAK_LOOT_HEIGHT)
@@ -210,6 +214,40 @@ local function PlaceLootFrameAboveGeneral(lootFrame, generalFrame)
     BaseSetSize(lootFrame, width, height)
 
     return true
+end
+
+local function DisableLootMinimizeButton(frame)
+    if not frame or not frame.GetName then
+        return
+    end
+
+    local name = frame:GetName()
+
+    -- Seed the same left-side state that a user gets by unlocking, nudging the
+    -- frame left, and locking it again. The small inset above keeps Blizzard's
+    -- next button-side recalculation from immediately changing it back.
+    if type(FCF_SetButtonSide) == "function" then
+        pcall(FCF_SetButtonSide, frame, "left", true)
+    end
+
+    local buttonFrame = _G[name .. "ButtonFrame"]
+    if buttonFrame then
+        -- Blizzard can fade/show the parent independently of its child.
+        buttonFrame:SetAlpha(0)
+        buttonFrame:EnableMouse(false)
+    end
+
+    local minimizeButton = _G[name .. "MinimizeButton"]
+    if not minimizeButton then
+        return
+    end
+
+    -- Loot is intentionally a permanent standalone window. Blizzard's
+    -- minimize button calls FCF_MinimizeFrame, which moves that window into
+    -- the minimized side-tab layout instead of preserving OakUI's placement.
+    minimizeButton:SetAlpha(0)
+    minimizeButton:EnableMouse(false)
+    minimizeButton:Hide()
 end
 
 local function ForceTransparency(frame, numID)
@@ -518,6 +556,7 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
     end
     SaveChatDock()
     SelectDockedChatWindow(cf1)
+    DisableLootMinimizeButton(lootFrame)
     if addonTable.RefreshChatTabVisibility then
         addonTable.RefreshChatTabVisibility()
     end
@@ -555,6 +594,7 @@ function addonTable.ApplyOakChatWindowGeometry(quiet)
 
     SaveChatWindowPosition(generalFrame)
     SaveChatWindowPosition(lootFrame)
+    DisableLootMinimizeButton(lootFrame)
 
     if not quiet then
         print("|cff17ee15[OakUI]|r OakUI Chat window placement applied.")
