@@ -368,6 +368,41 @@ local function ApplyChatLineFadeToTarget(target)
     end
 end
 
+local function ApplyChatLineFadeScrollState(visibleFrame)
+    if not visibleFrame or not ChatLineFadeEnabled() or not visibleFrame.GetScrollOffset then return end
+
+    local offset = visibleFrame:GetScrollOffset() or 0
+    local shouldFade = offset <= 0
+    if visibleFrame.oakChatLineFadeScrollState == shouldFade then return end
+    visibleFrame.oakChatLineFadeScrollState = shouldFade
+
+    if shouldFade then
+        visibleFrame:SetFading(true)
+        visibleFrame:SetTimeVisible(GetChatLineFadeDelay())
+        if visibleFrame.SetFadeDuration then
+            visibleFrame:SetFadeDuration(0.35)
+        end
+    else
+        -- Native chat reveals faded history while the user is scrolled back.
+        -- EUI's visible message frame needs the same state transition because
+        -- it owns a separate ScrollingMessageFrame from Blizzard's data plane.
+        visibleFrame:SetAlpha(1)
+        visibleFrame:SetFading(false)
+    end
+end
+
+local function HookChatLineFadeScrollState(visibleFrame)
+    if not visibleFrame or visibleFrame.oakChatLineFadeScrollHooked
+        or not visibleFrame.AddOnDisplayRefreshedCallback then
+        return
+    end
+
+    visibleFrame.oakChatLineFadeScrollHooked = true
+    visibleFrame:AddOnDisplayRefreshedCallback(function()
+        ApplyChatLineFadeScrollState(visibleFrame)
+    end)
+end
+
 local function ApplyChatLineFadeToFrame(chatFrame, chatModule)
     if not chatFrame then return end
 
@@ -381,7 +416,10 @@ local function ApplyChatLineFadeToFrame(chatFrame, chatModule)
     local chatWindow = type(chatWindows) == "table" and chatWindows[chatFrame]
     local visibleFrame = chatWindow and chatWindow.smf
     if visibleFrame and visibleFrame ~= chatFrame then
+        visibleFrame.oakChatLineFadeScrollState = nil
         ApplyChatLineFadeToTarget(visibleFrame)
+        HookChatLineFadeScrollState(visibleFrame)
+        ApplyChatLineFadeScrollState(visibleFrame)
     end
 
     -- Do not hook ChatFrame:AddMessage or other chat-frame methods here.
