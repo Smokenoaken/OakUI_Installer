@@ -303,10 +303,19 @@ local originalResetIdleTimer
 local chatFadeApplied
 local CHAT_LINE_FADE_DEFAULT_DELAY = 15
 
-local function GetEllesmereChatAddon()
-    if _G.EllesmereUI and _G.EllesmereUI.Lite and _G.EllesmereUI.Lite.GetAddon then
-        local addon = _G.EllesmereUI.Lite.GetAddon("EllesmereUIChat", true)
-        return addon and addon.ECHAT
+local function GetEllesmereChatModule()
+    local EUI = _G.EllesmereUI
+    if not EUI then return nil end
+
+    -- EllesmereUI 12.1 modules expose their namespace through _ModuleNS;
+    -- EllesmereUIChat is not a Lite NewAddon, so Lite.GetAddon() returns nil.
+    local module = EUI._ModuleNS and EUI._ModuleNS.EllesmereUIChat
+    if module then return module end
+
+    -- Keep compatibility with older EUI builds that registered chat through
+    -- the Lite addon registry.
+    if EUI.Lite and EUI.Lite.GetAddon then
+        return EUI.Lite.GetAddon("EllesmereUIChat", true)
     end
     return nil
 end
@@ -341,21 +350,38 @@ function addonTable.SetOakChatLineFadeDelay(value)
     end
 end
 
-local function ApplyChatLineFadeToFrame(chatFrame)
-    if not chatFrame or chatFrame:IsForbidden() then return end
+local function ApplyChatLineFadeToTarget(target)
+    if not target or (target.IsForbidden and target:IsForbidden()) then return end
 
     if ChatFadeDisabled() then
-        chatFrame:SetAlpha(1)
-        chatFrame:SetFading(false)
+        target:SetAlpha(1)
+        target:SetFading(false)
     elseif ChatLineFadeEnabled() then
-        chatFrame:SetAlpha(1)
-        chatFrame:SetFading(true)
-        chatFrame:SetTimeVisible(GetChatLineFadeDelay())
-        if chatFrame.SetFadeDuration then
-            chatFrame:SetFadeDuration(0.35)
+        target:SetAlpha(1)
+        target:SetFading(true)
+        target:SetTimeVisible(GetChatLineFadeDelay())
+        if target.SetFadeDuration then
+            target:SetFadeDuration(0.35)
         end
     else
-        chatFrame:SetFading(false)
+        target:SetFading(false)
+    end
+end
+
+local function ApplyChatLineFadeToFrame(chatFrame, chatModule)
+    if not chatFrame then return end
+
+    -- EllesmereUI 12.1 renders visible chat text through its own
+    -- ScrollingMessageFrame. The Blizzard ChatFrame remains the data plane
+    -- (and is still used for combat-log passthrough), so keep both paths in
+    -- sync without hooking message delivery.
+    ApplyChatLineFadeToTarget(chatFrame)
+
+    local chatWindows = chatModule and chatModule._chatWins
+    local chatWindow = type(chatWindows) == "table" and chatWindows[chatFrame]
+    local visibleFrame = chatWindow and chatWindow.smf
+    if visibleFrame and visibleFrame ~= chatFrame then
+        ApplyChatLineFadeToTarget(visibleFrame)
     end
 
     -- Do not hook ChatFrame:AddMessage or other chat-frame methods here.
@@ -441,7 +467,8 @@ local function ApplyEllesmereIdleFadePreference()
 end
 
 local function ApplyChatLineFade()
-    local ECHAT = GetEllesmereChatAddon()
+    local chatModule = GetEllesmereChatModule()
+    local ECHAT = chatModule and chatModule.ECHAT
     if ECHAT and type(ECHAT.ResetIdleTimer) == "function" and not originalResetIdleTimer then
         originalResetIdleTimer = ECHAT.ResetIdleTimer
     end
@@ -457,7 +484,7 @@ local function ApplyChatLineFade()
     end
 
     for i = 1, NUM_CHAT_WINDOWS or 20 do
-        ApplyChatLineFadeToFrame(_G["ChatFrame" .. i])
+        ApplyChatLineFadeToFrame(_G["ChatFrame" .. i], chatModule)
     end
 
     if ECHAT and originalResetIdleTimer then
