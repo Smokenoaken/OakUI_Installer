@@ -76,7 +76,6 @@ end
 local ellesmereUnitFrameVisibilityHooked
 local applyingEllesmereVisibility
 local visibilityRefreshPending
-local groupVisibilityOverride
 
 local function SetFrameVisible(frame, visible)
     if not frame then return end
@@ -134,14 +133,9 @@ local function SyncPlayerPetVisibilityState()
     local db = EnsureVisibilityDB()
     local playerHidden = GetEllesmereUnitHideNoTarget("player")
     local petHidden = GetEllesmereUnitHideNoTarget("pet")
-    -- While grouped, OakUI temporarily clears EUI's visibility predicates so the
-    -- player frame can be shown in a group. Do not let those temporary values
-    -- change OakUI's persistent Hide Unit Frames preference. Outside that
-    -- override, EUI's setting is authoritative so an explicit user opt-out is
-    -- preserved by OakUI too.
-    if groupVisibilityOverride and groupVisibilityOverride.active then
-        return playerHidden, petHidden
-    end
+    -- OakUI's group behavior is a runtime frame override. EUI's saved values
+    -- therefore remain authoritative here, and a temporary group display cannot
+    -- turn off the persistent Hide Unit Frames preference.
     if playerHidden ~= nil or petHidden ~= nil then
         local enabled = playerHidden == true and petHidden == true
         local changed = db.playerFrameHidden ~= enabled
@@ -185,88 +179,6 @@ local function PlayerIsInGroup()
     return (type(IsInGroup) == "function" and IsInGroup()) or (type(IsInRaid) == "function" and IsInRaid())
 end
 
--- EUI evaluates these visibility predicates independently of OakUI's
--- show-player-in-group preference. Temporarily clearing them while grouped
--- lets EUI own the visible state directly, avoiding a per-frame alpha repair.
--- The original values are restored when the group ends or the active profile
--- changes. This is deliberately transition-driven; it is not a poller.
-local GROUP_VISIBILITY_FIELDS = {
-    "visOnlyInstances",
-    "visHideHousing",
-    "visHideMounted",
-    "visHideNoTarget",
-    "visHideNoEnemy",
-}
-groupVisibilityOverride = {
-    active = false,
-    profileKey = nil,
-    saved = {},
-}
-
-local function RestoreGroupVisibilityOverride()
-    if not groupVisibilityOverride.active then return false end
-
-    for _, entry in ipairs(groupVisibilityOverride.saved) do
-        entry.settings[entry.key] = entry.value
-    end
-
-    wipe(groupVisibilityOverride.saved)
-    groupVisibilityOverride.active = false
-    groupVisibilityOverride.profileKey = nil
-    return true
-end
-
-local function ApplyGroupVisibilityOverride(profileKey)
-    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
-    if type(unitFrames) ~= "table" then return false end
-
-    for _, unit in ipairs({ "player", "pet" }) do
-        local settings = unitFrames[unit]
-        if type(settings) == "table" then
-            for _, key in ipairs(GROUP_VISIBILITY_FIELDS) do
-                groupVisibilityOverride.saved[#groupVisibilityOverride.saved + 1] = {
-                    settings = settings,
-                    key = key,
-                    value = settings[key],
-                }
-                settings[key] = false
-            end
-        end
-    end
-
-    groupVisibilityOverride.active = #groupVisibilityOverride.saved > 0
-    groupVisibilityOverride.profileKey = groupVisibilityOverride.active and profileKey or nil
-    return groupVisibilityOverride.active
-end
-
-local function SyncGroupVisibilityOverride()
-    local db = EnsureVisibilityDB()
-    local profileKey = type(_G.EllesmereUIDB) == "table" and _G.EllesmereUIDB.activeProfile or nil
-    local groupRequested = IsEllesmereProvider()
-        and db.showPlayerInParty == true
-        and PlayerIsInGroup()
-
-    if groupVisibilityOverride.active
-        and groupRequested
-        and groupVisibilityOverride.profileKey == profileKey
-    then
-        return false
-    end
-
-    local changed = false
-    if groupVisibilityOverride.active then
-        RestoreGroupVisibilityOverride()
-        changed = true
-    end
-
-    if groupRequested and db.playerFrameHidden == true then
-        ApplyGroupVisibilityOverride(profileKey)
-        return true
-    end
-
-    return changed
-end
-
 local function RefreshEllesmereUnitFrameVisibility()
     local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
     if not ns or type(ns.UpdateFrameVisibility) ~= "function" or applyingEllesmereVisibility then
@@ -277,25 +189,6 @@ local function RefreshEllesmereUnitFrameVisibility()
     pcall(ns.UpdateFrameVisibility)
     applyingEllesmereVisibility = nil
     return true
-end
-
-local function RestoreSavedPlayerFrameSettings()
-    local db = EnsureVisibilityDB()
-    if db.playerFrameHidden == nil or groupVisibilityOverride.active then return false end
-
-    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
-    if type(unitFrames) ~= "table" then return false end
-
-    local changed = false
-    local wanted = db.playerFrameHidden == true
-    for _, unit in ipairs({ "player", "pet" }) do
-        local settings = unitFrames[unit]
-        if type(settings) == "table" and settings.visHideNoTarget ~= wanted then
-            settings.visHideNoTarget = wanted
-            changed = true
-        end
-    end
-    return changed
 end
 
 local function SmartPlayerVisibilityEnabled()
@@ -349,15 +242,6 @@ end
 function addonTable.RefreshEllesmereVisibilityTweaks()
     HookEllesmereUnitFrameVisibility()
     SyncPlayerPetVisibilityState()
-    local nativeVisibilityRefreshed = false
-    local groupVisibilityChanged = SyncGroupVisibilityOverride()
-    if groupVisibilityChanged then
-        nativeVisibilityRefreshed = RefreshEllesmereUnitFrameVisibility()
-        SyncPlayerPetVisibilityState()
-    end
-    if RestoreSavedPlayerFrameSettings() then
-        nativeVisibilityRefreshed = RefreshEllesmereUnitFrameVisibility() or nativeVisibilityRefreshed
-    end
     local playerOverrideEnabled = PlayerVisibilityOverrideEnabled()
     local petOverrideEnabled = PetVisibilityOverrideEnabled()
 
@@ -398,9 +282,7 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
     local petFrame = _G.EllesmereUIUnitFrames_Pet
     local dandersPetFrame = GetDandersPlayerPetFrame()
 
-    if not nativeVisibilityRefreshed then
-        RefreshEllesmereUnitFrameVisibility()
-    end
+    RefreshEllesmereUnitFrameVisibility()
 
     if playerOverrideEnabled then
         SetFrameVisible(playerFrame and playerFrame._visWrap or playerFrame, shouldShowPlayer)
@@ -839,8 +721,8 @@ local function ScheduleLayoutRefresh()
 end
 
 -- GROUP_ROSTER_UPDATE can arrive just before the group APIs reflect the final
--- roster. One coalesced settle pass makes the reversible unit-frame override
--- reliable on both join and leave without adding an OnUpdate/polling loop.
+-- roster. One coalesced settle pass makes the runtime frame override reliable
+-- on both join and leave without adding an OnUpdate/polling loop.
 local groupVisibilitySettleTimer
 local function ScheduleGroupVisibilitySettle()
     if groupVisibilitySettleTimer then
@@ -860,7 +742,6 @@ end
 
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("PLAYER_LOGOUT")
 frame:RegisterEvent("UPDATE_CHAT_WINDOWS")
 frame:RegisterEvent("UPDATE_FLOATING_CHAT_WINDOWS")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
@@ -877,15 +758,6 @@ frame:RegisterEvent("LFG_QUEUE_STATUS_UPDATE")
 frame:RegisterEvent("LFG_ROLE_CHECK_UPDATE")
 frame:RegisterEvent("LFG_PROPOSAL_UPDATE")
 frame:SetScript("OnEvent", function(_, event, unit)
-    if event == "PLAYER_LOGOUT" then
-        if groupVisibilitySettleTimer then
-            groupVisibilitySettleTimer:Cancel()
-            groupVisibilitySettleTimer = nil
-        end
-        RestoreGroupVisibilityOverride()
-        return
-    end
-
     if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" then
         if unit ~= "player" and unit ~= "pet" then return end
     end
