@@ -1,3 +1,7 @@
+## v2.6.34
+
+- Fixed OakUI Chat Line Fade for EllesmereUI 12.1's custom chat message frames.
+
 ## v2.6.33
 
 - Fixed Show Player In Group so Hide Unit Frames remains enabled and is restored after leaving a group.

@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.33"
+P.VERSION = "2.6.34"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -156,6 +156,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.34",
+        date = "August 15, 2026",
+        notes = {
+            "Fixed OakUI Chat Line Fade for EllesmereUI 12.1's custom chat message frames.",
+        }
+    },
     {
         version = "v2.6.33",
         date = "August 14, 2026",
