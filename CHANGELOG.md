@@ -1,3 +1,7 @@
+## v2.6.35
+
+- Restored faded chat history while scrolling back through EUI chat windows.
+
 ## v2.6.34
 
 - Fixed OakUI Chat Line Fade for EllesmereUI 12.1's custom chat message frames.

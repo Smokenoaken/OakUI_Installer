@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.34"
+P.VERSION = "2.6.35"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -156,6 +156,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.35",
+        date = "August 15, 2026",
+        notes = {
+            "Restored faded chat history while scrolling back through EUI chat windows.",
+        }
+    },
     {
         version = "v2.6.34",
         date = "August 15, 2026",
