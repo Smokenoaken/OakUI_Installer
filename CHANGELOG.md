@@ -1,3 +1,11 @@
+## v2.6.33
+
+- Fixed Show Player In Group so Hide Unit Frames remains enabled and is restored after leaving a group.
+- Increased the Name Width percentage and tightened stacked nameplate spacing in both OakUI profiles.
+- Updated bag currency selections for Season 2 currency.
+- Disabled Ellesmere AuraBuff Reminders; Readycheck Consumables is recommended instead.
+- Refreshed the Patreon supporter list with current active paid members.
+
 ## v2.6.32
 
 - Respect an explicit EUI Hide without Target opt-out and preserve it when Show Player In Group is enabled.

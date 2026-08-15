@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.32"
+P.VERSION = "2.6.33"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -156,6 +156,17 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.33",
+        date = "August 14, 2026",
+        notes = {
+            "Fixed Show Player In Group so Hide Unit Frames remains enabled and is restored after leaving a group.",
+            "Increased the Name Width percentage and tightened stacked nameplate spacing in both OakUI profiles.",
+            "Updated bag currency selections for Season 2 currency.",
+            "Disabled Ellesmere AuraBuff Reminders; Readycheck Consumables is recommended instead.",
+            "Refreshed the Patreon supporter list with current active paid members.",
+        }
+    },
     {
         version = "v2.6.32",
         date = "August 13, 2026",
