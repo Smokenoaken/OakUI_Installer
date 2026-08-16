@@ -5,7 +5,7 @@ local classColor = C_ClassColor.GetClassColor(playerClass)
 local r, g, b = classColor.r, classColor.g, classColor.b
 local cWrap = "|c" .. classColor:GenerateHexColor()
 
-local function MakeVisibilityCheckbox(parent, text, updateFunc, getStateFunc, skipReloadPrompt)
+local function MakeVisibilityCheckbox(parent, text, updateFunc, getStateFunc)
     local btn = CreateFrame("Button", nil, parent)
     btn:SetSize(20, 20)
     local border = btn:CreateTexture(nil, "BACKGROUND")
@@ -35,15 +35,6 @@ local function MakeVisibilityCheckbox(parent, text, updateFunc, getStateFunc, sk
             parent:UpdateVisibilityCheckboxes()
         end
 
-        if skipReloadPrompt then
-            return
-        end
-
-        if addonTable.ShowReloadPrompt then
-            addonTable.ShowReloadPrompt("Visibility settings updated!\nA UI Reload may be required to finalize every frame.")
-        else
-            ReloadUI()
-        end
     end)
 
     return btn, label
@@ -2045,6 +2036,7 @@ end
 local function SetEllesmerePlayerFrame(state)
     local db = EnsureVisibilityDB()
     db.playerFrameHidden = state == true
+    db.petFrameHidden = state == true
     local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames", true)
     if unitFrames then
         unitFrames.player = unitFrames.player or {}
@@ -2520,8 +2512,8 @@ function addonTable.BuildVisibilityUI(parentFrame)
         end)
     end
 
-    local function AddOption(text, updateFunc, getStateFunc, tooltip, x, y, width, skipReloadPrompt)
-        local cb, lbl = MakeVisibilityCheckbox(parentFrame, cWrap .. text .. "|r", updateFunc, getStateFunc, skipReloadPrompt)
+    local function AddOption(text, updateFunc, getStateFunc, tooltip, x, y, width)
+        local cb, lbl = MakeVisibilityCheckbox(parentFrame, cWrap .. text .. "|r", updateFunc, getStateFunc)
         cb:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", x, y)
         lbl:SetFontObject("GameFontHighlightSmall")
         lbl:SetWidth((width or 215) - 32)
@@ -2590,40 +2582,40 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddOption("Apply All", SetAllHidden, GetAllHidden, nil, 300, -23, 150)
 
         AddSection("Visibility", leftX, -78)
-        AddOption("Hide Unit Frames", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options between None and Hide without Target for Player/Pet.", leftX, -98, colWidth, true)
-        AddOption("Hide Cooldown Manager", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -98, colWidth, true)
+        AddOption("Hide Unit Frames", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options between None and Hide without Target for Player/Pet.", leftX, -98, colWidth)
+        AddOption("Hide Cooldown Manager", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -98, colWidth)
         AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -98 + rowGap, colWidth)
-        AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade. EUI Chat applies this after a UI reload.", rightX, -98 + rowGap, colWidth)
-        AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -98 + rowGap * 2, colWidth, true)
+        AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade. The change applies immediately.", rightX, -98 + rowGap, colWidth)
+        AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -98 + rowGap * 2, colWidth)
         AddSlider("Chat Line Fade Delay", addonTable.SetOakChatLineFadeDelay, addonTable.GetOakChatLineFadeDelay, "Controls how long each chat line stays visible before it begins fading. This adjusts EUI's active chat profile delay.", rightX, -158, colWidth, 1, 120, 1, "s")
         AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", leftX, -198, colWidth)
-        AddOption("Hide Error Messages", SetErrorMessagesHidden, GetErrorMessagesHidden, "Suppresses most red UI error text from UIErrorsFrame, useful for GSE macro spam. Important errors like full bags, full quest log, dead player/pet, and LFG boot/teleport messages still show.", rightX, -198, colWidth, true)
-        AddOption("Disable Chat Fade", SetEllesmereDisableChatFade, GetEllesmereDisableChatFade, "Turns off OakUI chat line fade and sets Ellesmere's Idle Fade Strength to 0 so chat stays visible.", leftX, -228, colWidth, true)
+        AddOption("Hide Error Messages", SetErrorMessagesHidden, GetErrorMessagesHidden, "Suppresses most red UI error text from UIErrorsFrame, useful for GSE macro spam. Important errors like full bags, full quest log, dead player/pet, and LFG boot/teleport messages still show.", rightX, -198, colWidth)
+        AddOption("Disable Chat Fade", SetEllesmereDisableChatFade, GetEllesmereDisableChatFade, "Turns off OakUI chat line fade and sets Ellesmere's Idle Fade Strength to 0 so chat stays visible.", leftX, -228, colWidth)
 
         AddSection("Tweaks", leftX, -260)
         AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -280, colWidth)
-        AddOption("OakUI DBM Anchoring", addonTable.SetOakDBMHugeBarAnchoringEnabled, addonTable.GetOakDBMHugeBarAnchoringEnabled, "Keeps OakUI's DBM Large bars positioned above the target frame. Turn this off to customize DBM's own bar position without OakUI reapplying it.", rightX, -280, colWidth, true)
-        AddOption("OakUI Dragon Riding Anchoring", addonTable.SetOakDragonRidingAnchoringEnabled, addonTable.GetOakDragonRidingAnchoringEnabled, "Keeps Dragon Riding attached to the Class Resource bar even if EUI misses the saved anchor. Turn this off to customize Dragon Riding's position through EUI.", leftX, -310, colWidth, true)
-        local mplusForcesCheckbox = AddOption("M+ Enemy Forces", addonTable.SetOakEllesmereMythicForcesEnabled, addonTable.GetOakEllesmereMythicForcesEnabled, "OakUI-only: shows each enemy's Mythic+ forces percentage in OakUI's nameplate font to the right of the enemy cast bar. The default text size is 15; use the resize icon for Size and X/Y offset controls. It is active only inside an active Mythic+ key.", leftX, -340, colWidth, true)
+        AddOption("OakUI DBM Anchoring", addonTable.SetOakDBMHugeBarAnchoringEnabled, addonTable.GetOakDBMHugeBarAnchoringEnabled, "Keeps OakUI's DBM Large bars positioned above the target frame. Turn this off to customize DBM's own bar position without OakUI reapplying it.", rightX, -280, colWidth)
+        AddOption("OakUI Dragon Riding Anchoring", addonTable.SetOakDragonRidingAnchoringEnabled, addonTable.GetOakDragonRidingAnchoringEnabled, "Keeps Dragon Riding attached to the Class Resource bar even if EUI misses the saved anchor. Turn this off to customize Dragon Riding's position through EUI.", leftX, -310, colWidth)
+        local mplusForcesCheckbox = AddOption("M+ Enemy Forces", addonTable.SetOakEllesmereMythicForcesEnabled, addonTable.GetOakEllesmereMythicForcesEnabled, "OakUI-only: shows each enemy's Mythic+ forces percentage in OakUI's nameplate font to the right of the enemy cast bar. The default text size is 15; use the resize icon for Size and X/Y offset controls. It is active only inside an active Mythic+ key.", leftX, -340, colWidth)
         if addonTable.BuildOakEllesmereMythicForcesCog then
             addonTable.BuildOakEllesmereMythicForcesCog(parentFrame, mplusForcesCheckbox)
         end
         if IsWMarkerAvailable() then
-            AddOption("wMarker Mouseover Fade", SetWMarkerMouseoverFade, GetWMarkerMouseoverFade, "Fades wMarker when the mouse is away and restores its normal alpha when you move over it.", rightX, -310, colWidth, true)
+            AddOption("wMarker Mouseover Fade", SetWMarkerMouseoverFade, GetWMarkerMouseoverFade, "Fades wMarker when the mouse is away and restores its normal alpha when you move over it.", rightX, -310, colWidth)
             AddSlider("wMarker Faded Opacity", SetWMarkerFadedAlpha, GetWMarkerFadedAlpha, "Controls how visible wMarker remains while the mouse is away. 0% is invisible; 100% disables the visual fade.", rightX, -338, colWidth)
         end
         AddSection("Rounded Borders", leftX, -364)
-        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles the rounded-border options used by OakUI default installs. Chat Windows remains a separate opt-in.", leftX, -386, colWidth, true)
-        AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -386, colWidth, true)
-        AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -386 + roundedRowGap, colWidth, true)
-        AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -386 + roundedRowGap, colWidth, true)
-        AddOption("Cast Bars", SetCastBarRoundThinBorders, GetCastBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere cast bars, including unit-frame cast bars and the resource cast bar.", leftX, -386 + roundedRowGap * 2, colWidth, true)
-        AddOption("Boss Frames", SetBossFrameRoundThinBorders, GetBossFrameRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere boss frames without enabling the full EUI Frames/Bars option.", rightX, -386 + roundedRowGap * 2, colWidth, true)
-        AddOption("Nameplates", SetNameplateRoundThinBorders, GetNameplateRoundThinBorders, "Applies OakUI rounded masking to Ellesmere nameplates and their cast bars. Nameplate cast bars use OakUI's standalone rounded status-bar renderer because Ellesmere does not expose the same custom-border path there.", leftX, -386 + roundedRowGap * 3, colWidth, true)
-        AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -386 + roundedRowGap * 3, colWidth, true)
-        AddOption("Tracking Bars", SetTrackingBarRoundThinBorders, GetTrackingBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere Tracking Bars. Turning it off restores their previous saved border settings.", leftX, -386 + roundedRowGap * 4, colWidth, true)
-        AddOption("Dragon Riding", addonTable.SetOakRoundThinDragonRidingBorders, addonTable.GetOakRoundThinDragonRidingBorders, "Applies the OakUI very thin rounded border to Ellesmere's Dragon Riding bar cluster. The border follows the bars when EUI rebuilds or reanchors them.", rightX, -386 + roundedRowGap * 4, colWidth, true)
-        AddOption("Chat Windows", addonTable.SetOakRoundThinChatBorders, addonTable.GetOakRoundThinChatBorders, "Opt-in: applies the OakUI very thin rounded border to Blizzard chat windows. This is independent of Hide Chat and is disabled by default. EUI Chat applies this after a UI reload.", leftX, -386 + roundedRowGap * 5, colWidth)
+        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles the rounded-border options used by OakUI default installs. Chat Windows remains a separate opt-in.", leftX, -386, colWidth)
+        AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -386, colWidth)
+        AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -386 + roundedRowGap, colWidth)
+        AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -386 + roundedRowGap, colWidth)
+        AddOption("Cast Bars", SetCastBarRoundThinBorders, GetCastBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere cast bars, including unit-frame cast bars and the resource cast bar.", leftX, -386 + roundedRowGap * 2, colWidth)
+        AddOption("Boss Frames", SetBossFrameRoundThinBorders, GetBossFrameRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere boss frames without enabling the full EUI Frames/Bars option.", rightX, -386 + roundedRowGap * 2, colWidth)
+        AddOption("Nameplates", SetNameplateRoundThinBorders, GetNameplateRoundThinBorders, "Applies OakUI rounded masking to Ellesmere nameplates and their cast bars. Nameplate cast bars use OakUI's standalone rounded status-bar renderer because Ellesmere does not expose the same custom-border path there.", leftX, -386 + roundedRowGap * 3, colWidth)
+        AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -386 + roundedRowGap * 3, colWidth)
+        AddOption("Tracking Bars", SetTrackingBarRoundThinBorders, GetTrackingBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere Tracking Bars. Turning it off restores their previous saved border settings.", leftX, -386 + roundedRowGap * 4, colWidth)
+        AddOption("Dragon Riding", addonTable.SetOakRoundThinDragonRidingBorders, addonTable.GetOakRoundThinDragonRidingBorders, "Applies the OakUI very thin rounded border to Ellesmere's Dragon Riding bar cluster. The border follows the bars when EUI rebuilds or reanchors them.", rightX, -386 + roundedRowGap * 4, colWidth)
+        AddOption("Chat Windows", addonTable.SetOakRoundThinChatBorders, addonTable.GetOakRoundThinChatBorders, "Opt-in: applies the OakUI very thin rounded border to Blizzard chat windows. This is independent of Hide Chat and is disabled by default. The change applies immediately.", leftX, -386 + roundedRowGap * 5, colWidth)
 
         parentFrame.UpdateVisibilityCheckboxes = function()
             for _, cb in ipairs(checkboxes) do cb:UpdateState() end

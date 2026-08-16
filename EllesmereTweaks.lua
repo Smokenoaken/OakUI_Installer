@@ -32,6 +32,16 @@ end
 
 local function UnitIsInjured(unit)
     if not UnitExists(unit) then return false end
+
+    -- Retail exposes a C-side boolean for this boundary. Prefer it when
+    -- available so Smart Player is not defeated by protected health values.
+    if type(UnitIsFullHealth) == "function" then
+        local ok, full = pcall(UnitIsFullHealth, unit)
+        if ok and type(full) == "boolean" then
+            return not full
+        end
+    end
+
     local ok, injured = pcall(function()
         local maxHealth = UnitHealthMax(unit) or 0
         local health = UnitHealth(unit) or maxHealth
@@ -44,6 +54,8 @@ local playerHealthBelowMax = false
 local playerHealthStableTimer
 local lastPlayerHealthEventTime = 0
 local HEALTH_STABLE_DURATION = 3
+local ShouldForcePlayerFrameShown
+local ApplyPlayerFrameVisibilityOverride
 
 local function SetPlayerHealthChanging()
     local wasBelowMax = playerHealthBelowMax
@@ -75,7 +87,6 @@ end
 
 local ellesmereUnitFrameVisibilityHooked
 local applyingEllesmereVisibility
-local visibilityRefreshPending
 
 local function SetFrameVisible(frame, visible)
     if not frame then return end
@@ -137,9 +148,16 @@ local function SyncPlayerPetVisibilityState()
     -- therefore remain authoritative here, and a temporary group display cannot
     -- turn off the persistent Hide Unit Frames preference.
     if playerHidden ~= nil or petHidden ~= nil then
-        local enabled = playerHidden == true and petHidden == true
-        local changed = db.playerFrameHidden ~= enabled
-        db.playerFrameHidden = enabled
+        local playerEnabled = playerHidden == true
+        local petEnabled = petHidden == true
+        local changed = (playerHidden ~= nil and db.playerFrameHidden ~= playerEnabled)
+            or (petHidden ~= nil and db.petFrameHidden ~= petEnabled)
+        if playerHidden ~= nil then
+            db.playerFrameHidden = playerEnabled
+        end
+        if petHidden ~= nil then
+            db.petFrameHidden = petEnabled
+        end
         if changed and addonTable.RefreshVisibilityCheckboxes then
             addonTable.RefreshVisibilityCheckboxes()
         end
@@ -167,6 +185,9 @@ end
 local function PetVisibilityOverrideEnabled()
     if not PlayerPetVisibilityOptionsEnabled() then return false end
     local db = EnsureVisibilityDB()
+    if db.petFrameHidden ~= nil then
+        return db.petFrameHidden == true
+    end
     if db.playerFrameHidden ~= nil then
         return db.playerFrameHidden == true
     end
@@ -209,18 +230,16 @@ local function HookEllesmereUnitFrameVisibility()
     ellesmereUnitFrameVisibilityHooked = true
     hooksecurefunc(ns, "UpdateFrameVisibility", function()
         if applyingEllesmereVisibility then return end
-        if visibilityRefreshPending then return end
-        visibilityRefreshPending = true
-        C_Timer.After(0, function()
-            visibilityRefreshPending = nil
-            if addonTable.RefreshEllesmereVisibilityTweaks then
-                addonTable.RefreshEllesmereVisibilityTweaks(true)
-            end
-        end)
+        -- EUI writes the player wrapper's alpha during this pass. Reassert
+        -- OakUI's temporary party/injury display override immediately after
+        -- EUI returns, avoiding a visible one-frame hide/show oscillation.
+        if ShouldForcePlayerFrameShown and ShouldForcePlayerFrameShown() then
+            ApplyPlayerFrameVisibilityOverride()
+        end
     end)
 end
 
-local function ShouldForcePlayerFrameShown()
+ShouldForcePlayerFrameShown = function()
     if not PlayerVisibilityOverrideEnabled() then return false end
     local db = EnsureVisibilityDB()
     if InCombatLockdown and InCombatLockdown() then return true end
@@ -231,7 +250,7 @@ local function ShouldForcePlayerFrameShown()
     return false
 end
 
-local function ApplyPlayerFrameVisibilityOverride()
+ApplyPlayerFrameVisibilityOverride = function()
     local target = GetEllesmerePlayerVisibilityTarget()
     if not target then return end
     if ShouldForcePlayerFrameShown() then
@@ -837,7 +856,7 @@ frame:SetScript("OnEvent", function(_, event, unit)
         -- rebuilding the chat windows.
         ScheduleChatLineFadeRefresh()
     elseif event == "PLAYER_TARGET_CHANGED" or event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" then
-        if event == "UNIT_HEALTH" and unit == "player" then
+        if event == "UNIT_HEALTH" and (unit == "player" or unit == "pet") then
             SetPlayerHealthChanging()
         end
         ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)

@@ -150,6 +150,7 @@ P.PATREONS = {
     "evans starzinger",
     "JimmyJam",
     "Mack",
+    "Jennifer Carlson",
 }
 
 -- ==========================================
