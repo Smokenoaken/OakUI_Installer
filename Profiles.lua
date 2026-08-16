@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.35"
+P.VERSION = "2.6.36"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -157,6 +157,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.36",
+        date = "August 16, 2026",
+        notes = {
+            "Removed unnecessary reload prompts from live Visibility/Tweaks options.",
+        }
+    },
     {
         version = "v2.6.35",
         date = "August 15, 2026",

@@ -1,3 +1,7 @@
+## v2.6.36
+
+- Removed unnecessary reload prompts from live Visibility/Tweaks options.
+
 ## v2.6.35
 
 - Restored faded chat history while scrolling back through EUI chat windows.
