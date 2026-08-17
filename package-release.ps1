@@ -40,6 +40,8 @@ $excludeNames = @(
     ".git",
     ".chrome-profile",
     ".edge-profile",
+    ".github",
+    "__pycache__",
     "dist"
 )
 
@@ -75,7 +77,7 @@ try {
             return $false
         }
 
-        if ($relativePath -like '*.zip') {
+        if ($relativePath -like '*.zip' -or $relativePath -like '*.py' -or $relativePath -like '*.pyc') {
             return $false
         }
 
