@@ -159,34 +159,6 @@ function addonTable.SetOakInstallActiveEllesmereProfile(dpsProfileName, healerPr
     return true
 end
 
-local function FrameHasText(frame, text)
-    if not frame or not text then return false end
-    local regions = { frame:GetRegions() }
-    for _, region in ipairs(regions) do
-        if region and region.GetObjectType and region:GetObjectType() == "FontString" then
-            local value = region:GetText()
-            if value == text or (type(value) == "string" and value:find(text, 1, true)) then
-                return true
-            end
-        end
-    end
-    return false
-end
-
-local function FindButtonByText(frame, text)
-    if not frame then return nil end
-    if frame.GetObjectType and frame:GetObjectType() == "Button" and FrameHasText(frame, text) then
-        return frame
-    end
-
-    local children = { frame:GetChildren() }
-    for _, child in ipairs(children) do
-        local found = FindButtonByText(child, text)
-        if found then return found end
-    end
-    return nil
-end
-
 local function TryOpenEllesmereCDMRepopulatePopup()
     if not C_AddOns or not C_AddOns.IsAddOnLoaded or not C_AddOns.IsAddOnLoaded("EllesmereUICooldownManager") then
         if C_AddOns and C_AddOns.LoadAddOn then
@@ -195,40 +167,22 @@ local function TryOpenEllesmereCDMRepopulatePopup()
     end
 
     local EUI = _G.EllesmereUI
-    if not EUI or type(EUI.ShowModule) ~= "function" or type(EUI.ShowConfirmPopup) ~= "function" then
+    local moduleNS = EUI and EUI._ModuleNS and EUI._ModuleNS["EllesmereUICooldownManager"]
+    if not EUI or type(EUI.ShowConfirmPopup) ~= "function"
+       or not moduleNS or type(moduleNS.RepopulateFromBlizzard) ~= "function" then
         return false
     end
 
-    local openedPopup = false
-    local oldShowConfirmPopup = EUI.ShowConfirmPopup
-    EUI.ShowConfirmPopup = function(self, opts)
-        if type(opts) == "table" and opts.title == "Repopulate Bars" then
-            openedPopup = true
-        end
-        return oldShowConfirmPopup(self, opts)
-    end
-
-    local ok = pcall(EUI.ShowModule, EUI, "EllesmereUICooldownManager")
-    if ok and type(EUI.SelectPage) == "function" then
-        pcall(EUI.SelectPage, EUI, "CDM Bars")
-    end
-
-    if ok then
-        local root = (type(EUI.GetMainFrame) == "function" and EUI:GetMainFrame()) or EUI._mainFrame
-        local button = FindButtonByText(root, "Repopulate from Blizzard CDM") or FindButtonByText(root, "Repopulate")
-        if button then
-            local click = button:GetScript("OnClick")
-            if type(click) == "function" then
-                pcall(click, button, "LeftButton")
-            elseif button.Click then
-                pcall(button.Click, button)
-            end
-        end
-    end
-
-    EUI.ShowConfirmPopup = oldShowConfirmPopup
-
-    return openedPopup == true
+    local ok = pcall(EUI.ShowConfirmPopup, EUI, {
+        title = "Repopulate Bars",
+        message = "This will repopulate your active Ellesmere CDM bars from Blizzard's Cooldown Manager while preserving your custom entries. Continue?",
+        confirmText = "Repopulate",
+        cancelText = "Cancel",
+        onConfirm = function()
+            pcall(moduleNS.RepopulateFromBlizzard)
+        end,
+    })
+    return ok
 end
 
 function addonTable.RepopulateActiveEllesmereCDMFromBlizzard(quiet)

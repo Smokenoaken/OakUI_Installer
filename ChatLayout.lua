@@ -235,6 +235,13 @@ local function DisableLootMinimizeButton(frame)
         -- Blizzard can fade/show the parent independently of its child.
         buttonFrame:SetAlpha(0)
         buttonFrame:EnableMouse(false)
+        if not buttonFrame._oakLootMinimizeHooked and buttonFrame.HookScript then
+            buttonFrame._oakLootMinimizeHooked = true
+            buttonFrame:HookScript("OnShow", function(self)
+                self:SetAlpha(0)
+                self:EnableMouse(false)
+            end)
+        end
     end
 
     local minimizeButton = _G[name .. "MinimizeButton"]
@@ -248,6 +255,14 @@ local function DisableLootMinimizeButton(frame)
     minimizeButton:SetAlpha(0)
     minimizeButton:EnableMouse(false)
     minimizeButton:Hide()
+    if not minimizeButton._oakLootMinimizeHooked and minimizeButton.HookScript then
+        minimizeButton._oakLootMinimizeHooked = true
+        minimizeButton:HookScript("OnShow", function(self)
+            self:SetAlpha(0)
+            self:EnableMouse(false)
+            self:Hide()
+        end)
+    end
 end
 
 local function ForceTransparency(frame, numID)
@@ -362,6 +377,70 @@ local function FindChatWindowByName(...)
     end
 end
 
+local lootFrameRepairPending
+local lootFrameRepairHooksInstalled
+
+local function IsOakLootFrame(frame)
+    if not frame then return false end
+    local lootFrame = FindChatWindowByName(LOOT or "Loot", "Loot")
+    return lootFrame and frame == lootFrame
+end
+
+local function RepairOakLootFrame()
+    local lootFrame = FindChatWindowByName(LOOT or "Loot", "Loot")
+    if not lootFrame or not ChatFrame1 then return end
+
+    -- Blizzard's minimize action hides the real frame and creates a separate
+    -- side-tab. Restore it before reapplying OakUI's standalone placement.
+    if lootFrame.minimized and type(FCF_MaximizeFrame) == "function" then
+        pcall(FCF_MaximizeFrame, lootFrame)
+    end
+
+    PlaceLootFrameAboveGeneral(lootFrame, ChatFrame1)
+    DisableLootMinimizeButton(lootFrame)
+    if addonTable.RefreshChatTabVisibility then
+        addonTable.RefreshChatTabVisibility()
+    end
+end
+
+local function QueueOakLootFrameRepair()
+    if lootFrameRepairPending then return end
+    lootFrameRepairPending = true
+    C_Timer.After(0, function()
+        lootFrameRepairPending = nil
+        RepairOakLootFrame()
+    end)
+end
+
+local function InstallOakLootFrameRepairHooks()
+    if lootFrameRepairHooksInstalled or type(hooksecurefunc) ~= "function" then
+        return
+    end
+
+    if type(FCF_UpdateButtonSide) == "function" then
+        hooksecurefunc("FCF_UpdateButtonSide", function(frame)
+            if IsOakLootFrame(frame) then
+                QueueOakLootFrameRepair()
+            end
+        end)
+    end
+    if type(FCF_MinimizeFrame) == "function" then
+        hooksecurefunc("FCF_MinimizeFrame", function(frame)
+            if IsOakLootFrame(frame) then
+                QueueOakLootFrameRepair()
+            end
+        end)
+    end
+    if type(FCF_MaximizeFrame) == "function" then
+        hooksecurefunc("FCF_MaximizeFrame", function(frame)
+            if IsOakLootFrame(frame) then
+                QueueOakLootFrameRepair()
+            end
+        end)
+    end
+    lootFrameRepairHooksInstalled = true
+end
+
 local function AddUniqueChannel(channelNames, channelName)
     if not channelName or channelName == "" then
         return
@@ -426,6 +505,8 @@ local function RouteChannelsToFrame(targetFrame, channelsToRoute, ...)
 end
 
 function addonTable.SetupChatWindows(silent, quiet, resetFirst)
+    InstallOakLootFrameRepairHooks()
+
     -- 1. Setup General Window (ChatFrame1)
     local generalGeometry = BuildGeneralChatGeometry(CaptureFrameGeometry(ChatFrame1))
     if resetFirst and type(FCF_ResetChatWindows) == "function" then
@@ -582,6 +663,8 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
 end
 
 function addonTable.ApplyOakChatWindowGeometry(quiet)
+    InstallOakLootFrameRepairHooks()
+
     local generalFrame = ChatFrame1
     local lootFrame = FindChatWindowByName(LOOT or "Loot", "Loot")
     if not generalFrame or not lootFrame then
@@ -679,8 +762,16 @@ addonTable.RefreshChatTabVisibility = function()
     SyncLootTabAlpha()
 end
 
+local function HandleLootChatLifecycle()
+    InstallOakLootFrameRepairHooks()
+    QueueOakLootFrameRepair()
+    addonTable.RefreshChatTabVisibility()
+end
+
 lootTabAlphaFrame:RegisterEvent("PLAYER_LOGIN")
+lootTabAlphaFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 lootTabAlphaFrame:RegisterEvent("UPDATE_CHAT_WINDOWS")
 lootTabAlphaFrame:RegisterEvent("UPDATE_FLOATING_CHAT_WINDOWS")
+lootTabAlphaFrame:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
 lootTabAlphaFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-lootTabAlphaFrame:SetScript("OnEvent", addonTable.RefreshChatTabVisibility)
+lootTabAlphaFrame:SetScript("OnEvent", HandleLootChatLifecycle)

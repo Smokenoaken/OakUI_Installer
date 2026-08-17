@@ -85,7 +85,7 @@ local function PlayerHealthBelowMax()
     return playerHealthBelowMax or UnitIsInjured("player")
 end
 
-local ellesmereUnitFrameVisibilityHooked
+local hookedEllesmereUnitFrameVisibility
 local applyingEllesmereVisibility
 
 local function SetFrameVisible(frame, visible)
@@ -223,11 +223,14 @@ local function GetEllesmerePlayerVisibilityTarget()
 end
 
 local function HookEllesmereUnitFrameVisibility()
-    if ellesmereUnitFrameVisibilityHooked then return end
     local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
     if not ns or type(ns.UpdateFrameVisibility) ~= "function" or not hooksecurefunc then return end
+    if hookedEllesmereUnitFrameVisibility == ns.UpdateFrameVisibility then return end
 
-    ellesmereUnitFrameVisibilityHooked = true
+    -- Reloading EUI's unit frames replaces this function. Track the function
+    -- itself rather than a boolean so the runtime override remains hooked after
+    -- an EUI frame rebuild.
+    hookedEllesmereUnitFrameVisibility = ns.UpdateFrameVisibility
     hooksecurefunc(ns, "UpdateFrameVisibility", function()
         if applyingEllesmereVisibility then return end
         -- EUI writes the player wrapper's alpha during this pass. Reassert
@@ -251,10 +254,13 @@ ShouldForcePlayerFrameShown = function()
 end
 
 ApplyPlayerFrameVisibilityOverride = function()
-    local target = GetEllesmerePlayerVisibilityTarget()
+    local playerFrame = _G.EllesmereUIUnitFrames_Player
+    local target = playerFrame and (playerFrame._visWrap or playerFrame)
     if not target then return end
     if ShouldForcePlayerFrameShown() then
         target:SetAlpha(1)
+        local portrait3D = playerFrame.Portrait and playerFrame.Portrait.backdrop and playerFrame.Portrait.backdrop._3d
+        if portrait3D then portrait3D:SetAlpha(1) end
     end
 end
 
@@ -804,14 +810,28 @@ local function ScheduleLayoutRefresh()
     ScheduleRefresh("specialActionBars", 0.3, addonTable.RefreshEllesmereSpecialActionBarVisibility, 1)
 end
 
--- GROUP_ROSTER_UPDATE can arrive just before the group APIs reflect the final
--- roster. One coalesced settle pass makes the runtime frame override reliable
--- on both join and leave without adding an OnUpdate/polling loop.
+-- EUI handles GROUP_ROSTER_UPDATE with a next-frame local visibility update.
+-- It bypasses the public function hook above, so run one event-driven pass
+-- after that update, then retain a short settle pass for roster API lag.
 local groupVisibilitySettleTimer
+local groupVisibilityPostUpdatePending
 local function ScheduleGroupVisibilitySettle()
     if groupVisibilitySettleTimer then
         groupVisibilitySettleTimer:Cancel()
     end
+
+    if not groupVisibilityPostUpdatePending then
+        groupVisibilityPostUpdatePending = true
+        C_Timer.After(0, function()
+            C_Timer.After(0, function()
+                groupVisibilityPostUpdatePending = nil
+                if addonTable.RefreshEllesmereVisibilityTweaks then
+                    addonTable.RefreshEllesmereVisibilityTweaks()
+                end
+            end)
+        end)
+    end
+
     groupVisibilitySettleTimer = C_Timer.NewTimer(0.2, function()
         groupVisibilitySettleTimer = nil
         if addonTable.RefreshEllesmereVisibilityTweaks then
