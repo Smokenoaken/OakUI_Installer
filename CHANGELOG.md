@@ -1,3 +1,9 @@
+## v2.6.37
+
+- Restored Loot chat window placement and suppressed its minimize control after chat-window interactions.
+- Restored the `/oakcdm` command's Ellesmere CDM repopulate confirmation.
+- Made Show Player In Group reassert after EllesmereUI's deferred group visibility update.
+
 ## v2.6.36
 
 - Removed unnecessary reload prompts from live Visibility/Tweaks options.

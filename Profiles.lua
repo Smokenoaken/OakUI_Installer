@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.36"
+P.VERSION = "2.6.37"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -99,7 +99,6 @@ P.PATREONS = {
     "Tenelle Mallard",
     "coot",
     "Edwin Cridland",
-    "stephiemarie78",
     "Edrick Nickerson",
     "B 87",
     "Nalu Rider",
@@ -157,6 +156,15 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.37",
+        date = "August 16, 2026",
+        notes = {
+            "Restored Loot chat window placement and suppressed its minimize control after chat-window interactions.",
+            "Restored the `/oakcdm` command's Ellesmere CDM repopulate confirmation.",
+            "Made Show Player In Group reassert after EllesmereUI's deferred group visibility update.",
+        }
+    },
     {
         version = "v2.6.36",
         date = "August 16, 2026",
