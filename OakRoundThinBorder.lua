@@ -465,6 +465,18 @@ local function RegisterOakRoundThinBorderRenderer()
         state.maskReady = true
     end
 
+    local function ClearOakRoundThinMasks(borderFrame)
+        local state = GetBorderState(borderFrame, false)
+        if not state then return end
+
+        RemoveMaskEntries(state.maskEntries)
+        state.maskEntries = nil
+        for _, mask in pairs(state.masksByParent or {}) do
+            if mask then mask:Hide() end
+        end
+        state.maskReady = nil
+    end
+
     local function RemoveOakRoundThinMaskOnly(anchorFrame)
         local state = anchorFrame and maskOnlyStates[anchorFrame]
         if not state then return end
@@ -533,7 +545,7 @@ local function RegisterOakRoundThinBorderRenderer()
         return true
     end
 
-    local function ApplyOakRoundThinBorder(borderFrame, size, r, g, b, a, offsetOverride, offsetYOverride, shiftX, shiftY, extraTarget)
+    local function ApplyOakRoundThinBorder(borderFrame, size, r, g, b, a, offsetOverride, offsetYOverride, shiftX, shiftY, extraTarget, borderOnly)
         if not borderFrame or not size or size <= 0 then
             HideOakRoundThinBorder(borderFrame)
             if borderFrame then borderFrame:Hide() end
@@ -544,8 +556,18 @@ local function RegisterOakRoundThinBorderRenderer()
         local state = GetBorderState(borderFrame, true)
         local owner = borderFrame:GetParent()
         local isLiveEUIUnitFrame = owner and (owner._barClip or owner.Health)
-        local needsMaskRefresh = not state.maskReady or state.extraTarget ~= extraTarget or isLiveEUIUnitFrame
+        local needsMaskRefresh = not borderOnly
+            and (not state.maskReady or state.extraTarget ~= extraTarget or isLiveEUIUnitFrame)
         state.extraTarget = extraTarget
+
+        -- EUI Chat creates its panel and sidebar border hosts under UIParent.
+        -- Walking that owner for status bars would reach unrelated unit frames
+        -- and attach a chat-sized mask to their health/power textures. Chat's
+        -- background is masked separately through ApplyOakRoundThinMaskOnly,
+        -- so these hosts intentionally render only the border texture.
+        if borderOnly then
+            ClearOakRoundThinMasks(borderFrame)
+        end
 
         local texture = state.texture
         if not texture then
@@ -580,7 +602,7 @@ local function RegisterOakRoundThinBorderRenderer()
         if needsMaskRefresh then
             ApplyOakRoundThinMask(borderFrame, extraTarget)
         end
-        if _G.C_Timer and _G.C_Timer.After and not state.deferredRefreshDone and not state.refreshPending then
+        if not borderOnly and _G.C_Timer and _G.C_Timer.After and not state.deferredRefreshDone and not state.refreshPending then
             state.refreshPending = true
             _G.C_Timer.After(0, function()
                 local current = GetBorderState(borderFrame, false)
@@ -610,7 +632,9 @@ local function RegisterOakRoundThinBorderRenderer()
 
     function E.ApplyBorderStyle(borderFrame, size, r, g, b, a, textureKey, offsetOverride, offsetYOverride, shiftX, shiftY, addonKey, sizeKey, normalizeScale)
         if IsOakRoundThinBorderKey(textureKey) then
-            return ApplyOakRoundThinBorder(borderFrame, size, r, g, b, a, offsetOverride, offsetYOverride, shiftX, shiftY)
+            return ApplyOakRoundThinBorder(borderFrame, size, r, g, b, a,
+                offsetOverride, offsetYOverride, shiftX, shiftY, nil,
+                addonKey == "chat" and borderFrame and borderFrame:GetParent() == _G.UIParent)
         end
 
         HideOakRoundThinBorder(borderFrame)
