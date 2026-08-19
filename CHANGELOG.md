@@ -1,3 +1,10 @@
+## v2.6.38
+
+- Fixed OakUI rounded borders clipping EUI unit-frame health and power colors after EUI updates.
+- Fixed rounded cast-bar fills without interfering with Ellesmere's textured cast-state layer.
+- Fixed Show Player In Group restoring the player frame after a UI reload while already grouped.
+- Hid empty damage-meter placeholder rows after a UI reload while preserving rows with real or protected combat data.
+
 ## v2.6.37
 
 - Restored Loot chat window placement and suppressed its minimize control after chat-window interactions.

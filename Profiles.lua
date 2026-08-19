@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.37"
+P.VERSION = "2.6.38"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -99,6 +99,7 @@ P.PATREONS = {
     "Tenelle Mallard",
     "coot",
     "Edwin Cridland",
+    "Robert D Jones",
     "Edrick Nickerson",
     "B 87",
     "Nalu Rider",
@@ -156,6 +157,16 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.38",
+        date = "August 19, 2026",
+        notes = {
+            "Fixed OakUI rounded borders clipping EUI unit-frame health and power colors after EUI updates.",
+            "Fixed rounded cast-bar fills without interfering with Ellesmere's textured cast-state layer.",
+            "Fixed Show Player In Group restoring the player frame after a UI reload while already grouped.",
+            "Hid empty damage-meter placeholder rows after a UI reload while preserving rows with real or protected combat data.",
+        }
+    },
     {
         version = "v2.6.37",
         date = "August 16, 2026",
