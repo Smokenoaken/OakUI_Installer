@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.38"
+P.VERSION = "2.6.39"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -157,6 +157,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.39",
+        date = "August 19, 2026",
+        notes = {
+            "Fixed rounded chat borders making EUI unit-frame health and power textures transparent after reloads or chat opacity changes.",
+        }
+    },
     {
         version = "v2.6.38",
         date = "August 19, 2026",

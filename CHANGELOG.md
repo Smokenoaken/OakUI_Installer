@@ -1,3 +1,7 @@
+## v2.6.39
+
+- Fixed rounded chat borders making EUI unit-frame health and power textures transparent after reloads or chat opacity changes.
+
 ## v2.6.38
 
 - Fixed OakUI rounded borders clipping EUI unit-frame health and power colors after EUI updates.
