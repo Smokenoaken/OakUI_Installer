@@ -152,14 +152,37 @@ local function RegisterOakRoundThinBorderRenderer()
         return isType
     end
 
+    local function IsForbiddenFrame(frame)
+        if not frame then return true end
+        local ok, forbidden = pcall(function()
+            if type(frame.IsForbidden) ~= "function" then return false end
+            return frame:IsForbidden()
+        end)
+        return not ok or forbidden == true
+    end
+
     local function AddMaskTarget(targets, texture)
-        if texture and type(texture.AddMaskTexture) == "function" then
+        if not texture or IsForbiddenFrame(texture) then return end
+        local parentOk, parent = CallWidgetMethodSafe(texture, "GetParent")
+        if parentOk and IsForbiddenFrame(parent) then return end
+        local ok, hasMethod = pcall(function() return type(texture.AddMaskTexture) == "function" end)
+        if ok and hasMethod then
             targets[texture] = true
         end
     end
 
+    local function AddMaskTargetOwnedBy(targets, owner, texture)
+        if not texture or not owner then return end
+        local ok, parent = CallWidgetMethodSafe(texture, "GetParent")
+        if ok and parent == owner then
+            AddMaskTarget(targets, texture)
+        end
+    end
+
     local function AddMaskGroup(groups, maskParent, anchorFrame, targets)
-        if not maskParent or not anchorFrame or type(maskParent.CreateMaskTexture) ~= "function" or not targets or not next(targets) then return end
+        if not maskParent or not anchorFrame or IsForbiddenFrame(maskParent) or IsForbiddenFrame(anchorFrame) then return end
+        local ok, hasCreate = pcall(function() return type(maskParent.CreateMaskTexture) == "function" end)
+        if not ok or not hasCreate or not targets or not next(targets) then return end
         groups[#groups + 1] = {
             maskParent = maskParent,
             anchorFrame = anchorFrame,
@@ -176,20 +199,34 @@ local function RegisterOakRoundThinBorderRenderer()
         return nil
     end
 
-    local function AddStatusBarMaskGroup(groups, bar, seenStatusBars, anchorOverride)
+    local function AddStatusBarTargets(targets, bar)
         if not bar then return end
         local ok, statusBarTexture = CallWidgetMethodSafe(bar, "GetStatusBarTexture")
-        if not ok then return end
+        if not ok then return false end
+
+        AddMaskTarget(targets, statusBarTexture)
+        AddMaskTarget(targets, bar.bg)
+        AddMaskTarget(targets, bar.BG)
+        AddMaskTarget(targets, bar._bg)
+        AddMaskTarget(targets, bar._modernBase)
+        -- EUI's active cast layer is the configured cast texture, parented
+        -- directly to the StatusBar. It needs the same silhouette as the
+        -- stable fill. The shield/interrupt layers deliberately stay out: they
+        -- are rebuilt on separate hosts while casting and must not be included
+        -- in this status-bar mask.
+        AddMaskTargetOwnedBy(targets, bar, bar.castTintLayer)
+        return true
+    end
+
+    local function AddStatusBarMaskGroup(groups, bar, seenStatusBars, anchorOverride)
+        if not bar then return end
         if seenStatusBars then
             if seenStatusBars[bar] then return end
             seenStatusBars[bar] = true
         end
 
         local targets = {}
-        AddMaskTarget(targets, statusBarTexture)
-        AddMaskTarget(targets, bar.bg)
-        AddMaskTarget(targets, bar.BG)
-        AddMaskTarget(targets, bar._bg)
+        if not AddStatusBarTargets(targets, bar) then return end
         AddMaskGroup(groups, bar, anchorOverride or bar, targets)
 
         AddStatusBarMaskGroup(groups, bar._forward, seenStatusBars, anchorOverride)
@@ -206,19 +243,13 @@ local function RegisterOakRoundThinBorderRenderer()
 
     local function AddStatusBarFillMaskGroup(groups, bar, seenStatusBars, anchorOverride)
         if not bar then return end
-        local ok, statusBarTexture = CallWidgetMethodSafe(bar, "GetStatusBarTexture")
-        if not ok then return end
         if seenStatusBars then
             if seenStatusBars[bar] then return end
             seenStatusBars[bar] = true
         end
 
         local targets = {}
-        AddMaskTarget(targets, statusBarTexture)
-        AddMaskTarget(targets, bar.bg)
-        AddMaskTarget(targets, bar.BG)
-        AddMaskTarget(targets, bar._bg)
-        AddMaskTarget(targets, bar._modernBase)
+        if not AddStatusBarTargets(targets, bar) then return end
         AddMaskGroup(groups, bar, anchorOverride or bar, targets)
     end
 
@@ -235,56 +266,136 @@ local function RegisterOakRoundThinBorderRenderer()
         AddStatusBarFillMaskGroup(groups, healAbsorb, seenStatusBars, anchorOverride)
     end
 
-    local function AddChildStatusBarMaskGroups(groups, frame, seenStatusBars, depth, anchorOverride)
+    local function AddUnitFrameBarClipMaskGroup(groups, owner, seenStatusBars)
+        local clip = owner and owner._barClip
+        if not clip or IsForbiddenFrame(clip) then return end
+
+        local targets = {}
+        local function AddClippedBar(bar)
+            if not bar or (seenStatusBars and seenStatusBars[bar]) then return end
+            local ok, parent = CallWidgetMethodSafe(bar, "GetParent")
+            if not ok or parent ~= clip then return end
+            if AddStatusBarTargets(targets, bar) and seenStatusBars then
+                seenStatusBars[bar] = true
+            end
+        end
+
+        -- EllesmereUI keeps attached health and power in this shared clip frame.
+        -- One full-rectangle mask gives the stack only its outside rounded
+        -- corners: health gets the top corners and power gets the bottom ones.
+        AddClippedBar(owner.Health)
+        AddClippedBar(owner.Power)
+        AddMaskGroup(groups, clip, clip, targets)
+    end
+
+    local function AddResourceCastBarMaskGroup(groups, owner, seenStatusBars)
+        local bar = owner and owner._bar
+        if not bar then return end
+
+        local targets = {}
+        if not seenStatusBars[bar] and AddStatusBarTargets(targets, bar) then
+            seenStatusBars[bar] = true
+        end
+        -- These overlays live on the cast bar's clip/status-bar branches.
+        -- The outer cast frame is their common coordinate space and includes
+        -- the optional spell icon, so only the true outer corners are rounded.
+        AddMaskTarget(targets, owner._latencyOverlay)
+        AddMaskTarget(targets, owner._latencyOverlayFront)
+        AddMaskGroup(groups, owner, owner, targets)
+    end
+
+    local function AddChildStatusBarMaskGroups(groups, frame, seenStatusBars, depth, anchorFrame)
         if not frame or (depth or 0) <= 0 then return end
         local children = GetFrameChildrenSafe(frame)
         if not children then return end
         for _, child in ipairs(children) do
             local objectTypeOk, isStatusBar = GetWidgetObjectTypeResult(child, "StatusBar")
             if isStatusBar then
-                AddStatusBarMaskGroup(groups, child, seenStatusBars, anchorOverride)
+                AddStatusBarMaskGroup(groups, child, seenStatusBars, anchorFrame)
             end
             if objectTypeOk and child and not isStatusBar then
-                AddChildStatusBarMaskGroups(groups, child, seenStatusBars, depth - 1, anchorOverride)
+                AddChildStatusBarMaskGroups(groups, child, seenStatusBars, depth - 1, anchorFrame)
             end
         end
     end
 
+    local function AddClassResourceMaskGroup(groups, owner, seenStatusBars)
+        if not owner or not owner._barBorder then return end
+
+        local targets = {}
+        local function CollectChildTargets(frame, depth)
+            if not frame or (depth or 0) <= 0 then return end
+            local children = GetFrameChildrenSafe(frame)
+            if not children then return end
+            for _, child in ipairs(children) do
+                if IsWidgetObjectType(child, "StatusBar") then
+                    if not seenStatusBars[child] and AddStatusBarTargets(targets, child) then
+                        seenStatusBars[child] = true
+                    end
+                else
+                    -- Class-resource pips and bar containers keep their visible
+                    -- regions on these fields rather than on the outer frame.
+                    AddMaskTarget(targets, child._fill)
+                    AddMaskTarget(targets, child._bg)
+                    AddMaskTarget(targets, child._barBg)
+                    CollectChildTargets(child, depth - 1)
+                end
+            end
+        end
+
+        CollectChildTargets(owner, 3)
+        AddMaskGroup(groups, owner, owner, targets)
+    end
+
     local function CollectOakRoundThinMaskGroups(owner, borderFrame, extraTarget)
         local groups = {}
-        if not owner then return groups end
+        if not owner or IsForbiddenFrame(owner) then return groups end
         local seenStatusBars = {}
+        -- Main EUI unit frames either already have their shared bar clip or
+        -- are between creation and the clip's reparent pass. Their bars must
+        -- stay on the safe, dedicated path below. Raid/party/resource layouts
+        -- do not expose owner.Health and retain the established outer mask.
+        local usesSharedUnitBarClip = owner._barClip or (owner.Health and owner.Power)
+        local legacyAnchor = usesSharedUnitBarClip and nil or borderFrame
 
         local ownerTargets = {}
-        -- These textures live directly on the owner frame, so they need a mask
-        -- created on that same owner frame and anchored to the full border area.
-        AddMaskTarget(ownerTargets, owner._bg)
-        AddMaskTarget(ownerTargets, owner.bg)
-        AddMaskTarget(ownerTargets, owner.BG)
-        AddMaskTarget(ownerTargets, owner._powerBg)
-        AddMaskTarget(ownerTargets, owner._topNameBarBg)
-        AddMaskTarget(ownerTargets, owner.barBg)
-        AddMaskTarget(ownerTargets, owner.barBgSolid)
-        AddMaskTarget(ownerTargets, owner.icon)
-        AddMaskTarget(ownerTargets, owner.iconBg)
-        AddMaskTarget(ownerTargets, extraTarget)
-        AddMaskGroup(groups, owner, borderFrame, ownerTargets)
+        -- Only mask textures that really belong to the owner. A texture can
+        -- share an anchor with this frame while being reparented elsewhere;
+        -- masking it here is what caused whole health/power fills to vanish.
+        AddMaskTargetOwnedBy(ownerTargets, owner, owner._bg)
+        AddMaskTargetOwnedBy(ownerTargets, owner, owner.bg)
+        AddMaskTargetOwnedBy(ownerTargets, owner, owner.BG)
+        AddMaskTargetOwnedBy(ownerTargets, owner, owner._powerBg)
+        AddMaskTargetOwnedBy(ownerTargets, owner, owner._topNameBarBg)
+        AddMaskTargetOwnedBy(ownerTargets, owner, owner._barBg)
+        AddMaskTargetOwnedBy(ownerTargets, owner, owner.barBg)
+        AddMaskTargetOwnedBy(ownerTargets, owner, owner.barBgSolid)
+        AddMaskTargetOwnedBy(ownerTargets, owner, owner.icon)
+        AddMaskTargetOwnedBy(ownerTargets, owner, owner.iconBg)
+        AddMaskTargetOwnedBy(ownerTargets, owner, extraTarget)
+        AddMaskGroup(groups, owner, legacyAnchor or owner, ownerTargets)
+
+        AddUnitFrameBarClipMaskGroup(groups, owner, seenStatusBars)
+        AddResourceCastBarMaskGroup(groups, owner, seenStatusBars)
+        AddClassResourceMaskGroup(groups, owner, seenStatusBars)
 
         if IsWidgetObjectType(owner, "StatusBar") then
-            AddStatusBarMaskGroup(groups, owner, seenStatusBars, borderFrame)
+            AddStatusBarMaskGroup(groups, owner, seenStatusBars, legacyAnchor)
         end
-        AddStatusBarMaskGroup(groups, owner._sb, seenStatusBars, borderFrame)
-        AddStatusBarMaskGroup(groups, owner.Health, seenStatusBars, borderFrame)
-        AddStatusBarMaskGroup(groups, owner.Power, seenStatusBars, borderFrame)
-        AddStatusBarMaskGroup(groups, owner.Castbar, seenStatusBars, borderFrame)
-        AddStatusBarMaskGroup(groups, owner._health, seenStatusBars, borderFrame)
-        AddStatusBarMaskGroup(groups, owner._power, seenStatusBars, borderFrame)
-        AddStatusBarMaskGroup(groups, owner._absorbBar, seenStatusBars, borderFrame)
-        AddStatusBarMaskGroup(groups, owner._healAbsorbBar, seenStatusBars, borderFrame)
-        AddStatusBarMaskGroup(groups, owner._healPredBar, seenStatusBars, borderFrame)
-        AddStatusBarMaskGroup(groups, owner._reducedMaxHealthBar, seenStatusBars, borderFrame)
-        AddHealthPredictionMaskGroups(groups, owner.HealthPrediction, seenStatusBars, owner.Health or owner._health or borderFrame)
-        AddChildStatusBarMaskGroups(groups, owner, seenStatusBars, 5, borderFrame)
+        AddStatusBarMaskGroup(groups, owner._sb, seenStatusBars, legacyAnchor)
+        AddStatusBarMaskGroup(groups, owner.Health, seenStatusBars, legacyAnchor)
+        AddStatusBarMaskGroup(groups, owner.Power, seenStatusBars, legacyAnchor)
+        AddStatusBarMaskGroup(groups, owner.Castbar, seenStatusBars, legacyAnchor)
+        AddStatusBarMaskGroup(groups, owner._health, seenStatusBars, legacyAnchor)
+        AddStatusBarMaskGroup(groups, owner._power, seenStatusBars, legacyAnchor)
+        AddStatusBarMaskGroup(groups, owner._absorbBar, seenStatusBars, legacyAnchor)
+        AddStatusBarMaskGroup(groups, owner._healAbsorbBar, seenStatusBars, legacyAnchor)
+        AddStatusBarMaskGroup(groups, owner._healPredBar, seenStatusBars, legacyAnchor)
+        AddStatusBarMaskGroup(groups, owner._reducedMaxHealthBar, seenStatusBars, legacyAnchor)
+        AddHealthPredictionMaskGroups(groups, owner.HealthPrediction, seenStatusBars, legacyAnchor)
+        if legacyAnchor then
+            AddChildStatusBarMaskGroups(groups, owner, seenStatusBars, 5, legacyAnchor)
+        end
 
         return groups
     end
@@ -320,25 +431,34 @@ local function RegisterOakRoundThinBorderRenderer()
             local mask = masks[group.maskParent]
             if not mask or mask:GetParent() ~= group.maskParent then
                 if mask then mask:Hide() end
-                mask = group.maskParent:CreateMaskTexture()
-                masks[group.maskParent] = mask
+                local ok, created = pcall(function() return group.maskParent:CreateMaskTexture() end)
+                if ok and created then
+                    mask = created
+                    masks[group.maskParent] = mask
+                end
             end
 
-            mask:SetTexture(ROUND_THIN_MASK_PATH, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-            if mask.SetTextureSliceMargins then
-                mask:SetTextureSliceMargins(margins.left, margins.top, margins.right, margins.bottom)
-            end
-            if mask.SetTextureSliceMode and Enum and Enum.UITextureSliceMode then
-                mask:SetTextureSliceMode(Enum.UITextureSliceMode.Stretched)
-            end
-            mask:ClearAllPoints()
-            mask:SetAllPoints(group.anchorFrame)
-            mask:Show()
+            if mask then
+                mask:SetTexture(ROUND_THIN_MASK_PATH, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+                if mask.SetTextureSliceMargins then
+                    mask:SetTextureSliceMargins(margins.left, margins.top, margins.right, margins.bottom)
+                end
+                if mask.SetTextureSliceMode and Enum and Enum.UITextureSliceMode then
+                    mask:SetTextureSliceMode(Enum.UITextureSliceMode.Stretched)
+                end
+                mask:ClearAllPoints()
+                mask:SetAllPoints(group.anchorFrame)
+                mask:Show()
 
-            entries[#entries + 1] = { mask = mask, targets = group.targets }
-            for target in pairs(group.targets) do
-                pcall(target.RemoveMaskTexture, target, mask)
-                pcall(target.AddMaskTexture, target, mask)
+                entries[#entries + 1] = { mask = mask, targets = group.targets }
+                for target in pairs(group.targets) do
+                    if not IsForbiddenFrame(target) then
+                        pcall(function()
+                            if target.RemoveMaskTexture then target:RemoveMaskTexture(mask) end
+                            if target.AddMaskTexture then target:AddMaskTexture(mask) end
+                        end)
+                    end
+                end
             end
         end
         state.maskEntries = entries
@@ -356,7 +476,9 @@ local function RegisterOakRoundThinBorderRenderer()
     end
 
     local function ApplyOakRoundThinMaskOnly(maskParent, targets, anchorFrame)
-        if not maskParent or not maskParent.CreateMaskTexture then return false end
+        if not maskParent or IsForbiddenFrame(maskParent) or (anchorFrame and IsForbiddenFrame(anchorFrame)) then return false end
+        local createOk, hasCreate = pcall(function() return type(maskParent.CreateMaskTexture) == "function" end)
+        if not createOk or not hasCreate then return false end
         anchorFrame = anchorFrame or maskParent
 
         local targetSet = {}
@@ -380,7 +502,9 @@ local function RegisterOakRoundThinBorderRenderer()
         local mask = state.mask
         if not mask or mask:GetParent() ~= maskParent then
             if mask then mask:Hide() end
-            mask = maskParent:CreateMaskTexture()
+            local ok, created = pcall(function() return maskParent:CreateMaskTexture() end)
+            if not ok or not created then return false end
+            mask = created
             state.mask = mask
         end
 
@@ -396,8 +520,12 @@ local function RegisterOakRoundThinBorderRenderer()
         mask:Show()
 
         for target in pairs(targetSet) do
-            pcall(target.RemoveMaskTexture, target, mask)
-            pcall(target.AddMaskTexture, target, mask)
+            if not IsForbiddenFrame(target) then
+                pcall(function()
+                    if target.RemoveMaskTexture then target:RemoveMaskTexture(mask) end
+                    if target.AddMaskTexture then target:AddMaskTexture(mask) end
+                end)
+            end
         end
         state.entries = {
             { mask = mask, targets = targetSet },
@@ -414,7 +542,9 @@ local function RegisterOakRoundThinBorderRenderer()
 
         HideEllesmereBorderSystems(borderFrame)
         local state = GetBorderState(borderFrame, true)
-        local needsMaskRefresh = not state.maskReady or state.extraTarget ~= extraTarget
+        local owner = borderFrame:GetParent()
+        local isLiveEUIUnitFrame = owner and (owner._barClip or owner.Health)
+        local needsMaskRefresh = not state.maskReady or state.extraTarget ~= extraTarget or isLiveEUIUnitFrame
         state.extraTarget = extraTarget
 
         local texture = state.texture
@@ -444,6 +574,9 @@ local function RegisterOakRoundThinBorderRenderer()
         texture:Show()
         borderFrame:Show()
 
+        -- EUI's live unit frames can replace/reparent bar regions during a
+        -- restyle. Reattach their masks each pass; legacy layouts retain their
+        -- stable, bounded mask set unless their target actually changes.
         if needsMaskRefresh then
             ApplyOakRoundThinMask(borderFrame, extraTarget)
         end

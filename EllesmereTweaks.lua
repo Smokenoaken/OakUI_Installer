@@ -87,6 +87,8 @@ end
 
 local hookedEllesmereUnitFrameVisibility
 local applyingEllesmereVisibility
+local hookedEllesmereVisibilityOptions
+local ellesmereVisibilityOptionsWrapper
 
 local function SetFrameVisible(frame, visible)
     if not frame then return end
@@ -200,6 +202,34 @@ local function PlayerIsInGroup()
     return (type(IsInGroup) == "function" and IsInGroup()) or (type(IsInRaid) == "function" and IsInRaid())
 end
 
+local function HookEllesmerePlayerGroupVisibility()
+    local EUI = type(_G.EllesmereUI) == "table" and _G.EllesmereUI
+    local evaluator = EUI and EUI.CheckVisibilityOptions
+    if type(evaluator) ~= "function" or evaluator == ellesmereVisibilityOptionsWrapper then return end
+
+    hookedEllesmereVisibilityOptions = evaluator
+    ellesmereVisibilityOptionsWrapper = function(options, ...)
+        local db = EnsureVisibilityDB()
+        if db.showPlayerInParty == true and PlayerIsInGroup() then
+            local playerSettings = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
+            playerSettings = playerSettings and playerSettings.player
+            if options == playerSettings and playerSettings.visHideNoTarget == true then
+                -- Let EUI run its own evaluator with every other user-selected
+                -- visibility option intact. Only Hide without Target is suspended
+                -- while OakUI's runtime group display is active.
+                local groupOptions = {}
+                for key, value in pairs(options) do
+                    groupOptions[key] = value
+                end
+                groupOptions.visHideNoTarget = false
+                return hookedEllesmereVisibilityOptions(groupOptions, ...)
+            end
+        end
+        return hookedEllesmereVisibilityOptions(options, ...)
+    end
+    EUI.CheckVisibilityOptions = ellesmereVisibilityOptionsWrapper
+end
+
 local function RefreshEllesmereUnitFrameVisibility()
     local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
     if not ns or type(ns.UpdateFrameVisibility) ~= "function" or applyingEllesmereVisibility then
@@ -217,8 +247,19 @@ local function SmartPlayerVisibilityEnabled()
     return db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true
 end
 
-local function GetEllesmerePlayerVisibilityTarget()
+local function GetEllesmerePlayerFrame()
     local frame = _G.EllesmereUIUnitFrames_Player
+    if frame then return frame end
+
+    -- EUI keeps its live frames in this registry after a rebuild. The named
+    -- global is normally present, but the registry is the reliable fallback
+    -- during the login/reload construction sequence.
+    local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
+    return ns and ns.frames and ns.frames.player or nil
+end
+
+local function GetEllesmerePlayerVisibilityTarget()
+    local frame = GetEllesmerePlayerFrame()
     return frame and (frame._visWrap or frame)
 end
 
@@ -254,24 +295,35 @@ ShouldForcePlayerFrameShown = function()
 end
 
 ApplyPlayerFrameVisibilityOverride = function()
-    local playerFrame = _G.EllesmereUIUnitFrames_Player
+    local playerFrame = GetEllesmerePlayerFrame()
     local target = playerFrame and (playerFrame._visWrap or playerFrame)
     if not target then return end
     if ShouldForcePlayerFrameShown() then
         target:SetAlpha(1)
         local portrait3D = playerFrame.Portrait and playerFrame.Portrait.backdrop and playerFrame.Portrait.backdrop._3d
         if portrait3D then portrait3D:SetAlpha(1) end
+
+        -- EUI normally uses alpha for Hide without Target, but a reload can
+        -- leave the player frame physically hidden before its next visibility
+        -- pass. OakUI's group display is a temporary runtime override, so
+        -- revive that frame out of combat and let EUI hide it again when the
+        -- group condition no longer applies.
+        if not (InCombatLockdown and InCombatLockdown()) and not playerFrame:IsShown() then
+            if playerFrame.SetAttribute then playerFrame:SetAttribute("unit", "player") end
+            if playerFrame.Show then playerFrame:Show() end
+        end
     end
 end
 
 function addonTable.RefreshEllesmereVisibilityTweaks()
+    HookEllesmerePlayerGroupVisibility()
     HookEllesmereUnitFrameVisibility()
     SyncPlayerPetVisibilityState()
     local playerOverrideEnabled = PlayerVisibilityOverrideEnabled()
     local petOverrideEnabled = PetVisibilityOverrideEnabled()
 
     if not playerOverrideEnabled and not petOverrideEnabled then
-        local playerFrame = _G.EllesmereUIUnitFrames_Player
+        local playerFrame = GetEllesmerePlayerFrame()
         ReleaseFrameVisibility(playerFrame and playerFrame._visWrap or playerFrame)
         ReleasePetFrameVisibility(_G.EllesmereUIUnitFrames_Pet)
         ReleasePetFrameVisibility(GetDandersPlayerPetFrame())
@@ -284,7 +336,7 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
         if playerOverrideEnabled then
             ApplyPlayerFrameVisibilityOverride()
         else
-            local playerFrame = _G.EllesmereUIUnitFrames_Player
+            local playerFrame = GetEllesmerePlayerFrame()
             ReleaseFrameVisibility(playerFrame and playerFrame._visWrap or playerFrame)
         end
         if petOverrideEnabled then
@@ -303,7 +355,7 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
     local showPetForInjury = smartPlayer and UnitIsInjured("pet")
     local shouldShowPlayer = hasTarget or showPlayerForInjury or showPlayerForParty or showPetForInjury
     local shouldShowPet = hasTarget or showPetForInjury or showPlayerForInjury
-    local playerFrame = _G.EllesmereUIUnitFrames_Player
+    local playerFrame = GetEllesmerePlayerFrame()
     local petFrame = _G.EllesmereUIUnitFrames_Pet
     local dandersPetFrame = GetDandersPlayerPetFrame()
 
@@ -840,6 +892,19 @@ local function ScheduleGroupVisibilitySettle()
     end)
 end
 
+local function ScheduleLoginGroupVisibilitySettle()
+    -- A /reload while already grouped does not guarantee a new
+    -- GROUP_ROSTER_UPDATE after EUI has rebuilt its unit frames. Reuse the
+    -- runtime-only override once the world-entry work has settled instead of
+    -- changing EUI's saved Hide without Target preference.
+    if not IsEllesmereProvider() or EnsureVisibilityDB().showPlayerInParty ~= true then return end
+    ScheduleRefresh("visibilityGroupLogin", 3, function()
+        if addonTable.RefreshEllesmereVisibilityTweaks then
+            addonTable.RefreshEllesmereVisibilityTweaks()
+        end
+    end, 1)
+end
+
 local function ScheduleDeprecatedResourceCleanup()
     ScheduleRefresh("tooltipSpec", 0.2, addonTable.RefreshEllesmereTooltipAnchor, 1)
 end
@@ -868,6 +933,7 @@ frame:SetScript("OnEvent", function(_, event, unit)
 
     if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
         ScheduleLayoutRefresh()
+        ScheduleLoginGroupVisibilitySettle()
         ScheduleChatLineFadeRefresh()
     elseif event == "UPDATE_CHAT_WINDOWS" or event == "UPDATE_FLOATING_CHAT_WINDOWS" then
         -- EUI turns fading off when it skins a newly created chat frame. The

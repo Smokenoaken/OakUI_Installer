@@ -850,7 +850,7 @@ local function ApplyDamageMeterHeaderMasks(state)
     ForEachDamageMeterHeader(root, function(header)
         if state then
             if addonTable.ApplyOakRoundThinMaskOnly then
-                addonTable.ApplyOakRoundThinMaskOnly(header, header._hdrBg, GetFrameParentSafe(header) or header)
+                addonTable.ApplyOakRoundThinMaskOnly(header, header._hdrBg, header)
             end
         elseif addonTable.RemoveOakRoundThinMaskOnly then
             addonTable.RemoveOakRoundThinMaskOnly(header)
@@ -927,7 +927,126 @@ local function FindDamageMeterRowBackground(row)
     end
 end
 
+local function GetEllesmereDamageMeterModule()
+    local EUI = type(_G.EllesmereUI) == "table" and _G.EllesmereUI
+    local modules = EUI and EUI._ModuleNS
+    return type(modules) == "table" and modules.EllesmereUIDamageMeters or nil
+end
+
+addonTable.RefreshOakDamageMeterWindows = function()
+    local module = GetEllesmereDamageMeterModule()
+    local windows = module and module._windows
+    if type(windows) ~= "table" then return end
+
+    for _, window in ipairs(windows) do
+        if type(window) == "table" and type(window.Refresh) == "function" then
+            if not window._oakDamageMeterRefreshHooked then
+                window._oakDamageMeterRefreshHooked = true
+                window._oakQueueDamageMeterRefresh = function()
+                    if EnsureVisibilityDB().roundThinDamageMeters ~= true
+                        or window._oakDamageMeterRefreshPending
+                    then
+                        return
+                    end
+
+                    window._oakDamageMeterRefreshPending = true
+                    local function refresh()
+                        window._oakDamageMeterRefreshPending = nil
+                        if EnsureVisibilityDB().roundThinDamageMeters == true
+                            and type(window.Refresh) == "function"
+                        then
+                            pcall(window.Refresh)
+                        end
+                    end
+                    if _G.C_Timer and _G.C_Timer.After then
+                        _G.C_Timer.After(0, refresh)
+                    else
+                        refresh()
+                    end
+                end
+
+                local viewport = window.viewport
+                if viewport and type(viewport.HookScript) == "function" then
+                    pcall(viewport.HookScript, viewport, "OnSizeChanged", window._oakQueueDamageMeterRefresh)
+                end
+                local frame = window.frame
+                if frame and type(frame.HookScript) == "function" then
+                    pcall(frame.HookScript, frame, "OnShow", window._oakQueueDamageMeterRefresh)
+                end
+            end
+
+            if window._oakQueueDamageMeterRefresh then
+                window._oakQueueDamageMeterRefresh()
+            end
+            pcall(window.Refresh)
+        end
+    end
+end
+
+local function DamageMeterRowHasData(window, index)
+    local sources = window and window._barSources
+    local source = sources and sources[index]
+    if not source then return false end
+
+    -- Death entries are valid without a damage total. Other zero/nil totals
+    -- are transient C_DamageMeter placeholders seen after a UI reload.
+    if Enum and Enum.DamageMeterType and window.curDMType == Enum.DamageMeterType.Deaths then
+        return true
+    end
+    local total = source.totalAmount
+    if type(issecretvalue) == "function" and issecretvalue(total) then return true end
+    return type(total) == "number" and total > 0
+end
+
+local function EnsureDamageMeterRowVisibilityHook(window, index, bar)
+    local row = bar and bar.row
+    if not row or type(row.HookScript) ~= "function" or row._oakDamageMeterVisibilityHooked then return end
+
+    row._oakDamageMeterVisibilityHooked = true
+    row:HookScript("OnShow", function(self)
+        if EnsureVisibilityDB().roundThinDamageMeters ~= true then return end
+        local currentWindow = bar._win or window
+        if not DamageMeterRowHasData(currentWindow, index) then
+            self:Hide()
+        end
+    end)
+end
+
 local function ApplyDamageMeterLiveRowBorders(state)
+    local module = GetEllesmereDamageMeterModule()
+    local windows = module and module._windows
+    if type(windows) == "table" then
+        -- EUI exposes its live pool. Use it rather than walking every Button
+        -- below a meter window, so blank API placeholders cannot leave a
+        -- standalone OakUI border visible after the row has no data.
+        for _, window in ipairs(windows) do
+            for index, bar in ipairs(window.rowPool or {}) do
+                EnsureDamageMeterRowVisibilityHook(window, index, bar)
+                local row = bar and bar.row
+                local hasData = DamageMeterRowHasData(window, index)
+                if state and hasData and bar and bar.fill then
+                    -- EUI 12.1 already applies the Oak border natively to the
+                    -- row frame. Do not add a second border directly to the
+                    -- StatusBar; that fill-level overlay can survive EUI's
+                    -- pooled-row rebuild and leave an empty-looking row.
+                    if row and bar._bg and addonTable.ApplyOakRoundThinMaskOnly then
+                        addonTable.ApplyOakRoundThinMaskOnly(row, bar._bg, row)
+                    end
+                    RemoveStandaloneStatusBarRoundThin(bar.fill)
+                else
+                    if bar and bar.fill then RemoveStandaloneStatusBarRoundThin(bar.fill) end
+                    if row and addonTable.RemoveOakRoundThinMaskOnly then
+                        addonTable.RemoveOakRoundThinMaskOnly(row)
+                    end
+                    if row and row.IsShown and row:IsShown() and not hasData then row:Hide() end
+                end
+            end
+        end
+        return
+    end
+
+    -- Compatibility fallback for older EUI builds that did not expose their
+    -- meter row pool through the module namespace.
     ForEachDamageMeterWindow(function(window)
         ForEachDamageMeterChildFrame(window, function(frame)
             local statusbar = FindDamageMeterRowStatusBar(frame)
@@ -951,6 +1070,9 @@ local function EnsureDamageMeterHeaderMaskHook()
             _G.C_Timer.After(0, function()
                 ApplyDamageMeterHeaderMasks(true)
                 ApplyDamageMeterLiveRowBorders(true)
+                if addonTable.RefreshOakDamageMeterWindows then
+                    addonTable.RefreshOakDamageMeterWindows()
+                end
             end)
         end
         return unpack(results)
@@ -966,6 +1088,9 @@ local function RefreshDamageMeterBorders()
     local enabled = EnsureVisibilityDB().roundThinDamageMeters == true
     ApplyDamageMeterHeaderMasks(enabled)
     ApplyDamageMeterLiveRowBorders(enabled)
+    if enabled and addonTable.RefreshOakDamageMeterWindows then
+        addonTable.RefreshOakDamageMeterWindows()
+    end
     if not enabled then
         RemoveDamageMeterRoundThinArtifacts()
     end
@@ -974,8 +1099,19 @@ local function RefreshDamageMeterBorders()
             local delayedEnabled = EnsureVisibilityDB().roundThinDamageMeters == true
             ApplyDamageMeterHeaderMasks(delayedEnabled)
             ApplyDamageMeterLiveRowBorders(delayedEnabled)
+            if delayedEnabled and addonTable.RefreshOakDamageMeterWindows then
+                addonTable.RefreshOakDamageMeterWindows()
+            end
             if not delayedEnabled then
                 RemoveDamageMeterRoundThinArtifacts()
+            end
+        end)
+        _G.C_Timer.After(0.5, function()
+            if EnsureVisibilityDB().roundThinDamageMeters ~= true then return end
+            ApplyDamageMeterHeaderMasks(true)
+            ApplyDamageMeterLiveRowBorders(true)
+            if addonTable.RefreshOakDamageMeterWindows then
+                addonTable.RefreshOakDamageMeterWindows()
             end
         end)
     end
@@ -1208,7 +1344,7 @@ ApplyStandaloneStatusBarRoundThin = function(statusbar, bgTexture)
     local auxParent = GetFrameParentSafe(bgTexture)
     if bgTexture and auxParent and auxParent ~= statusbar and addonTable.ApplyOakRoundThinMaskOnly then
         statusbar._oakRoundThinStandaloneMaskParent = auxParent
-        addonTable.ApplyOakRoundThinMaskOnly(auxParent, bgTexture, statusbar)
+        addonTable.ApplyOakRoundThinMaskOnly(auxParent, bgTexture, auxParent)
     end
     return true
 end
