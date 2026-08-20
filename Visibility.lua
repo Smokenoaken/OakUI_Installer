@@ -1329,6 +1329,10 @@ ApplyStandaloneStatusBarRoundThin = function(statusbar, bgTexture)
 
     HideFramePPBorders(statusbar)
 
+    if addonTable.ApplyOakRoundThinCastTintInset then
+        addonTable.ApplyOakRoundThinCastTintInset(statusbar)
+    end
+
     local borderFrame = statusbar._oakRoundThinStandaloneBorder
     if not borderFrame then
         borderFrame = CreateFrame("Frame", nil, statusbar)
@@ -1357,6 +1361,9 @@ RemoveStandaloneStatusBarRoundThin = function(statusbar)
     end
     if statusbar._oakRoundThinStandaloneMaskParent and addonTable.RemoveOakRoundThinMaskOnly then
         addonTable.RemoveOakRoundThinMaskOnly(statusbar._oakRoundThinStandaloneMaskParent)
+    end
+    if addonTable.RemoveOakRoundThinCastTintInset then
+        addonTable.RemoveOakRoundThinCastTintInset(statusbar)
     end
     statusbar._oakRoundThinStandaloneMaskParent = nil
 end

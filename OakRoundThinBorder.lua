@@ -209,12 +209,9 @@ local function RegisterOakRoundThinBorderRenderer()
         AddMaskTarget(targets, bar.BG)
         AddMaskTarget(targets, bar._bg)
         AddMaskTarget(targets, bar._modernBase)
-        -- EUI's active cast layer is the configured cast texture, parented
-        -- directly to the StatusBar. It needs the same silhouette as the
-        -- stable fill. The shield/interrupt layers deliberately stay out: they
-        -- are rebuilt on separate hosts while casting and must not be included
-        -- in this status-bar mask.
-        AddMaskTargetOwnedBy(targets, bar, bar.castTintLayer)
+        -- EUI's active cast tint is anchored to the protected, value-driven
+        -- StatusBar fill. A MaskTexture makes that overlay render transparent;
+        -- the standalone cast-border path tucks it under the border instead.
         return true
     end
 
@@ -465,6 +462,41 @@ local function RegisterOakRoundThinBorderRenderer()
         state.maskReady = true
     end
 
+    local function ApplyOakRoundThinCastTintInset(statusbar)
+        local tint = statusbar and statusbar.castTintLayer
+        local ok, fill = CallWidgetMethodSafe(statusbar, "GetStatusBarTexture")
+        if not tint or not ok or not fill then return end
+
+        local inset = 1
+        local PP = E.PP
+        if PP and type(PP.Scale) == "function" then
+            local scaleOk, scaled = pcall(PP.Scale, 1)
+            if scaleOk and type(scaled) == "number" and scaled > 0 then
+                inset = scaled
+            end
+        end
+
+        -- This overlay cannot accept a MaskTexture on target casts. Inset it by
+        -- one physical pixel vertically so its square corners sit underneath
+        -- the rounded border, without shortening the protected cast progress.
+        tint:ClearAllPoints()
+        tint:SetPoint("TOPLEFT", fill, "TOPLEFT", 0, -inset)
+        tint:SetPoint("BOTTOMRIGHT", fill, "BOTTOMRIGHT", 0, inset)
+        statusbar._oakRoundThinCastTintInset = true
+    end
+
+    local function RemoveOakRoundThinCastTintInset(statusbar)
+        if not statusbar or not statusbar._oakRoundThinCastTintInset then return end
+        local tint = statusbar.castTintLayer
+        local ok, fill = CallWidgetMethodSafe(statusbar, "GetStatusBarTexture")
+        if tint and ok and fill then
+            tint:ClearAllPoints()
+            tint:SetPoint("TOPLEFT", fill, "TOPLEFT")
+            tint:SetPoint("BOTTOMRIGHT", fill, "BOTTOMRIGHT")
+        end
+        statusbar._oakRoundThinCastTintInset = nil
+    end
+
     local function ClearOakRoundThinMasks(borderFrame)
         local state = GetBorderState(borderFrame, false)
         if not state then return end
@@ -621,6 +653,8 @@ local function RegisterOakRoundThinBorderRenderer()
     addonTable.HideOakRoundThinBorderFrame = HideOakRoundThinBorder
     addonTable.ApplyOakRoundThinMaskOnly = ApplyOakRoundThinMaskOnly
     addonTable.RemoveOakRoundThinMaskOnly = RemoveOakRoundThinMaskOnly
+    addonTable.ApplyOakRoundThinCastTintInset = ApplyOakRoundThinCastTintInset
+    addonTable.RemoveOakRoundThinCastTintInset = RemoveOakRoundThinCastTintInset
     addonTable.HasOakRoundThinBorderFrame = function(borderFrame)
         local state = borderFrame and borderStates[borderFrame]
         return state and state.texture and state.texture:IsShown() or false
