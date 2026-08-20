@@ -1,3 +1,7 @@
+## v2.6.40
+
+- Fixed rounded target castbars losing their textured fill or showing square corners.
+
 ## v2.6.39
 
 - Fixed rounded chat borders making EUI unit-frame health and power textures transparent after reloads or chat opacity changes.

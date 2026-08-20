@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.39"
+P.VERSION = "2.6.40"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -78,9 +78,7 @@ P.PATREONS = {
     "Inuyasha",
     "Emmanuel leroy",
     "Casey",
-    "Mandos",
     "Rob Richardson",
-    "Michael Irving",
     "Zacharias Kouvaras",
     "Topcat357",
     "Deckert Skilso",
@@ -157,6 +155,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.40",
+        date = "August 20, 2026",
+        notes = {
+            "Fixed rounded target castbars losing their textured fill or showing square corners.",
+        }
+    },
     {
         version = "v2.6.39",
         date = "August 19, 2026",
