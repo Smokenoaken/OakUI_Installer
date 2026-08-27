@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.40"
+P.VERSION = "2.6.41"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -95,6 +95,7 @@ P.PATREONS = {
     "michael arguedas",
     "Devron Lee",
     "Tenelle Mallard",
+    "Iury Sampaio",
     "coot",
     "Edwin Cridland",
     "Robert D Jones",
@@ -119,10 +120,12 @@ P.PATREONS = {
     "Symisch",
     "Alexander Hartwich",
     "Antonio Saez",
+    "Frank franz",
     "Blake Stover",
     "Loonie74",
     "PhoenixLD",
     "Paul T",
+    "Hermez",
     "Alexey Fedorov",
     "Roland",
     "Sridhar Mantha",
@@ -149,12 +152,22 @@ P.PATREONS = {
     "JimmyJam",
     "Mack",
     "Jennifer Carlson",
+    "Gianluca Berian",
 }
 
 -- ==========================================
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.41",
+        date = "August 27, 2026",
+        notes = {
+            "Updated profiles with new Data Bar sources for Crests and Item Level",
+            "Enabled tooltips when hovering over the Guild and Friends micro menu buttons",
+            "Added Movement Cooldown on-screen data",
+        }
+    },
     {
         version = "v2.6.40",
         date = "August 20, 2026",

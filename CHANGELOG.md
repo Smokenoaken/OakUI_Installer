@@ -1,3 +1,9 @@
+## v2.6.41
+
+- Updated profiles with new Data Bar sources for Crests and Item Level
+- Enabled tooltips when hovering over the Guild and Friends micro menu buttons
+- Added Movement Cooldown on-screen data
+
 ## v2.6.40
 
 - Fixed rounded target castbars losing their textured fill or showing square corners.
