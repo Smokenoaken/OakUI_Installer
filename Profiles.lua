@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.41"
+P.VERSION = "2.6.42"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -114,14 +114,10 @@ P.PATREONS = {
     "Josh Cooper",
     "Chris Nelms",
     "Bryan Erickson",
-    "Chris Kerrigan",
     "Norving Gutierrez",
-    "The Jason",
     "Symisch",
     "Alexander Hartwich",
-    "Antonio Saez",
     "Frank franz",
-    "Blake Stover",
     "Loonie74",
     "PhoenixLD",
     "Paul T",
@@ -130,7 +126,6 @@ P.PATREONS = {
     "Roland",
     "Sridhar Mantha",
     "Bryan",
-    "Strike",
     "martin frimand",
     "JON",
     "Wall Martz",
@@ -141,10 +136,7 @@ P.PATREONS = {
     "Christopher Saffle",
     "dwayne baldock",
     "MadCow",
-    "Rooobn1781",
     "Brian Wease",
-    "lloyd spencer",
-    "Sumith Imtiaz",
     "Grotesk",
     "Alex Tegnazian",
     "Laurie Timothy",
@@ -153,12 +145,23 @@ P.PATREONS = {
     "Mack",
     "Jennifer Carlson",
     "Gianluca Berian",
+    "Leslie Beck",
 }
 
 -- ==========================================
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.42",
+        date = "September 4, 2026",
+        notes = {
+            "Show Player In Group now toggles EllesmereUI's native In Raid Group and In Party Player visibility conditions.",
+            "Unchecking Hide Unit Frames now resets EllesmereUI's Player and Pet visibility to Always.",
+            "Fresh installs now apply the complete recommended Visibility/Tweaks defaults, including a 10-second chat fade and 10% wMarker faded opacity.",
+            "Fixed the wMarker opacity slider labels to display fractional alpha values as percentages.",
+        }
+    },
     {
         version = "v2.6.41",
         date = "August 27, 2026",

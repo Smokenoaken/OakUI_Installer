@@ -1,3 +1,10 @@
+## v2.6.42
+
+- Show Player In Group now toggles EllesmereUI's native In Raid Group and In Party Player visibility conditions.
+- Unchecking Hide Unit Frames now resets EllesmereUI's Player and Pet visibility to Always.
+- Fresh installs now apply the complete recommended Visibility/Tweaks defaults, including a 10-second chat fade and 10% wMarker faded opacity.
+- Fixed the wMarker opacity slider labels to display fractional alpha values as percentages.
+
 ## v2.6.41
 
 - Updated profiles with new Data Bar sources for Crests and Item Level
