@@ -46,7 +46,7 @@ local function EnsureVisibilityDB()
     return OakUI_DB.visibility
 end
 
-local WMARKER_DEFAULT_FADED_ALPHA = 0.15
+local WMARKER_DEFAULT_FADED_ALPHA = 0.10
 local WMARKER_FADE_DURATION = 0.2
 local ApplyWMarkerMouseoverFade
 local WMarkerFadeWatcher
@@ -351,6 +351,32 @@ local function SetEllesmereHideNoTargetOption(settings, state)
         settings[key] = false
     end
     settings.visHideNoTarget = state == true
+end
+
+local function SetEllesmereVisibilityAlways(settings)
+    if type(settings) ~= "table" then return end
+    local EUI = type(_G.EllesmereUI) == "table" and _G.EllesmereUI
+
+    if EUI and type(EUI.SetVisibilitySelection) == "function" then
+        EUI.SetVisibilitySelection(settings, "barVisibility", { always = true })
+    else
+        settings.barVisibility = "always"
+        settings.visibilityModes = nil
+    end
+
+    -- Match EUI's exclusive Always selection by clearing both sides of every
+    -- visibility option row. The match mode can remain saved for later use.
+    local axes = EUI and EUI.VIS_OPT_AXES
+    if type(axes) == "table" then
+        for _, axis in ipairs(axes) do
+            settings[axis.show] = nil
+            settings[axis.hide] = nil
+        end
+    else
+        for _, key in ipairs(ELLESMERE_VISIBILITY_OPTION_KEYS) do
+            settings[key] = false
+        end
+    end
 end
 
 local function RefreshEllesmereOptionsPage()
@@ -2184,12 +2210,20 @@ local function SetEllesmerePlayerFrame(state)
     if unitFrames then
         unitFrames.player = unitFrames.player or {}
         unitFrames.pet = unitFrames.pet or {}
-        SetEllesmereHideNoTargetOption(unitFrames.player, state)
-        SetEllesmereHideNoTargetOption(unitFrames.pet, state)
+        if state == true then
+            SetEllesmereHideNoTargetOption(unitFrames.player, true)
+            SetEllesmereHideNoTargetOption(unitFrames.pet, true)
+        else
+            SetEllesmereVisibilityAlways(unitFrames.player)
+            SetEllesmereVisibilityAlways(unitFrames.pet)
+        end
         RefreshEllesmereUnitFrameSettings()
     end
     if addonTable.RefreshEllesmereVisibilityTweaks then
         addonTable.RefreshEllesmereVisibilityTweaks()
+    end
+    if addonTable.RefreshVisibilityCheckboxes then
+        addonTable.RefreshVisibilityCheckboxes()
     end
 end
 
@@ -2495,15 +2529,61 @@ local function GetEllesmereSmartPlayerPetVisibility()
     return db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true
 end
 
-local function SetEllesmereShowPlayerInParty(state)
-    EnsureVisibilityDB().showPlayerInParty = state == true
-    if addonTable.RefreshEllesmereVisibilityTweaks then
-        addonTable.RefreshEllesmereVisibilityTweaks()
+local function GetEllesmerePlayerVisibilitySelection()
+    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
+    local settings = unitFrames and unitFrames.player
+    local EUI = type(_G.EllesmereUI) == "table" and _G.EllesmereUI
+    if type(settings) ~= "table" or not EUI or type(EUI.GetVisibilitySelection) ~= "function" then
+        return nil
+    end
+    return EUI.GetVisibilitySelection(settings, "barVisibility", true)
+end
+
+local function SetEllesmerePlayerGroupVisibility(state)
+    local db = EnsureVisibilityDB()
+    db.showPlayerInParty = nil
+
+    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames", true)
+    if not unitFrames then return end
+    unitFrames.player = unitFrames.player or {}
+
+    local settings = unitFrames.player
+    local EUI = type(_G.EllesmereUI) == "table" and _G.EllesmereUI
+    if not EUI or type(EUI.GetVisibilitySelection) ~= "function"
+        or type(EUI.SetVisibilitySelection) ~= "function" then
+        return
+    end
+
+    local selection = EUI.GetVisibilitySelection(settings, "barVisibility", true)
+    if state == true then
+        -- Match EUI's own checklist behavior: group conditions combine with
+        -- existing conditions, replace exclusive values, and clear their
+        -- opposite Hide lanes.
+        for key in pairs(selection) do
+            if not (EUI.VIS_COMBINABLE_KEYS and EUI.VIS_COMBINABLE_KEYS[key]) then
+                selection[key] = nil
+            end
+        end
+        selection.in_raid = true
+        selection.in_party = true
+        selection.hide_in_raid = nil
+        selection.hide_in_party = nil
+    else
+        selection.in_raid = nil
+        selection.in_party = nil
+        if not next(selection) then selection.always = true end
+    end
+
+    EUI.SetVisibilitySelection(settings, "barVisibility", selection)
+    RefreshEllesmereUnitFrameSettings()
+    if addonTable.RefreshVisibilityCheckboxes then
+        addonTable.RefreshVisibilityCheckboxes()
     end
 end
 
-local function GetEllesmereShowPlayerInParty()
-    return EnsureVisibilityDB().showPlayerInParty == true
+local function GetEllesmerePlayerGroupVisibility()
+    local selection = GetEllesmerePlayerVisibilitySelection()
+    return selection and selection.in_raid == true and selection.in_party == true or false
 end
 
 local function SetEllesmereChatLineFade(state)
@@ -2594,7 +2674,7 @@ local function SetAllHidden(state)
     SetChatBackgroundHidden(state)
     SetCDMFading(state)
     SetEllesmereSmartPlayerPetVisibility(state)
-    SetEllesmereShowPlayerInParty(state)
+    SetEllesmerePlayerGroupVisibility(state)
     SetEllesmereChatLineFade(state)
     SetEllesmereTooltipAnchor(state)
     EnsureVisibilityDB().allHidden = state == true
@@ -2602,7 +2682,7 @@ end
 
 local function GetAllHidden()
     local baseState = GetUnitframes() and GetMouseover() and GetChatBackgroundHidden() and GetCDMFading()
-    return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmereShowPlayerInParty() and GetEllesmereChatLineFade() and GetEllesmereTooltipAnchor()
+    return baseState and GetEllesmereSmartPlayerPetVisibility() and GetEllesmerePlayerGroupVisibility() and GetEllesmereChatLineFade() and GetEllesmereTooltipAnchor()
 end
 
 function addonTable.ApplyOakInstallerVisibilityTweaks(options)
@@ -2611,7 +2691,7 @@ function addonTable.ApplyOakInstallerVisibilityTweaks(options)
     if options.actionBars ~= nil then SetMouseover(options.actionBars) end
     if options.chat ~= nil then SetChatBackgroundHidden(options.chat) end
     if options.cdm ~= nil then SetCDMFading(options.cdm) end
-    if options.showPlayerInGroup ~= nil then SetEllesmereShowPlayerInParty(options.showPlayerInGroup) end
+    if options.showPlayerInGroup ~= nil then SetEllesmerePlayerGroupVisibility(options.showPlayerInGroup) end
     if options.chatLineFade ~= nil then SetEllesmereChatLineFade(options.chatLineFade) end
     if options.disableChatFade ~= nil then SetEllesmereDisableChatFade(options.disableChatFade) end
 end
@@ -2621,8 +2701,33 @@ function addonTable.ApplyOakInstallerRoundedBorders(options)
     if options.all ~= nil then SetAllRoundedBorders(options.all) end
 end
 
+function addonTable.ApplyOakFirstInstallDefaults()
+    SetEllesmereSmartPlayerPetVisibility(true)
+    SetErrorMessagesHidden(true)
+    SetWMarkerMouseoverFade(true)
+    SetWMarkerFadedAlpha(WMARKER_DEFAULT_FADED_ALPHA)
+
+    if addonTable.SetOakChatLineFadeDelay then
+        addonTable.SetOakChatLineFadeDelay(10)
+    end
+    if addonTable.SetOakDBMHugeBarAnchoringEnabled then
+        addonTable.SetOakDBMHugeBarAnchoringEnabled(true)
+    end
+    if addonTable.SetOakDragonRidingAnchoringEnabled then
+        addonTable.SetOakDragonRidingAnchoringEnabled(true)
+    end
+    if addonTable.SetOakEllesmereMythicForcesEnabled then
+        addonTable.SetOakEllesmereMythicForcesEnabled(true)
+    end
+    if addonTable.SetOakRoundThinChatBorders then
+        addonTable.SetOakRoundThinChatBorders(false)
+    end
+end
+
 function addonTable.ApplyOakVisibilityDefaults()
     SetAllHidden(true)
+    addonTable.ApplyOakFirstInstallDefaults()
+    SetAllRoundedBorders(true)
 end
 
 -- ==========================================
@@ -2668,11 +2773,12 @@ function addonTable.BuildVisibilityUI(parentFrame)
         return cb
     end
 
-    local function AddSlider(text, updateFunc, getValueFunc, tooltip, x, y, width, minValue, maxValue, valueStep, valueSuffix)
+    local function AddSlider(text, updateFunc, getValueFunc, tooltip, x, y, width, minValue, maxValue, valueStep, valueSuffix, displayScale)
         minValue = tonumber(minValue) or 0
         maxValue = tonumber(maxValue) or 1
         valueStep = tonumber(valueStep) or 0.05
         valueSuffix = valueSuffix or "%"
+        displayScale = tonumber(displayScale) or 1
         local label = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         label:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", x, y)
         label:SetText(cWrap .. text .. "|r")
@@ -2689,12 +2795,12 @@ function addonTable.BuildVisibilityUI(parentFrame)
         slider:SetValueStep(valueStep)
         slider:SetObeyStepOnDrag(true)
         slider:SetValue(getValueFunc())
-        if slider.Low then slider.Low:SetText(tostring(minValue) .. valueSuffix) end
-        if slider.High then slider.High:SetText(tostring(maxValue) .. valueSuffix) end
+        if slider.Low then slider.Low:SetText(tostring(math.floor(minValue * displayScale + 0.5)) .. valueSuffix) end
+        if slider.High then slider.High:SetText(tostring(math.floor(maxValue * displayScale + 0.5)) .. valueSuffix) end
         if slider.Text then slider.Text:SetText("") end
 
         local function RefreshValueLabel(value)
-            local displayValue = math.floor((value or minValue) + 0.5)
+            local displayValue = math.floor((value or minValue) * displayScale + 0.5)
             valueLabel:SetText(tostring(displayValue) .. valueSuffix)
         end
 
@@ -2725,7 +2831,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddOption("Apply All", SetAllHidden, GetAllHidden, nil, 300, -23, 150)
 
         AddSection("Visibility", leftX, -78)
-        AddOption("Hide Unit Frames", SetUnitframes, GetUnitframes, "Toggles Ellesmere's Visibility Options between None and Hide without Target for Player/Pet.", leftX, -98, colWidth)
+        AddOption("Hide Unit Frames", SetUnitframes, GetUnitframes, "Shows Player/Pet only with a target when enabled. Disabling it sets their Ellesmere Visibility to Always.", leftX, -98, colWidth)
         AddOption("Hide Cooldown Manager", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -98, colWidth)
         AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -98 + rowGap, colWidth)
         AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade. The change applies immediately.", rightX, -98 + rowGap, colWidth)
@@ -2736,7 +2842,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddOption("Disable Chat Fade", SetEllesmereDisableChatFade, GetEllesmereDisableChatFade, "Turns off OakUI chat line fade and sets Ellesmere's Idle Fade Strength to 0 so chat stays visible.", leftX, -228, colWidth)
 
         AddSection("Tweaks", leftX, -260)
-        AddOption("Show Player In Group", SetEllesmereShowPlayerInParty, GetEllesmereShowPlayerInParty, "If the Player Unitframe is hidden, joining a party or raid will show the Player Unitframe.", leftX, -280, colWidth)
+        AddOption("Show Player In Group", SetEllesmerePlayerGroupVisibility, GetEllesmerePlayerGroupVisibility, "Toggles Ellesmere's Player Visibility conditions for In Raid Group and In Party without changing the other conditions or Match Mode.", leftX, -280, colWidth)
         AddOption("OakUI DBM Anchoring", addonTable.SetOakDBMHugeBarAnchoringEnabled, addonTable.GetOakDBMHugeBarAnchoringEnabled, "Keeps OakUI's DBM Large bars positioned above the target frame. Turn this off to customize DBM's own bar position without OakUI reapplying it.", rightX, -280, colWidth)
         AddOption("OakUI Dragon Riding Anchoring", addonTable.SetOakDragonRidingAnchoringEnabled, addonTable.GetOakDragonRidingAnchoringEnabled, "Keeps Dragon Riding attached to the Class Resource bar even if EUI misses the saved anchor. Turn this off to customize Dragon Riding's position through EUI.", leftX, -310, colWidth)
         local mplusForcesCheckbox = AddOption("M+ Enemy Forces", addonTable.SetOakEllesmereMythicForcesEnabled, addonTable.GetOakEllesmereMythicForcesEnabled, "OakUI-only: shows each enemy's Mythic+ forces percentage in OakUI's nameplate font to the right of the enemy cast bar. The default text size is 15; use the resize icon for Size and X/Y offset controls. It is active only inside an active Mythic+ key.", leftX, -340, colWidth)
@@ -2745,7 +2851,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
         end
         if IsWMarkerAvailable() then
             AddOption("wMarker Mouseover Fade", SetWMarkerMouseoverFade, GetWMarkerMouseoverFade, "Fades wMarker when the mouse is away and restores its normal alpha when you move over it.", rightX, -310, colWidth)
-            AddSlider("wMarker Faded Opacity", SetWMarkerFadedAlpha, GetWMarkerFadedAlpha, "Controls how visible wMarker remains while the mouse is away. 0% is invisible; 100% disables the visual fade.", rightX, -338, colWidth)
+            AddSlider("wMarker Faded Opacity", SetWMarkerFadedAlpha, GetWMarkerFadedAlpha, "Controls how visible wMarker remains while the mouse is away. 0% is invisible; 100% disables the visual fade.", rightX, -338, colWidth, 0, 1, 0.05, "%", 100)
         end
         AddSection("Rounded Borders", leftX, -364)
         AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles the rounded-border options used by OakUI default installs. Chat Windows remains a separate opt-in.", leftX, -386, colWidth)

@@ -87,8 +87,6 @@ end
 
 local hookedEllesmereUnitFrameVisibility
 local applyingEllesmereVisibility
-local hookedEllesmereVisibilityOptions
-local ellesmereVisibilityOptionsWrapper
 
 local function SetFrameVisible(frame, visible)
     if not frame then return end
@@ -170,7 +168,7 @@ end
 local function PlayerPetVisibilityOptionsEnabled()
     if not IsEllesmereProvider() then return false end
     local db = EnsureVisibilityDB()
-    return db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true or db.showPlayerInParty == true
+    return db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true
 end
 
 local function PlayerVisibilityOverrideEnabled()
@@ -196,38 +194,6 @@ local function PetVisibilityOverrideEnabled()
     local petHidden = GetEllesmereUnitHideNoTarget("pet")
     if petHidden ~= nil then return petHidden == true end
     return false
-end
-
-local function PlayerIsInGroup()
-    return (type(IsInGroup) == "function" and IsInGroup()) or (type(IsInRaid) == "function" and IsInRaid())
-end
-
-local function HookEllesmerePlayerGroupVisibility()
-    local EUI = type(_G.EllesmereUI) == "table" and _G.EllesmereUI
-    local evaluator = EUI and EUI.CheckVisibilityOptions
-    if type(evaluator) ~= "function" or evaluator == ellesmereVisibilityOptionsWrapper then return end
-
-    hookedEllesmereVisibilityOptions = evaluator
-    ellesmereVisibilityOptionsWrapper = function(options, ...)
-        local db = EnsureVisibilityDB()
-        if db.showPlayerInParty == true and PlayerIsInGroup() then
-            local playerSettings = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
-            playerSettings = playerSettings and playerSettings.player
-            if options == playerSettings and playerSettings.visHideNoTarget == true then
-                -- Let EUI run its own evaluator with every other user-selected
-                -- visibility option intact. Only Hide without Target is suspended
-                -- while OakUI's runtime group display is active.
-                local groupOptions = {}
-                for key, value in pairs(options) do
-                    groupOptions[key] = value
-                end
-                groupOptions.visHideNoTarget = false
-                return hookedEllesmereVisibilityOptions(groupOptions, ...)
-            end
-        end
-        return hookedEllesmereVisibilityOptions(options, ...)
-    end
-    EUI.CheckVisibilityOptions = ellesmereVisibilityOptionsWrapper
 end
 
 local function RefreshEllesmereUnitFrameVisibility()
@@ -275,7 +241,7 @@ local function HookEllesmereUnitFrameVisibility()
     hooksecurefunc(ns, "UpdateFrameVisibility", function()
         if applyingEllesmereVisibility then return end
         -- EUI writes the player wrapper's alpha during this pass. Reassert
-        -- OakUI's temporary party/injury display override immediately after
+        -- OakUI's temporary injury display override immediately after
         -- EUI returns, avoiding a visible one-frame hide/show oscillation.
         if ShouldForcePlayerFrameShown and ShouldForcePlayerFrameShown() then
             ApplyPlayerFrameVisibilityOverride()
@@ -285,11 +251,9 @@ end
 
 ShouldForcePlayerFrameShown = function()
     if not PlayerVisibilityOverrideEnabled() then return false end
-    local db = EnsureVisibilityDB()
     if InCombatLockdown and InCombatLockdown() then return true end
     if UnitExists("target") then return true end
     if SmartPlayerVisibilityEnabled() and PlayerHealthBelowMax() then return true end
-    if db.showPlayerInParty == true and PlayerIsInGroup() then return true end
     if SmartPlayerVisibilityEnabled() and UnitIsInjured("pet") then return true end
     return false
 end
@@ -316,7 +280,6 @@ ApplyPlayerFrameVisibilityOverride = function()
 end
 
 function addonTable.RefreshEllesmereVisibilityTweaks()
-    HookEllesmerePlayerGroupVisibility()
     HookEllesmereUnitFrameVisibility()
     SyncPlayerPetVisibilityState()
     local playerOverrideEnabled = PlayerVisibilityOverrideEnabled()
@@ -330,7 +293,6 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
         return
     end
 
-    local db = EnsureVisibilityDB()
     local hasTarget = UnitExists("target")
     if InCombatLockdown and InCombatLockdown() then
         if playerOverrideEnabled then
@@ -351,9 +313,8 @@ function addonTable.RefreshEllesmereVisibilityTweaks()
 
     local smartPlayer = SmartPlayerVisibilityEnabled()
     local showPlayerForInjury = smartPlayer and PlayerHealthBelowMax()
-    local showPlayerForParty = db.showPlayerInParty == true and PlayerIsInGroup()
     local showPetForInjury = smartPlayer and UnitIsInjured("pet")
-    local shouldShowPlayer = hasTarget or showPlayerForInjury or showPlayerForParty or showPetForInjury
+    local shouldShowPlayer = hasTarget or showPlayerForInjury or showPetForInjury
     local shouldShowPet = hasTarget or showPetForInjury or showPlayerForInjury
     local playerFrame = GetEllesmerePlayerFrame()
     local petFrame = _G.EllesmereUIUnitFrames_Pet
@@ -863,11 +824,12 @@ local function ScheduleLayoutRefresh()
 end
 
 -- EUI handles GROUP_ROSTER_UPDATE with a next-frame local visibility update.
--- It bypasses the public function hook above, so run one event-driven pass
--- after that update, then retain a short settle pass for roster API lag.
+-- It bypasses the public function hook above, so Smart Player needs its own
+-- event-driven pass after that update when the feature is enabled.
 local groupVisibilitySettleTimer
 local groupVisibilityPostUpdatePending
-local function ScheduleGroupVisibilitySettle()
+local function ScheduleSmartVisibilityAfterGroupUpdate()
+    if not PlayerPetVisibilityOptionsEnabled() then return end
     if groupVisibilitySettleTimer then
         groupVisibilitySettleTimer:Cancel()
     end
@@ -890,19 +852,6 @@ local function ScheduleGroupVisibilitySettle()
             addonTable.RefreshEllesmereVisibilityTweaks()
         end
     end)
-end
-
-local function ScheduleLoginGroupVisibilitySettle()
-    -- A /reload while already grouped does not guarantee a new
-    -- GROUP_ROSTER_UPDATE after EUI has rebuilt its unit frames. Reuse the
-    -- runtime-only override once the world-entry work has settled instead of
-    -- changing EUI's saved Hide without Target preference.
-    if not IsEllesmereProvider() or EnsureVisibilityDB().showPlayerInParty ~= true then return end
-    ScheduleRefresh("visibilityGroupLogin", 3, function()
-        if addonTable.RefreshEllesmereVisibilityTweaks then
-            addonTable.RefreshEllesmereVisibilityTweaks()
-        end
-    end, 1)
 end
 
 local function ScheduleDeprecatedResourceCleanup()
@@ -933,7 +882,6 @@ frame:SetScript("OnEvent", function(_, event, unit)
 
     if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
         ScheduleLayoutRefresh()
-        ScheduleLoginGroupVisibilitySettle()
         ScheduleChatLineFadeRefresh()
     elseif event == "UPDATE_CHAT_WINDOWS" or event == "UPDATE_FLOATING_CHAT_WINDOWS" then
         -- EUI turns fading off when it skins a newly created chat frame. The
@@ -945,9 +893,10 @@ frame:SetScript("OnEvent", function(_, event, unit)
         if event == "UNIT_HEALTH" and (unit == "player" or unit == "pet") then
             SetPlayerHealthChanging()
         end
-        ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
         if event == "GROUP_ROSTER_UPDATE" then
-            ScheduleGroupVisibilitySettle()
+            ScheduleSmartVisibilityAfterGroupUpdate()
+        else
+            ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
         end
     elseif event == "PLAYER_SPECIALIZATION_CHANGED" or event == "ACTIVE_TALENT_GROUP_CHANGED" or event == "UPDATE_SHAPESHIFT_FORM" then
         ScheduleDeprecatedResourceCleanup()

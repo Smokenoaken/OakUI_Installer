@@ -624,8 +624,8 @@ function addonTable.BuildInstallerUI(parentFrame)
         heading:SetText(cWrap .. "Visibility|r")
         MakeCheckbox(page, "Chat Window Layout", "Reapply OakUI's saved chat window positions and tabs.", function() return state.chatLayout end, function(v) state.chatLayout = v end, -38, 0, "visibility-chatlayout")
         MakeCheckbox(page, "Hide Chat", "Hide the chat background and use OakUI's chat fade choice.", function() return state.visibility.chat end, function(v) state.visibility.chat = v end, -78, 0, "visibility-chat")
-        MakeCheckbox(page, "Hide Unit Frames", "Hide player/pet frames without a target using EUI visibility settings.", function() return state.visibility.unitFrames end, function(v) state.visibility.unitFrames = v end, -118, 0, "visibility-unitframes")
-        MakeCheckbox(page, "Show Player In Group", "If unit frames are hidden, show the player frame while in a party or raid.", function() return state.visibility.showPlayerInGroup end, function(v) state.visibility.showPlayerInGroup = v end, -158, 0, "visibility-playergroup")
+        MakeCheckbox(page, "Hide Unit Frames", "Show Player/Pet only with a target when enabled; disabling this sets their EUI Visibility to Always.", function() return state.visibility.unitFrames end, function(v) state.visibility.unitFrames = v end, -118, 0, "visibility-unitframes")
+        MakeCheckbox(page, "Show Player In Group", "Toggle Ellesmere's Player Visibility conditions for In Raid Group and In Party without changing the other conditions or Match Mode.", function() return state.visibility.showPlayerInGroup end, function(v) state.visibility.showPlayerInGroup = v end, -158, 0, "visibility-playergroup")
         MakeCheckbox(page, "Hide Cooldown Manager", "Hide EUI CDM and resource bars without a target.", function() return state.visibility.cdm end, function(v) state.visibility.cdm = v end, -198, 0, "visibility-cdm")
         MakeCheckbox(page, "Hide Action Bars", "Use mouseover visibility for EUI action bars.", function() return state.visibility.actionBars end, function(v) state.visibility.actionBars = v end, -238, 0, "visibility-actionbars")
         MakeCheckbox(page, "Chat Line Fade", "Use Blizzard per-line fading instead of EUI full-text idle fade.", function() return state.visibility.chatLineFade and not state.visibility.disableChatFade end, function(v) state.visibility.chatLineFade = v; if v then state.visibility.disableChatFade = false end end, -288, 0, "visibility-chatfade")
@@ -710,7 +710,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             cWrap .. "Chat Layout:|r " .. (state.chatLayout and "Apply" or "Skip") .. "\n" ..
             cWrap .. "Visibility:|r Chat " .. HiddenShown(state.visibility.chat) ..
             ", Unit Frames " .. HiddenShown(state.visibility.unitFrames) ..
-            ", Player In Group " .. (state.visibility.showPlayerInGroup and "Shown" or "Normal") ..
+            ", Player In Group " .. (state.visibility.showPlayerInGroup and "Enabled" or "Disabled") ..
             ", Cooldown Manager " .. HiddenShown(state.visibility.cdm) ..
             ", Action Bars " .. HiddenShown(state.visibility.actionBars) .. "\n" ..
             cWrap .. "Rounded Borders:|r " .. (state.rounded.all and "On" or "Off") .. "\n\n" ..
@@ -982,9 +982,6 @@ function addonTable.BuildInstallerUI(parentFrame)
             addonTable.AssignOakEllesmereProfilesToSpecs(state.profiles.dps, state.profiles.heals)
         end
 
-        if addonTable.ApplyOakInstallerVisibilityTweaks then
-            addonTable.ApplyOakInstallerVisibilityTweaks(state.visibility)
-        end
         if addonTable.ApplyOakInstallerRoundedBorders then
             addonTable.ApplyOakInstallerRoundedBorders(state.rounded)
         end
@@ -1016,6 +1013,20 @@ function addonTable.BuildInstallerUI(parentFrame)
             )
             if not ok then
                 print("|cffff0000[OakUI]|r Could not set active EllesmereUI profile after install: " .. tostring(err))
+            end
+        end
+
+        -- Apply profile-backed visibility settings only after the intended
+        -- imported profile is active. Importing both roles leaves the second
+        -- import active until SetOakInstallActiveEllesmereProfile resolves it.
+        if addonTable.ApplyOakInstallerVisibilityTweaks then
+            addonTable.ApplyOakInstallerVisibilityTweaks(state.visibility)
+        end
+
+        if state.mode == "fresh" and addonTable.ApplyOakFirstInstallDefaults then
+            local ok, err = pcall(addonTable.ApplyOakFirstInstallDefaults)
+            if not ok then
+                print("|cffff0000[OakUI]|r Could not apply first-install defaults: " .. tostring(err))
             end
         end
 
