@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.42"
+P.VERSION = "2.6.43"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -152,6 +152,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.43",
+        date = "September 4, 2026",
+        notes = {
+            "Fixed Smart Player overriding EllesmereUI's native party and raid Player-frame visibility after group changes.",
+        }
+    },
     {
         version = "v2.6.42",
         date = "September 4, 2026",

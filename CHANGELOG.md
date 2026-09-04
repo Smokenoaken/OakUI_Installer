@@ -1,3 +1,7 @@
+## v2.6.43
+
+- Fixed Smart Player overriding EllesmereUI's native party and raid Player-frame visibility after group changes.
+
 ## v2.6.42
 
 - Show Player In Group now toggles EllesmereUI's native In Raid Group and In Party Player visibility conditions.
