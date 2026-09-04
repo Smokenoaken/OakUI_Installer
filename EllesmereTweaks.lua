@@ -56,6 +56,7 @@ local lastPlayerHealthEventTime = 0
 local HEALTH_STABLE_DURATION = 3
 local ShouldForcePlayerFrameShown
 local ApplyPlayerFrameVisibilityOverride
+local ApplySmartPlayerPetVisibilityOverrides
 
 local function SetPlayerHealthChanging()
     local wasBelowMax = playerHealthBelowMax
@@ -88,40 +89,24 @@ end
 local hookedEllesmereUnitFrameVisibility
 local applyingEllesmereVisibility
 
-local function SetFrameVisible(frame, visible)
-    if not frame then return end
-    frame.oakVisibilityTweaksManaged = true
-    frame:SetAlpha(visible and 1 or 0)
-end
-
-local function ReleaseFrameVisibility(frame)
+local function ClearLegacyFrameVisibilityOverride(frame, isPet)
     if not frame or not frame.oakVisibilityTweaksManaged then return end
     frame.oakVisibilityTweaksManaged = nil
     frame:SetAlpha(1)
-end
-
-local function SetPetFrameVisible(frame, visible)
-    if not frame then return end
-    SetFrameVisible(frame, visible)
-    frame.dfPetHidden = not visible or nil
-    if not InCombatLockdown or not InCombatLockdown() then
-        if visible then
-            if frame.Show then frame:Show() end
-        else
-            if frame.Hide then frame:Hide() end
-        end
+    if isPet then
+        frame.dfPetHidden = nil
+    end
+    if isPet and (not InCombatLockdown or not InCombatLockdown()) then
+        if frame.Show then frame:Show() end
     end
 end
 
-local function ReleasePetFrameVisibility(frame)
+local function ForcePetFrameShown(frame)
     if not frame then return end
-    local wasManaged = frame.oakVisibilityTweaksManaged
-    ReleaseFrameVisibility(frame)
-    if not wasManaged then return end
-
+    frame:SetAlpha(1)
     frame.dfPetHidden = nil
-    if not InCombatLockdown or not InCombatLockdown() then
-        if frame.Show then frame:Show() end
+    if (not InCombatLockdown or not InCombatLockdown()) and frame.Show then
+        frame:Show()
     end
 end
 
@@ -144,9 +129,9 @@ local function SyncPlayerPetVisibilityState()
     local db = EnsureVisibilityDB()
     local playerHidden = GetEllesmereUnitHideNoTarget("player")
     local petHidden = GetEllesmereUnitHideNoTarget("pet")
-    -- OakUI's group behavior is a runtime frame override. EUI's saved values
-    -- therefore remain authoritative here, and a temporary group display cannot
-    -- turn off the persistent Hide Unit Frames preference.
+    -- EUI's saved values remain authoritative. Smart Player may reveal an
+    -- injured unit frame, but it must not change the saved Hide Unit Frames
+    -- preference or replace EUI's native visibility result.
     if playerHidden ~= nil or petHidden ~= nil then
         local playerEnabled = playerHidden == true
         local petEnabled = petHidden == true
@@ -224,11 +209,6 @@ local function GetEllesmerePlayerFrame()
     return ns and ns.frames and ns.frames.player or nil
 end
 
-local function GetEllesmerePlayerVisibilityTarget()
-    local frame = GetEllesmerePlayerFrame()
-    return frame and (frame._visWrap or frame)
-end
-
 local function HookEllesmereUnitFrameVisibility()
     local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
     if not ns or type(ns.UpdateFrameVisibility) ~= "function" or not hooksecurefunc then return end
@@ -243,19 +223,16 @@ local function HookEllesmereUnitFrameVisibility()
         -- EUI writes the player wrapper's alpha during this pass. Reassert
         -- OakUI's temporary injury display override immediately after
         -- EUI returns, avoiding a visible one-frame hide/show oscillation.
-        if ShouldForcePlayerFrameShown and ShouldForcePlayerFrameShown() then
-            ApplyPlayerFrameVisibilityOverride()
+        if ApplySmartPlayerPetVisibilityOverrides then
+            ApplySmartPlayerPetVisibilityOverrides()
         end
     end)
 end
 
 ShouldForcePlayerFrameShown = function()
     if not PlayerVisibilityOverrideEnabled() then return false end
-    if InCombatLockdown and InCombatLockdown() then return true end
-    if UnitExists("target") then return true end
-    if SmartPlayerVisibilityEnabled() and PlayerHealthBelowMax() then return true end
-    if SmartPlayerVisibilityEnabled() and UnitIsInjured("pet") then return true end
-    return false
+    return SmartPlayerVisibilityEnabled()
+        and (PlayerHealthBelowMax() or UnitIsInjured("pet"))
 end
 
 ApplyPlayerFrameVisibilityOverride = function()
@@ -267,11 +244,9 @@ ApplyPlayerFrameVisibilityOverride = function()
         local portrait3D = playerFrame.Portrait and playerFrame.Portrait.backdrop and playerFrame.Portrait.backdrop._3d
         if portrait3D then portrait3D:SetAlpha(1) end
 
-        -- EUI normally uses alpha for Hide without Target, but a reload can
-        -- leave the player frame physically hidden before its next visibility
-        -- pass. OakUI's group display is a temporary runtime override, so
-        -- revive that frame out of combat and let EUI hide it again when the
-        -- group condition no longer applies.
+        -- A reload can leave the player frame physically hidden before its
+        -- next visibility pass. Smart Player is additive: revive the frame
+        -- only while injury requires it, then let EUI own every hide decision.
         if not (InCombatLockdown and InCombatLockdown()) and not playerFrame:IsShown() then
             if playerFrame.SetAttribute then playerFrame:SetAttribute("unit", "player") end
             if playerFrame.Show then playerFrame:Show() end
@@ -279,62 +254,36 @@ ApplyPlayerFrameVisibilityOverride = function()
     end
 end
 
+
+ApplySmartPlayerPetVisibilityOverrides = function()
+    local injured = SmartPlayerVisibilityEnabled()
+        and (PlayerHealthBelowMax() or UnitIsInjured("pet"))
+    if not injured then return end
+
+    if PlayerVisibilityOverrideEnabled() then
+        ApplyPlayerFrameVisibilityOverride()
+    end
+    if PetVisibilityOverrideEnabled() and UnitExists("pet") then
+        ForcePetFrameShown(_G.EllesmereUIUnitFrames_Pet)
+        ForcePetFrameShown(GetDandersPlayerPetFrame())
+    end
+end
+
 function addonTable.RefreshEllesmereVisibilityTweaks()
     HookEllesmereUnitFrameVisibility()
     SyncPlayerPetVisibilityState()
-    local playerOverrideEnabled = PlayerVisibilityOverrideEnabled()
-    local petOverrideEnabled = PetVisibilityOverrideEnabled()
-
-    if not playerOverrideEnabled and not petOverrideEnabled then
-        local playerFrame = GetEllesmerePlayerFrame()
-        ReleaseFrameVisibility(playerFrame and playerFrame._visWrap or playerFrame)
-        ReleasePetFrameVisibility(_G.EllesmereUIUnitFrames_Pet)
-        ReleasePetFrameVisibility(GetDandersPlayerPetFrame())
-        return
-    end
-
-    local hasTarget = UnitExists("target")
-    if InCombatLockdown and InCombatLockdown() then
-        if playerOverrideEnabled then
-            ApplyPlayerFrameVisibilityOverride()
-        else
-            local playerFrame = GetEllesmerePlayerFrame()
-            ReleaseFrameVisibility(playerFrame and playerFrame._visWrap or playerFrame)
-        end
-        if petOverrideEnabled then
-            SetPetFrameVisible(_G.EllesmereUIUnitFrames_Pet, UnitExists("pet"))
-            SetPetFrameVisible(GetDandersPlayerPetFrame(), UnitExists("pet"))
-        else
-            ReleasePetFrameVisibility(_G.EllesmereUIUnitFrames_Pet)
-            ReleasePetFrameVisibility(GetDandersPlayerPetFrame())
-        end
-        return
-    end
-
-    local smartPlayer = SmartPlayerVisibilityEnabled()
-    local showPlayerForInjury = smartPlayer and PlayerHealthBelowMax()
-    local showPetForInjury = smartPlayer and UnitIsInjured("pet")
-    local shouldShowPlayer = hasTarget or showPlayerForInjury or showPetForInjury
-    local shouldShowPet = hasTarget or showPetForInjury or showPlayerForInjury
     local playerFrame = GetEllesmerePlayerFrame()
     local petFrame = _G.EllesmereUIUnitFrames_Pet
     local dandersPetFrame = GetDandersPlayerPetFrame()
 
+    -- v2.6.42 and earlier marked these frames while forcing both visible and
+    -- hidden states. Clear that legacy ownership before asking EUI to resolve
+    -- its native combat, target, party, raid, and custom visibility settings.
+    ClearLegacyFrameVisibilityOverride(playerFrame and playerFrame._visWrap or playerFrame, false)
+    ClearLegacyFrameVisibilityOverride(petFrame, true)
+    ClearLegacyFrameVisibilityOverride(dandersPetFrame, true)
     RefreshEllesmereUnitFrameVisibility()
-
-    if playerOverrideEnabled then
-        SetFrameVisible(playerFrame and playerFrame._visWrap or playerFrame, shouldShowPlayer)
-    else
-        ReleaseFrameVisibility(playerFrame and playerFrame._visWrap or playerFrame)
-    end
-
-    if petOverrideEnabled then
-        SetPetFrameVisible(petFrame, shouldShowPet and UnitExists("pet"))
-        SetPetFrameVisible(dandersPetFrame, shouldShowPet and UnitExists("pet"))
-    else
-        ReleasePetFrameVisibility(petFrame)
-        ReleasePetFrameVisibility(dandersPetFrame)
-    end
+    ApplySmartPlayerPetVisibilityOverrides()
 end
 
 local originalResetIdleTimer
