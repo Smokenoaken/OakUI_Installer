@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.43"
+P.VERSION = "2.6.44"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -104,7 +104,6 @@ P.PATREONS = {
     "Nalu Rider",
     "Mark Hart",
     "Khalifa Almajid",
-    "Andrew Steltz",
     "Scott Mortell",
     "Donald Ross",
     "Peter O'Toole",
@@ -119,7 +118,6 @@ P.PATREONS = {
     "Alexander Hartwich",
     "Frank franz",
     "Loonie74",
-    "PhoenixLD",
     "Paul T",
     "Hermez",
     "Alexey Fedorov",
@@ -128,7 +126,6 @@ P.PATREONS = {
     "Bryan",
     "martin frimand",
     "JON",
-    "Wall Martz",
     "Benjamin Keene",
     "Ryan Couture",
     "Renegades Guild",
@@ -137,21 +134,29 @@ P.PATREONS = {
     "dwayne baldock",
     "MadCow",
     "Brian Wease",
-    "Grotesk",
     "Alex Tegnazian",
     "Laurie Timothy",
-    "evans starzinger",
     "JimmyJam",
     "Mack",
     "Jennifer Carlson",
     "Gianluca Berian",
     "Leslie Beck",
+    "SnAaZ",
+    "Cody Birdsall",
 }
 
 -- ==========================================
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.44",
+        date = "September 12, 2026",
+        notes = {
+            "Added a safe Set Up Alt option that detects and selects existing OakUI addon profiles and Edit Mode layouts without rerunning imports or replacing existing profiles",
+            "Set Up Alt now opens the Ellesmere CDM repopulate confirmation after its required UI reload",
+        }
+    },
     {
         version = "v2.6.43",
         date = "September 4, 2026",

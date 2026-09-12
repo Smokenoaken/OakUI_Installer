@@ -538,9 +538,18 @@ function addonTable.ApplyOakAltSetup(sourceKey)
     state.profileSnapshot = snapshot
     characters[currentKey] = state
 
+    local cdmRepopulateQueued = false
+    if addonTable.MarkEllesmereCDMRepopulateAfterReload then
+        addonTable.MarkEllesmereCDMRepopulateAfterReload()
+        cdmRepopulateQueued = true
+    end
+
     local message = "Applied existing profiles for: " .. table.concat(applied, ", ") .. "."
     if #skipped > 0 then
         message = message .. "\nSkipped unavailable optional profiles: " .. table.concat(skipped, ", ") .. "."
+    end
+    if cdmRepopulateQueued then
+        message = message .. "\nAfter reload, OakUI will open the Ellesmere CDM repopulate confirmation."
     end
     return true, message
 end

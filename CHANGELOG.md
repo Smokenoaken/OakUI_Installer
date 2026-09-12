@@ -1,3 +1,8 @@
+## v2.6.44
+
+- Added a safe Set Up Alt option that detects and selects existing OakUI addon profiles and Edit Mode layouts without rerunning imports or replacing existing profiles
+- Set Up Alt now opens the Ellesmere CDM repopulate confirmation after its required UI reload
+
 ## v2.6.43
 
 - Fixed Smart Player overriding EllesmereUI's native party and raid Player-frame visibility after group changes.
