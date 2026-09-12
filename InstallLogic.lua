@@ -728,28 +728,58 @@ local function GetActiveOakEditModeLayoutIndex(layoutName)
     end
 end
 
+function addonTable.IsEditModeLayoutAvailable(layoutName)
+    layoutName = TrimProfileString(layoutName)
+    if layoutName == "" or not (C_EditMode and C_EditMode.GetLayouts) then return false end
+    return GetActiveOakEditModeLayoutIndex(layoutName) ~= nil
+end
+
+function addonTable.GetEditModeLayoutNames()
+    if not (C_EditMode and C_EditMode.GetLayouts) then return {} end
+    local ok, editModeLayouts = pcall(C_EditMode.GetLayouts)
+    if not ok or type(editModeLayouts) ~= "table" then return {} end
+
+    local names = {}
+    local combined = BuildCombinedEditModeLayouts(editModeLayouts)
+    for _, layout in ipairs(combined) do
+        if type(layout) == "table" and TrimProfileString(layout.layoutName) ~= "" then
+            names[#names + 1] = layout.layoutName
+        end
+    end
+    return names
+end
+
+function addonTable.GetActiveEditModeLayoutName()
+    if not (C_EditMode and C_EditMode.GetLayouts) then return nil end
+    local ok, editModeLayouts = pcall(C_EditMode.GetLayouts)
+    if not ok or type(editModeLayouts) ~= "table" then return nil end
+
+    local combined = BuildCombinedEditModeLayouts(editModeLayouts)
+    local activeIndex = tonumber(editModeLayouts.activeLayout)
+    local activeLayout = activeIndex and combined[activeIndex]
+    return type(activeLayout) == "table" and activeLayout.layoutName or nil
+end
+
+function addonTable.ActivateEditModeLayout(layoutName)
+    if InCombatLockdown and InCombatLockdown() then return false end
+    if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SetActiveLayout) then return false end
+    local activeIndex = GetActiveOakEditModeLayoutIndex(TrimProfileString(layoutName))
+    if not activeIndex then return false end
+    local ok = pcall(C_EditMode.SetActiveLayout, activeIndex)
+    if not ok then return false end
+
+    local readOk, layouts = pcall(C_EditMode.GetLayouts)
+    if not readOk or type(layouts) ~= "table" then return false end
+    return tonumber(layouts.activeLayout) == activeIndex
+end
+
 -- Re-assert the OakUI layout after the importer or another addon has finished
 -- rebuilding Blizzard's Edit Mode layout list. This is deliberately exposed
 -- for the one-time post-install retry in Core.lua; it is not a persistent
 -- layout lock and will not interfere with later user-selected layouts.
 function addonTable.EnsureOakEditModeActive()
-    if InCombatLockdown and InCombatLockdown() then return false end
-    if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SetActiveLayout) then
-        return false
-    end
-
-    local activeIndex = GetActiveOakEditModeLayoutIndex("OakUI")
-    if not activeIndex then return false end
-
-    local ok = pcall(C_EditMode.SetActiveLayout, activeIndex)
-    if not ok then return false end
-
-    -- SetActiveLayout may update asynchronously. Confirm the saved active index
-    -- when available; the retry caller will try again if Blizzard has not caught
-    -- up yet.
-    local readOk, layouts = pcall(C_EditMode.GetLayouts)
-    if not readOk or type(layouts) ~= "table" then return false end
-    return tonumber(layouts.activeLayout) == activeIndex
+    if not addonTable.ActivateEditModeLayout("OakUI") then return false end
+    return true
 end
 
 function addonTable.Injectors.EditMode()

@@ -110,6 +110,7 @@ end
 local DB_Frame = CreateFrame("Frame")
 DB_Frame:RegisterEvent("ADDON_LOADED")
 DB_Frame:RegisterEvent("PLAYER_LOGIN")
+DB_Frame:RegisterEvent("PLAYER_LOGOUT")
 DB_Frame:SetScript("OnEvent", function(self, event, addon)
     if event == "ADDON_LOADED" and addon == addonName then
         if not OakUI_DB then OakUI_DB = {} end
@@ -516,11 +517,149 @@ QuickInstallFrame:SetScript("OnShow", function(self)
     UpdateAutoAssign()
 end)
 
+local AltSetupFrame
+local AltSetupRows = {}
+local AltSetupEntries = {}
+local AltSetupSelectedKey
+
+local function ShowAltSetupFrame()
+    if not AltSetupFrame then
+        AltSetupFrame = CreateFrame("Frame", "OakUI_AltSetupFrame", UI, "BackdropTemplate")
+        AltSetupFrame:SetSize(560, 470)
+        AltSetupFrame:SetPoint("CENTER", UI, "CENTER", 0, 0)
+        AltSetupFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+        AltSetupFrame:SetFrameLevel(1200)
+        AltSetupFrame:SetToplevel(true)
+        AltSetupFrame:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 })
+        AltSetupFrame:SetBackdropColor(0.106, 0.106, 0.129, 1)
+        AltSetupFrame:SetBackdropBorderColor(r, g, b, 1)
+
+        local title = AltSetupFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        title:SetPoint("TOPLEFT", AltSetupFrame, "TOPLEFT", 18, -16)
+        title:SetText(cWrap .. "Set Up Alt|r")
+
+        local close = MakeFlatButton(AltSetupFrame, "X", 26, 24)
+        close:SetPoint("TOPRIGHT", AltSetupFrame, "TOPRIGHT", -10, -10)
+        close:SetScript("OnClick", function() AltSetupFrame:Hide() end)
+
+        local description = AltSetupFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+        description:SetPoint("TOPRIGHT", AltSetupFrame, "TOPRIGHT", -18, -8)
+        description:SetJustifyH("LEFT")
+        description:SetText("Choose an existing OakUI profile setup or a previously configured character. No profile will be imported, deleted, copied, or replaced.")
+
+        local sourceLabel = AltSetupFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        sourceLabel:SetPoint("TOPLEFT", AltSetupFrame, "TOPLEFT", 18, -92)
+        sourceLabel:SetText(cWrap .. "Available Profile Setup|r")
+
+        local scroll = CreateFrame("ScrollFrame", "OakUI_AltSetupScrollFrame", AltSetupFrame, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", AltSetupFrame, "TOPLEFT", 18, -114)
+        scroll:SetPoint("BOTTOMRIGHT", AltSetupFrame, "BOTTOMRIGHT", -38, 180)
+        SkinScrollbar(scroll)
+        local child = CreateFrame("Frame", nil, scroll)
+        child:SetSize(490, 1)
+        scroll:SetScrollChild(child)
+        AltSetupFrame.scrollChild = child
+
+        local empty = child:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        empty:SetPoint("TOPLEFT", child, "TOPLEFT", 4, -8)
+        empty:SetPoint("RIGHT", child, "RIGHT", -4, 0)
+        empty:SetJustifyH("LEFT")
+        empty:SetTextColor(0.75, 0.75, 0.75)
+        empty:SetText("No existing OakUI profiles and Edit Mode layout were detected. Install OakUI on one character first, then return to this alt.")
+        AltSetupFrame.empty = empty
+
+        local summaryTitle = AltSetupFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        summaryTitle:SetPoint("BOTTOMLEFT", AltSetupFrame, "BOTTOMLEFT", 18, 150)
+        summaryTitle:SetText(cWrap .. "Profiles To Select|r")
+        local summary = AltSetupFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        summary:SetPoint("TOPLEFT", summaryTitle, "BOTTOMLEFT", 0, -6)
+        summary:SetPoint("RIGHT", AltSetupFrame, "RIGHT", -18, 0)
+        summary:SetJustifyH("LEFT")
+        summary:SetJustifyV("TOP")
+        summary:SetTextColor(0.78, 0.78, 0.78)
+        AltSetupFrame.summary = summary
+
+        local apply = MakeFlatButton(AltSetupFrame, "Apply Existing Profiles", 170, 30)
+        apply:SetPoint("BOTTOMRIGHT", AltSetupFrame, "BOTTOMRIGHT", -18, 16)
+        apply.Text:SetTextColor(r, g, b)
+        AltSetupFrame.apply = apply
+        local cancel = MakeFlatButton(AltSetupFrame, "Cancel", 100, 30)
+        cancel:SetPoint("RIGHT", apply, "LEFT", -10, 0)
+        cancel:SetScript("OnClick", function() AltSetupFrame:Hide() end)
+
+        local function SelectEntry(entry)
+            AltSetupSelectedKey = entry and entry.key or nil
+            summary:SetText(entry and entry.summary or "Select an existing profile setup above.")
+            for index, row in ipairs(AltSetupRows) do
+                local selected = AltSetupEntries[index] and AltSetupEntries[index].key == AltSetupSelectedKey
+                row.bg:SetColorTexture(selected and r or 0.2, selected and g or 0.22, selected and b or 0.28, selected and 0.35 or 1)
+                row.Text:SetTextColor(selected and r or 1, selected and g or 1, selected and b or 1)
+            end
+            if entry then apply:Enable() else apply:Disable() end
+        end
+        AltSetupFrame.SelectEntry = SelectEntry
+
+        apply:SetScript("OnClick", function()
+            if not AltSetupSelectedKey or not addonTable.ApplyOakAltSetup then return end
+            local ok, message = addonTable.ApplyOakAltSetup(AltSetupSelectedKey)
+            if not ok then
+                summary:SetText("|cffff5555" .. tostring(message or "Alt setup failed.") .. "|r")
+                return
+            end
+            AltSetupFrame:Hide()
+            if addonTable.ShowReloadPrompt then
+                addonTable.ShowReloadPrompt(tostring(message) .. "\n\nReload your UI to finish setting up this character.")
+            end
+        end)
+    end
+
+    AltSetupEntries = addonTable.GetOakAltSetupOptions and addonTable.GetOakAltSetupOptions()
+        or addonTable.GetOakAltSetupCharacters and addonTable.GetOakAltSetupCharacters() or {}
+    AltSetupSelectedKey = nil
+    for _, row in ipairs(AltSetupRows) do row:Hide() end
+    for index, entry in ipairs(AltSetupEntries) do
+        local row = AltSetupRows[index]
+        if not row then
+            row = MakeFlatButton(AltSetupFrame.scrollChild, "", 480, 26)
+            row.Text:ClearAllPoints()
+            row.Text:SetPoint("LEFT", row, "LEFT", 8, 0)
+            row.Text:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+            row.Text:SetJustifyH("LEFT")
+            row:SetScript("OnClick", function(self)
+                AltSetupFrame.SelectEntry(AltSetupEntries[self.entryIndex])
+            end)
+            row:SetScript("OnEnter", function(self)
+                local entry = AltSetupEntries[self.entryIndex]
+                if entry and entry.key ~= AltSetupSelectedKey then
+                    self.bg:SetColorTexture(0.3, 0.32, 0.38, 1)
+                end
+            end)
+            row:SetScript("OnLeave", function(self)
+                local entry = AltSetupEntries[self.entryIndex]
+                local selected = entry and entry.key == AltSetupSelectedKey
+                self.bg:SetColorTexture(selected and r or 0.2, selected and g or 0.22, selected and b or 0.28, selected and 0.35 or 1)
+            end)
+            AltSetupRows[index] = row
+        end
+        row.entryIndex = index
+        row:ClearAllPoints()
+        row:SetPoint("TOPLEFT", AltSetupFrame.scrollChild, "TOPLEFT", 0, -((index - 1) * 30))
+        row.Text:SetText(entry.label)
+        row:Show()
+    end
+    AltSetupFrame.scrollChild:SetHeight(math.max(1, #AltSetupEntries * 30))
+    AltSetupFrame.empty:SetShown(#AltSetupEntries == 0)
+    AltSetupFrame.SelectEntry(nil)
+    AltSetupFrame:Show()
+    if AltSetupFrame.Raise then AltSetupFrame:Raise() end
+end
+
 local HomeButtonRow = CreateFrame("Frame", nil, HomeView)
-HomeButtonRow:SetSize(340, 34)
+HomeButtonRow:SetSize(500, 34)
 HomeButtonRow:SetPoint("TOP", SubText, "BOTTOM", 0, -25)
 
-local QuickInstallBtn = MakeFlatButton(HomeButtonRow, "Quick Install", 160, 32)
+local QuickInstallBtn = MakeFlatButton(HomeButtonRow, "Quick Install", 150, 32)
 QuickInstallBtn:SetPoint("LEFT", HomeButtonRow, "LEFT", 0, 0)
 QuickInstallBtn.Text:SetTextColor(r, g, b)
 QuickInstallBtn:SetScript("OnClick", function()
@@ -528,8 +667,8 @@ QuickInstallBtn:SetScript("OnClick", function()
     if QuickInstallFrame.Raise then QuickInstallFrame:Raise() end
 end)
 
-local GuidedInstallBtn = MakeFlatButton(HomeButtonRow, "Guided Install", 160, 32)
-GuidedInstallBtn:SetPoint("LEFT", QuickInstallBtn, "RIGHT", 20, 0)
+local GuidedInstallBtn = MakeFlatButton(HomeButtonRow, "Guided Install", 150, 32)
+GuidedInstallBtn:SetPoint("LEFT", QuickInstallBtn, "RIGHT", 25, 0)
 GuidedInstallBtn.Text:SetTextColor(r, g, b)
 GuidedInstallBtn:SetScript("OnClick", function()
     if addonTable.ResetOakGuidedInstaller then
@@ -540,12 +679,17 @@ GuidedInstallBtn:SetScript("OnClick", function()
     end
 end)
 
+local AltSetupBtn = MakeFlatButton(HomeButtonRow, "Set Up Alt", 150, 32)
+AltSetupBtn:SetPoint("LEFT", GuidedInstallBtn, "RIGHT", 25, 0)
+AltSetupBtn.Text:SetTextColor(r, g, b)
+AltSetupBtn:SetScript("OnClick", ShowAltSetupFrame)
+
 local QuickInstallNote = HomeView:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 QuickInstallNote:SetPoint("TOP", HomeButtonRow, "BOTTOM", 0, -10)
 QuickInstallNote:SetPoint("LEFT", HomeView, "LEFT", 30, 0)
 QuickInstallNote:SetPoint("RIGHT", HomeView, "RIGHT", -30, 0)
 QuickInstallNote:SetJustifyH("CENTER")
-QuickInstallNote:SetText("Quick Install applies Oak's full setup. Guided Install lets you walk through each choice.")
+QuickInstallNote:SetText("Quick and Guided Install import OakUI. Set Up Alt selects existing OakUI profiles without importing them.")
 QuickInstallNote:SetTextColor(0.75, 0.75, 0.75)
 
 local MinimapOption = CreateFrame("Frame", nil, HomeView)
@@ -880,16 +1024,24 @@ function addonTable.MarkInstallerComplete()
     state.version = P.VERSION or "Unknown"
     state.time = time and time() or 0
     OakUI_DB.install.characters[GetCharacterInstallKey()] = state
+    if addonTable.CaptureCurrentOakProfileSnapshot then
+        addonTable.CaptureCurrentOakProfileSnapshot()
+    end
 end
 
-function addonTable.MarkOakEditModeActivationAfterReload()
+function addonTable.MarkEditModeActivationAfterReload(layoutName)
     if not OakUI_DB then OakUI_DB = {} end
     if not OakUI_DB.install then OakUI_DB.install = { characters = {} } end
     if not OakUI_DB.install.characters then OakUI_DB.install.characters = {} end
     local state = OakUI_DB.install.characters[GetCharacterInstallKey()] or {}
     state.pendingOakEditModeActivation = true
+    state.pendingEditModeLayoutName = layoutName or "OakUI"
     state.pendingOakEditModeActivationTime = time and time() or 0
     OakUI_DB.install.characters[GetCharacterInstallKey()] = state
+end
+
+function addonTable.MarkOakEditModeActivationAfterReload()
+    addonTable.MarkEditModeActivationAfterReload("OakUI")
 end
 
 local function ConsumeOakEditModeActivationAfterReload()
@@ -898,15 +1050,19 @@ local function ConsumeOakEditModeActivationAfterReload()
     if not state or state.pendingOakEditModeActivation ~= true then return end
 
     local attempts = 0
+    local layoutName = state.pendingEditModeLayoutName or "OakUI"
     local function TryActivate()
         attempts = attempts + 1
         local ok, active = false, false
-        if addonTable.EnsureOakEditModeActive then
+        if addonTable.ActivateEditModeLayout then
+            ok, active = pcall(addonTable.ActivateEditModeLayout, layoutName)
+        elseif layoutName == "OakUI" and addonTable.EnsureOakEditModeActive then
             ok, active = pcall(addonTable.EnsureOakEditModeActive)
         end
 
         if ok and active == true then
             state.pendingOakEditModeActivation = nil
+            state.pendingEditModeLayoutName = nil
             state.pendingOakEditModeActivationTime = nil
             OakUI_DB.install.characters[GetCharacterInstallKey()] = state
             return
@@ -1087,6 +1243,12 @@ local function ConsumeOakChatGeometryAfterReload()
 end
 
 DB_Frame:HookScript("OnEvent", function(self, event)
+    if event == "PLAYER_LOGOUT" then
+        if addonTable.CaptureCurrentOakProfileSnapshot then
+            addonTable.CaptureCurrentOakProfileSnapshot()
+        end
+        return
+    end
     if event ~= "PLAYER_LOGIN" then return end
     if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
 
@@ -1097,6 +1259,9 @@ DB_Frame:HookScript("OnEvent", function(self, event)
     ConsumeEllesmereCDMRepopulateAfterReload()
     if HideMinimapCheck and HideMinimapCheck.UpdateState then HideMinimapCheck:UpdateState() end
     local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
+    if state and state.completed == true and addonTable.CaptureCurrentOakProfileSnapshot and C_Timer and C_Timer.After then
+        C_Timer.After(3, addonTable.CaptureCurrentOakProfileSnapshot)
+    end
     if not state or state.seen ~= true then
         C_Timer.After(1, function()
             if addonTable.OpenInstaller then

@@ -16,6 +16,7 @@ LayoutTransform.lua
 EllesmereSelectiveImport.lua
 InstallLogic.lua
 ProfileSync.lua
+AltSetup.lua
 ChatLayout.lua
 ChatFilters.lua
 Widgets.lua
