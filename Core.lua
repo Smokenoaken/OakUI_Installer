@@ -140,12 +140,13 @@ end)
 -- MAIN UI FRAMEWORK 
 -- ==========================================
 local UI = CreateFrame("Frame", "OakUIProfileManager", UIParent, "BackdropTemplate")
-UI:SetSize(820, 520); UI:SetPoint("CENTER"); UI:Hide();
+UI:SetSize(820, 640); UI:SetPoint("CENTER"); UI:Hide();
 UI:SetFrameStrata("FULLSCREEN_DIALOG")
 UI:SetFrameLevel(900)
 UI:SetToplevel(true)
+UI:SetClampedToScreen(true)
 UI:SetMovable(true); UI:EnableMouse(true); 
-UI:SetResizable(true); UI:SetResizeBounds(820, 520, 1400, 1000)
+UI:SetResizable(true); UI:SetResizeBounds(820, 640, 1400, 1000)
 UI:RegisterForDrag("LeftButton")
 UI:SetScript("OnDragStart", UI.StartMoving); UI:SetScript("OnDragStop", UI.StopMovingOrSizing)
 UI:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 })
@@ -521,11 +522,12 @@ local AltSetupFrame
 local AltSetupRows = {}
 local AltSetupEntries = {}
 local AltSetupSelectedKey
+local AltSetupApplyChatLayout = false
 
 local function ShowAltSetupFrame()
     if not AltSetupFrame then
         AltSetupFrame = CreateFrame("Frame", "OakUI_AltSetupFrame", UI, "BackdropTemplate")
-        AltSetupFrame:SetSize(560, 470)
+        AltSetupFrame:SetSize(560, 520)
         AltSetupFrame:SetPoint("CENTER", UI, "CENTER", 0, 0)
         AltSetupFrame:SetFrameStrata("FULLSCREEN_DIALOG")
         AltSetupFrame:SetFrameLevel(1200)
@@ -549,12 +551,12 @@ local function ShowAltSetupFrame()
         description:SetText("Choose an existing OakUI profile setup or a previously configured character. No profile will be imported, deleted, copied, or replaced.")
 
         local sourceLabel = AltSetupFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        sourceLabel:SetPoint("TOPLEFT", AltSetupFrame, "TOPLEFT", 18, -92)
+        sourceLabel:SetPoint("TOPLEFT", AltSetupFrame, "TOPLEFT", 18, -142)
         sourceLabel:SetText(cWrap .. "Available Profile Setup|r")
 
         local scroll = CreateFrame("ScrollFrame", "OakUI_AltSetupScrollFrame", AltSetupFrame, "UIPanelScrollFrameTemplate")
-        scroll:SetPoint("TOPLEFT", AltSetupFrame, "TOPLEFT", 18, -114)
-        scroll:SetPoint("BOTTOMRIGHT", AltSetupFrame, "BOTTOMRIGHT", -38, 180)
+        scroll:SetPoint("TOPLEFT", AltSetupFrame, "TOPLEFT", 18, -164)
+        scroll:SetPoint("BOTTOMRIGHT", AltSetupFrame, "BOTTOMRIGHT", -38, 230)
         SkinScrollbar(scroll)
         local child = CreateFrame("Frame", nil, scroll)
         child:SetSize(490, 1)
@@ -570,7 +572,7 @@ local function ShowAltSetupFrame()
         AltSetupFrame.empty = empty
 
         local summaryTitle = AltSetupFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        summaryTitle:SetPoint("BOTTOMLEFT", AltSetupFrame, "BOTTOMLEFT", 18, 150)
+        summaryTitle:SetPoint("BOTTOMLEFT", AltSetupFrame, "BOTTOMLEFT", 18, 200)
         summaryTitle:SetText(cWrap .. "Profiles To Select|r")
         local summary = AltSetupFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         summary:SetPoint("TOPLEFT", summaryTitle, "BOTTOMLEFT", 0, -6)
@@ -579,6 +581,40 @@ local function ShowAltSetupFrame()
         summary:SetJustifyV("TOP")
         summary:SetTextColor(0.78, 0.78, 0.78)
         AltSetupFrame.summary = summary
+
+        local chatLayoutOption = CreateFrame("Button", nil, AltSetupFrame)
+        chatLayoutOption:SetHeight(38)
+        chatLayoutOption:SetPoint("TOPLEFT", AltSetupFrame, "TOPLEFT", 18, -92)
+        chatLayoutOption:SetPoint("TOPRIGHT", AltSetupFrame, "TOPRIGHT", -18, -92)
+        local chatLayoutBox = chatLayoutOption:CreateTexture(nil, "BACKGROUND")
+        chatLayoutBox:SetSize(18, 18)
+        chatLayoutBox:SetPoint("TOPLEFT", chatLayoutOption, "TOPLEFT", 0, -2)
+        chatLayoutBox:SetColorTexture(0.3, 0.32, 0.38, 1)
+        local chatLayoutInner = chatLayoutOption:CreateTexture(nil, "ARTWORK")
+        chatLayoutInner:SetPoint("TOPLEFT", chatLayoutBox, "TOPLEFT", 2, -2)
+        chatLayoutInner:SetPoint("BOTTOMRIGHT", chatLayoutBox, "BOTTOMRIGHT", -2, 2)
+        local chatLayoutLabel = chatLayoutOption:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        chatLayoutLabel:SetPoint("TOPLEFT", chatLayoutBox, "TOPRIGHT", 8, 1)
+        chatLayoutLabel:SetText("Apply OakUI Chat Layout")
+        local chatLayoutNote = chatLayoutOption:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        chatLayoutNote:SetPoint("TOPLEFT", chatLayoutLabel, "BOTTOMLEFT", 0, -1)
+        chatLayoutNote:SetPoint("RIGHT", chatLayoutOption, "RIGHT", 0, 0)
+        chatLayoutNote:SetJustifyH("LEFT")
+        chatLayoutNote:SetTextColor(0.62, 0.62, 0.62)
+        chatLayoutNote:SetText("Reapply OakUI's General, Trade, and Loot chat windows and positions on this character.")
+        chatLayoutOption.UpdateState = function()
+            chatLayoutInner:SetColorTexture(
+                AltSetupApplyChatLayout and r or 0.137,
+                AltSetupApplyChatLayout and g or 0.141,
+                AltSetupApplyChatLayout and b or 0.172,
+                1
+            )
+        end
+        chatLayoutOption:SetScript("OnClick", function(self)
+            AltSetupApplyChatLayout = not AltSetupApplyChatLayout
+            self:UpdateState()
+        end)
+        AltSetupFrame.chatLayoutOption = chatLayoutOption
 
         local apply = MakeFlatButton(AltSetupFrame, "Apply Existing Profiles", 170, 30)
         apply:SetPoint("BOTTOMRIGHT", AltSetupFrame, "BOTTOMRIGHT", -18, 16)
@@ -602,7 +638,9 @@ local function ShowAltSetupFrame()
 
         apply:SetScript("OnClick", function()
             if not AltSetupSelectedKey or not addonTable.ApplyOakAltSetup then return end
-            local ok, message = addonTable.ApplyOakAltSetup(AltSetupSelectedKey)
+            local ok, message = addonTable.ApplyOakAltSetup(AltSetupSelectedKey, {
+                chatLayout = AltSetupApplyChatLayout,
+            })
             if not ok then
                 summary:SetText("|cffff5555" .. tostring(message or "Alt setup failed.") .. "|r")
                 return
@@ -617,6 +655,10 @@ local function ShowAltSetupFrame()
     AltSetupEntries = addonTable.GetOakAltSetupOptions and addonTable.GetOakAltSetupOptions()
         or addonTable.GetOakAltSetupCharacters and addonTable.GetOakAltSetupCharacters() or {}
     AltSetupSelectedKey = nil
+    AltSetupApplyChatLayout = false
+    if AltSetupFrame.chatLayoutOption and AltSetupFrame.chatLayoutOption.UpdateState then
+        AltSetupFrame.chatLayoutOption:UpdateState()
+    end
     for _, row in ipairs(AltSetupRows) do row:Hide() end
     for index, entry in ipairs(AltSetupEntries) do
         local row = AltSetupRows[index]
@@ -1044,6 +1086,70 @@ function addonTable.MarkOakEditModeActivationAfterReload()
     addonTable.MarkEditModeActivationAfterReload("OakUI")
 end
 
+local INSTALLER_VISIBILITY_KEYS = {
+    "unitFrames",
+    "showPlayerInGroup",
+    "actionBars",
+    "chat",
+    "cdm",
+}
+
+function addonTable.MarkInstallerVisibilityAfterReload(options)
+    if type(options) ~= "table" then return end
+    if not OakUI_DB then OakUI_DB = {} end
+    if not OakUI_DB.install then OakUI_DB.install = { characters = {} } end
+    if not OakUI_DB.install.characters then OakUI_DB.install.characters = {} end
+
+    local pending = {}
+    for _, key in ipairs(INSTALLER_VISIBILITY_KEYS) do
+        if options[key] ~= nil then
+            pending[key] = options[key] == true
+        end
+    end
+
+    local state = OakUI_DB.install.characters[GetCharacterInstallKey()] or {}
+    state.pendingInstallerVisibility = pending
+    state.pendingInstallerVisibilityTime = time and time() or 0
+    OakUI_DB.install.characters[GetCharacterInstallKey()] = state
+end
+
+local function ConsumeInstallerVisibilityAfterReload()
+    if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
+    local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
+    if not state or type(state.pendingInstallerVisibility) ~= "table" then return end
+
+    local attempts = 0
+    local delays = { 0, 0.5, 1, 1.5 }
+    local function TryApply()
+        local currentState = OakUI_DB
+            and OakUI_DB.install
+            and OakUI_DB.install.characters
+            and OakUI_DB.install.characters[GetCharacterInstallKey()]
+        local options = currentState and currentState.pendingInstallerVisibility
+        if type(options) ~= "table" then return end
+
+        attempts = attempts + 1
+        if addonTable.ApplyOakInstallerVisibilityTweaks then
+            pcall(addonTable.ApplyOakInstallerVisibilityTweaks, options)
+        end
+
+        if attempts < #delays and C_Timer and C_Timer.After then
+            C_Timer.After(delays[attempts + 1], TryApply)
+            return
+        end
+
+        currentState.pendingInstallerVisibility = nil
+        currentState.pendingInstallerVisibilityTime = nil
+        OakUI_DB.install.characters[GetCharacterInstallKey()] = currentState
+    end
+
+    if C_Timer and C_Timer.After then
+        C_Timer.After(delays[1], TryApply)
+    else
+        TryApply()
+    end
+end
+
 local function ConsumeOakEditModeActivationAfterReload()
     if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
     local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
@@ -1254,6 +1360,7 @@ DB_Frame:HookScript("OnEvent", function(self, event)
 
     CreateOakMinimapButton()
     ClaimEllesmereFirstInstallForOakUI()
+    ConsumeInstallerVisibilityAfterReload()
     ConsumeOakEditModeActivationAfterReload()
     ConsumeOakChatGeometryAfterReload()
     ConsumeEllesmereCDMRepopulateAfterReload()

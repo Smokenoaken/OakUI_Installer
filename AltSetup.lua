@@ -483,10 +483,27 @@ local function ApplyWMarker(profileName, applied, skipped)
     if ok then AddApplied(applied, "wMarker") else AddSkipped(skipped, "wMarker", profileName) end
 end
 
-function addonTable.ApplyOakAltSetup(sourceKey)
+local function ApplyChatLayout(applied)
+    local apply = addonTable.ScheduleChatWindowsAfterEllesmereProfile or addonTable.SetupChatWindows
+    if type(apply) ~= "function" then return false end
+
+    local ok, result = pcall(apply, true)
+    if not ok or result ~= true then return false end
+
+    if addonTable.MarkOakChatGeometryAfterReload then
+        addonTable.MarkOakChatGeometryAfterReload()
+    elseif addonTable.MarkOakChatLayoutAfterReload then
+        addonTable.MarkOakChatLayoutAfterReload()
+    end
+    AddApplied(applied, "Chat Layout")
+    return true
+end
+
+function addonTable.ApplyOakAltSetup(sourceKey, options)
     if InCombatLockdown and InCombatLockdown() then
         return false, "Leave combat before setting up this character."
     end
+    options = type(options) == "table" and options or {}
 
     local characters = GetInstallCharacters()
     local detected = DetectedSnapshots[sourceKey]
@@ -518,6 +535,8 @@ function addonTable.ApplyOakAltSetup(sourceKey)
     ApplyBlizzi(snapshot.blizzi, applied, skipped)
     ApplyWMarker(snapshot.wmarker, applied, skipped)
 
+    local chatLayoutFailed = options.chatLayout == true and not ApplyChatLayout(applied)
+
     local currentKey = GetCharacterKey()
     local state = characters[currentKey] or {}
     local now = time and time() or 0
@@ -547,6 +566,9 @@ function addonTable.ApplyOakAltSetup(sourceKey)
     local message = "Applied existing profiles for: " .. table.concat(applied, ", ") .. "."
     if #skipped > 0 then
         message = message .. "\nSkipped unavailable optional profiles: " .. table.concat(skipped, ", ") .. "."
+    end
+    if chatLayoutFailed then
+        message = message .. "\nThe chat layout could not be applied. Try Apply Chat Layout from Chat Cleaning after reload."
     end
     if cdmRepopulateQueued then
         message = message .. "\nAfter reload, OakUI will open the Ellesmere CDM repopulate confirmation."

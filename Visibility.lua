@@ -5,7 +5,7 @@ local classColor = C_ClassColor.GetClassColor(playerClass)
 local r, g, b = classColor.r, classColor.g, classColor.b
 local cWrap = "|c" .. classColor:GenerateHexColor()
 
-local function MakeVisibilityCheckbox(parent, text, updateFunc, getStateFunc)
+local function MakeVisibilityCheckbox(parent, text, updateFunc, getStateFunc, afterUpdateFunc)
     local btn = CreateFrame("Button", nil, parent)
     btn:SetSize(20, 20)
     local border = btn:CreateTexture(nil, "BACKGROUND")
@@ -30,6 +30,7 @@ local function MakeVisibilityCheckbox(parent, text, updateFunc, getStateFunc)
     btn:SetScript("OnClick", function(self)
         local newState = not getStateFunc()
         updateFunc(newState)
+        if afterUpdateFunc then afterUpdateFunc(newState) end
         self:UpdateState()
         if parent.UpdateVisibilityCheckboxes then
             parent:UpdateVisibilityCheckboxes()
@@ -2691,7 +2692,11 @@ function addonTable.ApplyOakInstallerVisibilityTweaks(options)
     if options.actionBars ~= nil then SetMouseover(options.actionBars) end
     if options.chat ~= nil then SetChatBackgroundHidden(options.chat) end
     if options.cdm ~= nil then SetCDMFading(options.cdm) end
-    if options.showPlayerInGroup ~= nil then SetEllesmerePlayerGroupVisibility(options.showPlayerInGroup) end
+    if options.unitFrames == false then
+        SetEllesmerePlayerGroupVisibility(false)
+    elseif options.showPlayerInGroup ~= nil then
+        SetEllesmerePlayerGroupVisibility(options.showPlayerInGroup)
+    end
     if options.chatLineFade ~= nil then SetEllesmereChatLineFade(options.chatLineFade) end
     if options.disableChatFade ~= nil then SetEllesmereDisableChatFade(options.disableChatFade) end
 end
@@ -2760,8 +2765,16 @@ function addonTable.BuildVisibilityUI(parentFrame)
         end)
     end
 
-    local function AddOption(text, updateFunc, getStateFunc, tooltip, x, y, width)
-        local cb, lbl = MakeVisibilityCheckbox(parentFrame, cWrap .. text .. "|r", updateFunc, getStateFunc)
+    local function AddOption(text, updateFunc, getStateFunc, tooltip, x, y, width, requiresReload)
+        local afterUpdate
+        if requiresReload then
+            afterUpdate = function()
+                if addonTable.ShowReloadPrompt then
+                    addonTable.ShowReloadPrompt("A UI reload is required to finish applying this Ellesmere visibility change.")
+                end
+            end
+        end
+        local cb, lbl = MakeVisibilityCheckbox(parentFrame, cWrap .. text .. "|r", updateFunc, getStateFunc, afterUpdate)
         cb:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", x, y)
         lbl:SetFontObject("GameFontHighlightSmall")
         lbl:SetWidth((width or 215) - 32)
@@ -2828,13 +2841,13 @@ function addonTable.BuildVisibilityUI(parentFrame)
         local rowGap = -30
         local roundedRowGap = -13
 
-        AddOption("Apply All", SetAllHidden, GetAllHidden, nil, 300, -23, 150)
+        AddOption("Apply All", SetAllHidden, GetAllHidden, nil, 300, -23, 150, true)
 
         AddSection("Visibility", leftX, -78)
-        AddOption("Hide Unit Frames", SetUnitframes, GetUnitframes, "Shows Player/Pet only with a target when enabled. Disabling it sets their Ellesmere Visibility to Always.", leftX, -98, colWidth)
+        AddOption("Hide Unit Frames", SetUnitframes, GetUnitframes, "Shows Player/Pet only with a target when enabled. Disabling it sets their Ellesmere Visibility to Always. Requires a UI reload to finish applying.", leftX, -98, colWidth, true)
         AddOption("Hide Cooldown Manager", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -98, colWidth)
-        AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover.", leftX, -98 + rowGap, colWidth)
-        AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade. The change applies immediately.", rightX, -98 + rowGap, colWidth)
+        AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover. Requires a UI reload to finish applying.", leftX, -98 + rowGap, colWidth, true)
+        AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade. Requires a UI reload to finish applying.", rightX, -98 + rowGap, colWidth, true)
         AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -98 + rowGap * 2, colWidth)
         AddSlider("Chat Line Fade Delay", addonTable.SetOakChatLineFadeDelay, addonTable.GetOakChatLineFadeDelay, "Controls how long each chat line stays visible before it begins fading. This adjusts EUI's active chat profile delay.", rightX, -158, colWidth, 1, 120, 1, "s")
         AddOption("Smart Player", SetEllesmereSmartPlayerPetVisibility, GetEllesmereSmartPlayerPetVisibility, "Player/Pet unit frames will show if hidden when the player or pet is not at full health.", leftX, -198, colWidth)

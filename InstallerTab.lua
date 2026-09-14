@@ -624,12 +624,38 @@ function addonTable.BuildInstallerUI(parentFrame)
         heading:SetText(cWrap .. "Visibility|r")
         MakeCheckbox(page, "Chat Window Layout", "Reapply OakUI's saved chat window positions and tabs.", function() return state.chatLayout end, function(v) state.chatLayout = v end, -38, 0, "visibility-chatlayout")
         MakeCheckbox(page, "Hide Chat", "Hide the chat background and use OakUI's chat fade choice.", function() return state.visibility.chat end, function(v) state.visibility.chat = v end, -78, 0, "visibility-chat")
-        MakeCheckbox(page, "Hide Unit Frames", "Show Player/Pet only with a target when enabled; disabling this sets their EUI Visibility to Always.", function() return state.visibility.unitFrames end, function(v) state.visibility.unitFrames = v end, -118, 0, "visibility-unitframes")
-        MakeCheckbox(page, "Show Player In Group", "Toggle Ellesmere's Player Visibility conditions for In Raid Group and In Party without changing the other conditions or Match Mode.", function() return state.visibility.showPlayerInGroup end, function(v) state.visibility.showPlayerInGroup = v end, -158, 0, "visibility-playergroup")
-        MakeCheckbox(page, "Hide Cooldown Manager", "Hide EUI CDM and resource bars without a target.", function() return state.visibility.cdm end, function(v) state.visibility.cdm = v end, -198, 0, "visibility-cdm")
-        MakeCheckbox(page, "Hide Action Bars", "Use mouseover visibility for EUI action bars.", function() return state.visibility.actionBars end, function(v) state.visibility.actionBars = v end, -238, 0, "visibility-actionbars")
-        MakeCheckbox(page, "Chat Line Fade", "Use Blizzard per-line fading instead of EUI full-text idle fade.", function() return state.visibility.chatLineFade and not state.visibility.disableChatFade end, function(v) state.visibility.chatLineFade = v; if v then state.visibility.disableChatFade = false end end, -288, 0, "visibility-chatfade")
-        MakeCheckbox(page, "Disable Chat Fade", "Set EUI Idle Fade Strength to 0 and keep chat visible.", function() return state.visibility.disableChatFade end, function(v) state.visibility.disableChatFade = v; if v then state.visibility.chatLineFade = false end end, -328, 0, "visibility-chatvisible")
+        local groupRow, cdmRow, actionBarsRow, chatLineFadeRow, disableChatFadeRow
+        local RefreshUnitFrameOptions
+        MakeCheckbox(page, "Hide Unit Frames", "Show Player/Pet only with a target when enabled; disabling this sets their EUI Visibility to Always.", function() return state.visibility.unitFrames end, function(v)
+            state.visibility.unitFrames = v
+            if not v then state.visibility.showPlayerInGroup = false end
+            RefreshUnitFrameOptions()
+        end, -118, 0, "visibility-unitframes")
+        groupRow = MakeCheckbox(page, "Show Player In Group", "Show the hidden Player frame while in a party or raid.", function() return state.visibility.showPlayerInGroup end, function(v) state.visibility.showPlayerInGroup = v end, -158, 0, "visibility-playergroup")
+        cdmRow = MakeCheckbox(page, "Hide Cooldown Manager", "Hide EUI CDM and resource bars without a target.", function() return state.visibility.cdm end, function(v) state.visibility.cdm = v end, -198, 0, "visibility-cdm")
+        actionBarsRow = MakeCheckbox(page, "Hide Action Bars", "Use mouseover visibility for EUI action bars.", function() return state.visibility.actionBars end, function(v) state.visibility.actionBars = v end, -238, 0, "visibility-actionbars")
+        chatLineFadeRow = MakeCheckbox(page, "Chat Line Fade", "Use Blizzard per-line fading instead of EUI full-text idle fade.", function() return state.visibility.chatLineFade and not state.visibility.disableChatFade end, function(v) state.visibility.chatLineFade = v; if v then state.visibility.disableChatFade = false end end, -288, 0, "visibility-chatfade")
+        disableChatFadeRow = MakeCheckbox(page, "Disable Chat Fade", "Set EUI Idle Fade Strength to 0 and keep chat visible.", function() return state.visibility.disableChatFade end, function(v) state.visibility.disableChatFade = v; if v then state.visibility.chatLineFade = false end end, -328, 0, "visibility-chatvisible")
+
+        local function SetRowY(row, y)
+            row:ClearAllPoints()
+            row:SetPoint("TOPLEFT", page, "TOPLEFT", 0, y)
+            row:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, y)
+        end
+        RefreshUnitFrameOptions = function()
+            local y = -158
+            groupRow:SetShown(state.visibility.unitFrames == true)
+            if state.visibility.unitFrames then
+                SetRowY(groupRow, y)
+                y = y - 40
+            end
+            SetRowY(cdmRow, y)
+            SetRowY(actionBarsRow, y - 40)
+            SetRowY(chatLineFadeRow, y - 90)
+            SetRowY(disableChatFadeRow, y - 130)
+        end
+        page.RefreshUnitFrameOptions = RefreshUnitFrameOptions
+        RefreshUnitFrameOptions()
         return page
     end
 
@@ -697,6 +723,9 @@ function addonTable.BuildInstallerUI(parentFrame)
         local function HiddenShown(value)
             return value and "Hidden" or "Shown"
         end
+        local playerInGroupSummary = state.visibility.unitFrames
+            and ", Player In Group " .. (state.visibility.showPlayerInGroup and "Enabled" or "Disabled")
+            or ""
         reviewText:SetText(
             cWrap .. "Install Type:|r " .. mode .. "\n" ..
             cWrap .. "Layout Preset:|r " .. layoutLabel .. "\n" ..
@@ -710,7 +739,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             cWrap .. "Chat Layout:|r " .. (state.chatLayout and "Apply" or "Skip") .. "\n" ..
             cWrap .. "Visibility:|r Chat " .. HiddenShown(state.visibility.chat) ..
             ", Unit Frames " .. HiddenShown(state.visibility.unitFrames) ..
-            ", Player In Group " .. (state.visibility.showPlayerInGroup and "Enabled" or "Disabled") ..
+            playerInGroupSummary ..
             ", Cooldown Manager " .. HiddenShown(state.visibility.cdm) ..
             ", Action Bars " .. HiddenShown(state.visibility.actionBars) .. "\n" ..
             cWrap .. "Rounded Borders:|r " .. (state.rounded.all and "On" or "Off") .. "\n\n" ..
@@ -738,6 +767,9 @@ function addonTable.BuildInstallerUI(parentFrame)
         nextBtn.Text:SetText(key == "review" and "Install" or "Next")
         if key == "layout" and pages.layout and pages.layout.RefreshLayoutChoices then
             pages.layout.RefreshLayoutChoices()
+        end
+        if key == "visibility" and pages.visibility and pages.visibility.RefreshUnitFrameOptions then
+            pages.visibility.RefreshUnitFrameOptions()
         end
         if key == "review" then UpdateReview() end
         SetPreview(key, key == "mode" and "Install Type" or key == "layout" and "Layout Preset" or key == "profiles" and "Profiles" or key == "addons" and "Addon Profiles" or key == "selective" and "Selective Import" or key == "visibility" and "Visibility" or key == "rounded" and "Rounded Borders" or "Review")
@@ -1032,6 +1064,9 @@ function addonTable.BuildInstallerUI(parentFrame)
 
         if addonTable.MarkInstallerComplete and (importedDPS or importedHeals) then
             addonTable.MarkInstallerComplete()
+        end
+        if (importedDPS or importedHeals) and addonTable.MarkInstallerVisibilityAfterReload then
+            addonTable.MarkInstallerVisibilityAfterReload(state.visibility)
         end
         if state.mode == "fresh" and (importedDPS or importedHeals) and addonTable.MarkEllesmereCDMRepopulateAfterReload then
             addonTable.MarkEllesmereCDMRepopulateAfterReload()
