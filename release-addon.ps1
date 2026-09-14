@@ -246,7 +246,7 @@ Update-Changelog -Version $normalizedVersion -ChangelogPath $changelogPath -Rele
 Update-EmbeddedChangelog -ProfilesPath $profilesPath -Version $normalizedVersion -ReleaseNotes $releaseNotes
 Update-FileText -Path $tocPath -Pattern '(?m)^## Version:\s*.+$' -Replacement "## Version: $normalizedVersion"
 Update-FileText -Path $profilesPath -Pattern '(?m)^P\.VERSION\s*=\s*".*?"\s*$' -Replacement "P.VERSION = ""$normalizedVersion"""
-Update-FileText -Path $readmePath -Pattern '(?m)^Current repo version:\s*`[^`]+`$' -Replacement "Current repo version: ``$normalizedVersion``"
+Update-FileText -Path $readmePath -Pattern '(?m)^Current repo version:\s*`[^`]+`\r?$' -Replacement "Current repo version: ``$normalizedVersion``"
 Write-Utf8NoBom -Path $nextChangelogPath -Content "# Add one bullet per line for the next release.`r`n# Example:`r`n# Updated the installer flow for a smoother first-run experience`r`n# Refined a module import profile`r`n"
 
 Invoke-Git -Arguments @("add", "CHANGELOG.md", "NEXT_CHANGELOG.md", "OakUI_Installer.toc", "Profiles.lua", "README.md", "sync-patreon-supporters.ps1")

@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.44"
+P.VERSION = "2.6.45"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -73,7 +73,6 @@ P.PATREONS = {
     "Brian Ehlers",
     "mglass",
     "Shawn Snyder",
-    "Emil Sundström",
     "Tony",
     "Inuyasha",
     "Emmanuel leroy",
@@ -149,6 +148,16 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.6.45",
+        date = "September 13, 2026",
+        notes = {
+            "Added an optional Apply OakUI Chat Layout toggle to Set Up Alt for restoring General, Trade, and Loot chat windows on alts",
+            "Fixed fresh installs losing explicit visibility choices for Unit Frames, Action Bars, Chat, and Cooldown Manager during the first reload",
+            "Only show the installer Player In Group option when Hide Unit Frames is enabled, and enlarged the installer so all layout presets remain inside the window",
+            "Restored the reload prompt when changing Unit Frames, Action Bars, Chat, or Apply All from Visibility/Tweaks",
+        }
+    },
     {
         version = "v2.6.44",
         date = "September 12, 2026",

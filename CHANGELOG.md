@@ -1,3 +1,10 @@
+## v2.6.45
+
+- Added an optional Apply OakUI Chat Layout toggle to Set Up Alt for restoring General, Trade, and Loot chat windows on alts
+- Fixed fresh installs losing explicit visibility choices for Unit Frames, Action Bars, Chat, and Cooldown Manager during the first reload
+- Only show the installer Player In Group option when Hide Unit Frames is enabled, and enlarged the installer so all layout presets remain inside the window
+- Restored the reload prompt when changing Unit Frames, Action Bars, Chat, or Apply All from Visibility/Tweaks
+
 ## v2.6.44
 
 - Added a safe Set Up Alt option that detects and selects existing OakUI addon profiles and Edit Mode layouts without rerunning imports or replacing existing profiles
