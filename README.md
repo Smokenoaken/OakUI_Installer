@@ -1,6 +1,17 @@
 # OakUI_Installer
 
-OakUI Installer is a World of Warcraft Retail addon that delivers the OakUI suite through a guided, one-click installer. It bundles profile imports, chat layout tools, visibility presets, raw import strings, and onboarding tabs into a single in-game control panel.
+OakUI Installer delivers the OakUI suite through a guided, one-click installer. The same addon detects Retail or WoW Forever and selects the appropriate install path.
+
+## WoW Forever Beta Support
+
+OakUI now supports WoW Forever Beta and Retail in the same addon. Forever installation and Edit Mode import were confirmed in-game on client `1.60.1.70009` (interface `16001`) with EllesmereUI `9.2.8`. Beta client updates may require further compatibility fixes.
+
+- Install the same `OakUI_Installer` folder on either client; Retail keeps its existing behavior.
+- Forever excludes DBM, BigWigs, Blizzi Party Tools, wMarker, Mythic+ forces, and Dragon Riding integrations.
+- Forever imports OakUI's supported EUI styling and the same OakUI Blizzard Edit Mode layout used on Retail. Layout import is included in fresh installs and is also available separately from the Installer and Raw Imports tabs.
+- The current EUI Cooldown Manager, AuraBuff Reminders, and Quickdraw setup is retained rather than replaced with Retail spell configuration. Retail spec assignments and condition overrides are excluded. Select the Tank/DPS or Healer profile manually.
+- Use `/oaklayout` or the Installer's **Import Layout** button to import and select the OakUI Edit Mode layout separately.
+- Run `/oak`, install the desired profile, accept the reload prompt, and check the layout, visibility toggles, combat, and group changes. BugSack errors are useful for beta follow-up fixes.
 
 ## Highlights
 
@@ -13,8 +24,9 @@ OakUI Installer is a World of Warcraft Retail addon that delivers the OakUI suit
 
 ## Requirements
 
-- World of Warcraft Retail
-- Interface versions `120001`, `120005`
+- World of Warcraft Retail or WoW Forever Beta
+- A compatible EllesmereUI installation
+- Forever interface `16001`; supported Retail interfaces are listed in `OakUI_Installer.toc`
 
 ## Installation
 
@@ -23,9 +35,12 @@ OakUI Installer is a World of Warcraft Retail addon that delivers the OakUI suit
 
 ```text
 World of Warcraft\_retail_\Interface\AddOns\OakUI_Installer
+World of Warcraft\_classic_beta_\Interface\AddOns\OakUI_Installer
 ```
 
-3. Launch WoW Retail.
+Use the path for your client.
+
+3. Launch WoW.
 4. Make sure `OakUI Standalone Installer` is enabled in the AddOns list.
 
 ## Usage

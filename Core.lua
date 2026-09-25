@@ -86,6 +86,7 @@ local function HideEllesmereIncompatibleAddonPopup()
 end
 
 local function ClaimEllesmereFirstInstallForOakUI()
+    if addonTable.IsForever then return end
     if P.BASE_UI_PROVIDER ~= "Ellesmere" or not IsAddonInstalled("EllesmereUI") then return end
 
     local wasFresh = type(_G.EllesmereUIDB) ~= "table" or _G.EllesmereUIDB.firstInstallPopupShown ~= true
@@ -222,6 +223,7 @@ local function IsQuickAddonReady(folder)
 end
 
 local function IsQuickOptionalProfileReady(key)
+    if addonTable.IsForever then return false end
     return IsQuickAddonReady(QUICK_OPTIONAL_PROFILE_FOLDERS[key])
 end
 
@@ -334,6 +336,7 @@ AutoAssignRow:SetScript("OnClick", function()
     UpdateAutoAssign()
 end)
 UpdateAutoAssign()
+AutoAssignRow:SetShown(not addonTable.IsForever)
 
 local function MakeQuickCheckbox(parent, label, x, y, getter, setter)
     local row = CreateFrame("Button", nil, parent)
@@ -372,7 +375,7 @@ AddonProfileLabel:SetText(cWrap .. "Addon Profiles|r")
 local QuickNoAddonProfiles = QuickInstallFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 QuickNoAddonProfiles:SetPoint("TOPLEFT", QuickInstallFrame, "TOPLEFT", 18, -246)
 QuickNoAddonProfiles:SetTextColor(0.72, 0.72, 0.72)
-QuickNoAddonProfiles:SetText("No supported optional addon profiles detected.")
+QuickNoAddonProfiles:SetText(addonTable.IsForever and "Forever: EUI only; Edit Mode import enabled; EUI spell setup preserved." or "No supported optional addon profiles detected.")
 local QuickAddonRows = {
     { key = "dbm", row = MakeQuickCheckbox(QuickInstallFrame, "DBM", 18, -246, function() return QuickState.optionalProfiles.dbm end, function(v) QuickState.optionalProfiles.dbm = v end) },
     { key = "bigwigs", row = MakeQuickCheckbox(QuickInstallFrame, "BigWigs", 148, -246, function() return QuickState.optionalProfiles.bigwigs end, function(v) QuickState.optionalProfiles.bigwigs = v end) },
@@ -1015,7 +1018,7 @@ end
 -- Reload UI sits alone at the bottom
 local GlobalReloadBtn = MakeFlatButton(LeftPane, "Reload UI", 160, 30)
 GlobalReloadBtn:SetPoint("BOTTOM", LeftPane, "BOTTOM", 0, 10)
-GlobalReloadBtn:SetScript("OnClick", function() ReloadUI() end)
+GlobalReloadBtn:SetScript("OnClick", function() addonTable.ShowReloadPrompt() end)
 
 local function BringInstallerToFront()
     ClaimEllesmereFirstInstallForOakUI()
@@ -1187,6 +1190,7 @@ local function ConsumeOakEditModeActivationAfterReload()
 end
 
 function addonTable.MarkEllesmereCDMRepopulateAfterReload()
+    if addonTable.IsForever then return end
     if not OakUI_DB then OakUI_DB = {} end
     if not OakUI_DB.install then OakUI_DB.install = { characters = {} } end
     if not OakUI_DB.install.characters then OakUI_DB.install.characters = {} end
@@ -1212,6 +1216,7 @@ end
 addonTable.MarkOakChatLayoutAfterReload = addonTable.MarkOakChatGeometryAfterReload
 
 local function ConsumeEllesmereCDMRepopulateAfterReload()
+    if addonTable.IsForever then return end
     if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
     local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
     if not state or state.pendingEllesmereCDMRepopulate ~= true then return end
@@ -1361,6 +1366,14 @@ DB_Frame:HookScript("OnEvent", function(self, event)
     CreateOakMinimapButton()
     ClaimEllesmereFirstInstallForOakUI()
     ConsumeInstallerVisibilityAfterReload()
+    if addonTable.RecoverMalformedOakEditMode and addonTable.RecoverMalformedOakEditMode() then
+        local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
+        if state and (state.pendingEditModeLayoutName or "OakUI") == "OakUI" then
+            state.pendingOakEditModeActivation = nil
+            state.pendingEditModeLayoutName = nil
+            state.pendingOakEditModeActivationTime = nil
+        end
+    end
     ConsumeOakEditModeActivationAfterReload()
     ConsumeOakChatGeometryAfterReload()
     ConsumeEllesmereCDMRepopulateAfterReload()

@@ -125,37 +125,30 @@ RoleDPSBtn:SetScript("OnClick", function() UpdateRoleVisuals("dps") end); RoleHe
 local InstallBtn = addonTable.MakeFlatButton(ProfilePromptFrame, "Install", 100, 26); InstallBtn:SetPoint("BOTTOMRIGHT", ProfilePromptFrame, "BOTTOM", -5, 15); InstallBtn.Text:SetTextColor(r, g, b)
 local CancelBtn = addonTable.MakeFlatButton(ProfilePromptFrame, "Cancel", 100, 26); CancelBtn:SetPoint("BOTTOMLEFT", ProfilePromptFrame, "BOTTOM", 5, 15); CancelBtn:SetScript("OnClick", function() ProfilePromptFrame:Hide() end)
 
-local ReloadPromptFrame = CreateFrame("Frame", "OakUI_ReloadPromptFrame", UIParent, "BackdropTemplate")
-ReloadPromptFrame:SetSize(420, 160); ReloadPromptFrame:SetPoint("CENTER", UIParent, "CENTER"); 
-ReloadPromptFrame:SetFrameStrata("TOOLTIP"); ReloadPromptFrame:Hide() -- TOOLTIP is highest possible
-ReloadPromptFrame:SetFrameLevel(1100)
-ReloadPromptFrame:SetToplevel(true)
-ReloadPromptFrame:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 2 }); ReloadPromptFrame:SetBackdropColor(0.137, 0.141, 0.172, 1); ReloadPromptFrame:SetBackdropBorderColor(r, g, b, 1)
-local ReloadTitle = ReloadPromptFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); ReloadTitle:SetPoint("TOP", 0, -15); ReloadTitle:SetText(cWrap .. "OAK UI|r")
-local ReloadDesc = ReloadPromptFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); ReloadDesc:SetPoint("TOP", ReloadTitle, "BOTTOM", 0, -15); ReloadDesc:SetJustifyH("CENTER")
-local DoReloadBtn = addonTable.MakeFlatButton(ReloadPromptFrame, "Reload UI", 140, 26); DoReloadBtn:SetPoint("BOTTOMRIGHT", ReloadPromptFrame, "BOTTOM", -5, 15)
-local LaterBtn = addonTable.MakeFlatButton(ReloadPromptFrame, "Later", 100, 26); LaterBtn:SetPoint("BOTTOMLEFT", ReloadPromptFrame, "BOTTOM", 5, 15); LaterBtn:SetScript("OnClick", function() ReloadPromptFrame:Hide() end)
+-- Use Blizzard's popup click handler for the protected reload action.
+-- Custom installer callbacks can be tainted after an Edit Mode import.
+StaticPopupDialogs["OAKUI_RELOAD"] = {
+    text = "%s",
+    button1 = "Reload UI",
+    button2 = "Later",
+    OnAccept = function() ReloadUI() end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
 
-function addonTable.ShowReloadPrompt(message, buttonText, buttonFunc)
-    ReloadDesc:SetText(message or "A UI Reload is required to apply the changes.")
-    DoReloadBtn.Text:SetText(buttonText or "Reload UI")
-    DoReloadBtn:SetScript("OnClick", function()
-        if type(buttonFunc) == "function" then
-            buttonFunc()
-        else
-            ReloadUI()
-        end
-    end)
-    ReloadPromptFrame:Show()
-    if ReloadPromptFrame.Raise then ReloadPromptFrame:Raise() end
+function addonTable.ShowReloadPrompt(message)
+    local popup = StaticPopup_Show("OAKUI_RELOAD", message or "A UI reload is required to apply the changes.")
+    if popup then
+        -- OakUI's manager uses FULLSCREEN_DIALOG; keep this prompt clickable.
+        popup:SetFrameStrata("TOOLTIP")
+        popup:Raise()
+    end
 end
 
 local function ShowCompletionPrompt()
-    ReloadDesc:SetText("Profile(s) injected successfully!\n\nReload your UI to finish applying OakUI.")
-    DoReloadBtn.Text:SetText("Reload UI")
-    DoReloadBtn:SetScript("OnClick", function() ReloadUI() end)
-    ReloadPromptFrame:Show()
-    if ReloadPromptFrame.Raise then ReloadPromptFrame:Raise() end
+    addonTable.ShowReloadPrompt("Profile(s) injected successfully!\n\nReload your UI to finish applying OakUI.")
 end
 
 -- ==========================================

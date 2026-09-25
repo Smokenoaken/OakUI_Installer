@@ -1,4 +1,5 @@
 local addonName, addonTable = ...
+    if addonTable.IsForever then return end
 
 local activeEventFrame
 local activeTexts = {}

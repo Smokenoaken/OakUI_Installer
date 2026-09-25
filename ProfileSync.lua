@@ -208,7 +208,7 @@ local function SyncFromEllesmere(profileName)
     -- Blizzi profiles use the same name, including custom names entered in
     -- the installer, so a role lookup would unnecessarily block sync for
     -- any profile that was not registered as one of OakUI's two roles.
-    SyncBlizziToProfile(profileName)
+    if not addonTable.IsForever then SyncBlizziToProfile(profileName) end
 end
 
 local function SyncFromBlizzi(profileName)
@@ -235,6 +235,7 @@ local function TryHookEllesmere()
 end
 
 local function TryHookBlizzi()
+    if addonTable.IsForever then blizziHooked = true; return end
     if blizziHooked or not hooksecurefunc or not IsAddonLoaded("BliZzi_Interrupts") then return end
 
     local profiles = GetBlizziProfiles()
@@ -308,6 +309,6 @@ addonTable.SyncOakRoleProfiles = function(profileName)
     local role = GetOakProfileRole(profileName)
     if not role then return end
     profileName = GetOakRoleProfileName(role)
-    SyncBlizziToProfile(profileName)
+    if not addonTable.IsForever then SyncBlizziToProfile(profileName) end
     SyncEllesmereToProfile(profileName)
 end

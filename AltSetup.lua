@@ -24,6 +24,8 @@ local function GetInstallCharacters()
 end
 
 local function IsAddonLoaded(folder)
+    if addonTable.IsForever and (folder == "DBM-Core" or folder == "BigWigs"
+        or folder == "BliZzi_Interrupts" or folder == "wMarker") then return false end
     if C_AddOns and C_AddOns.IsAddOnLoaded then
         return C_AddOns.IsAddOnLoaded(folder)
     end
@@ -182,7 +184,13 @@ end
 local function GetEditModeLayoutNames()
     local names, seen = {}, {}
     local layouts = addonTable.GetEditModeLayoutNames and addonTable.GetEditModeLayoutNames() or {}
-    for _, layoutName in pairs(layouts) do AddProfileName(names, seen, layoutName) end
+    for _, layoutName in pairs(layouts) do
+        if addonTable.IsForever then
+            names[#names + 1] = layoutName
+        else
+            AddProfileName(names, seen, layoutName)
+        end
+    end
     return SortProfileNames(names)
 end
 
@@ -272,7 +280,8 @@ local function BuildDetectedProfileEntries()
     for _, candidate in ipairs(candidates) do
         local snapshot = {
             ellesmere = FindBestProfileName(candidate, profiles.ellesmere) or "",
-            editMode = FindBestProfileName(candidate, profiles.editMode) or "",
+            editMode = FindBestProfileName(candidate, profiles.editMode)
+                or (addonTable.IsForever and addonTable.GetActiveEditModeLayoutName and addonTable.GetActiveEditModeLayoutName()) or "",
             bigWigs = FindBestProfileName(candidate, profiles.bigWigs) or "",
             dbm = FindBestProfileName(candidate, profiles.dbm) or "",
             blizzi = FindBestProfileName(candidate, profiles.blizzi) or "",

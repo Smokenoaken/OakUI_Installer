@@ -170,6 +170,7 @@ local function GetDragonRidingBars(rootFrame)
 end
 
 local function IsDragonRidingEnabled()
+    if addonTable.IsForever then return false end
     return GetVisibilityDB().roundThinDragonRiding == true
 end
 
@@ -225,6 +226,7 @@ local function HookDragonGlobal(name)
 end
 
 local function EnsureDragonHooks()
+    if addonTable.IsForever then return end
     local EUI = _G.EllesmereUI
     HookDragonFunction(EUI, "RefreshAllAddons")
     HookDragonFunction(EUI, "ReapplyAllUnlockAnchors")
@@ -234,6 +236,7 @@ local function EnsureDragonHooks()
 end
 
 function addonTable.SetOakRoundThinDragonRidingBorders(state)
+    if addonTable.IsForever then return end
     GetVisibilityDB().roundThinDragonRiding = state == true
     UpdateLiveEventRegistration()
     if state then EnsureDragonHooks() end

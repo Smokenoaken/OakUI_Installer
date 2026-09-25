@@ -23,6 +23,7 @@ local OPTIONAL_PROFILE_FOLDERS = {
 }
 
 local function IsOptionalProfileReady(key)
+    if addonTable.IsForever then return false end
     return IsAddonReady(OPTIONAL_PROFILE_FOLDERS[key])
 end
 
@@ -32,7 +33,7 @@ end
 
 local function BuildInstallerAddons(Inj, cWrap, ShowCopyBox)
     local baseUrl = "https://www.curseforge.com/wow/addons/ellesmere-ui"
-    return {
+    local addons = {
         { name = "Ellesmere UI Profile", folder = "EllesmereUI", url = baseUrl, func = Inj.BaseUI, requiresReload = true, hasRoles = true, includeInAll = true },
         {
             name = "Blizzard Edit Mode (Layout)",
@@ -66,6 +67,10 @@ local function BuildInstallerAddons(Inj, cWrap, ShowCopyBox)
         { name = "Blizzi Party Tools (Optional)", folder = "BliZzi_Interrupts", url = "https://www.curseforge.com/wow/addons/blizzi-party-tools", func = Inj.BlizziPartyTools, requiresReload = false },
         { name = "wMarker (Optional)", folder = "wMarker", url = "https://www.curseforge.com/wow/addons/wmarker", func = Inj.WMarker, requiresReload = false },
     }
+    if addonTable.IsForever then
+        return { addons[1], addons[2], addons[3] }
+    end
+    return addons
 end
 
 local function SelectionPreset(mode)
@@ -146,7 +151,7 @@ function addonTable.BuildInstallerUI(parentFrame)
         end
         state.profiles.dps = options.dpsProfile or (addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("dps") or "OakUI Tank/DPS")
         state.profiles.heals = options.healsProfile or (addonTable.GetOakEllesmereRoleProfileName and addonTable.GetOakEllesmereRoleProfileName("heals") or "OakUI Healer")
-        state.autoAssign = options.autoAssign == true
+        state.autoAssign = not addonTable.IsForever and options.autoAssign == true
         state.layoutKey = options.layoutKey or GetDefaultLayoutKey()
         state.layoutTouched = options.layoutKey ~= nil
         state.selection = SelectionPreset(options.selectionMode or "recommended")
@@ -173,6 +178,11 @@ function addonTable.BuildInstallerUI(parentFrame)
     title:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 15, -16)
     title:SetJustifyH("LEFT")
     title:SetText(cWrap .. "Main Installer|r")
+    local importLayoutBtn = MakeFlatButton(parentFrame, "Import Layout", 124, 24)
+    importLayoutBtn:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -15, -10)
+    importLayoutBtn:SetScript("OnClick", function()
+        addonTable.ImportOakEditModeLayout(true)
+    end)
 
     local desc = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
@@ -504,7 +514,9 @@ function addonTable.BuildInstallerUI(parentFrame)
             if not state.roles.dps and not state.roles.heals then state.roles.dps = true end
             UpdateRoleRows()
         end, -88, 0, "profiles-healer")
+        if not addonTable.IsForever then
         MakeCheckbox(page, "Assign Profiles To Specs", "Use EUI's existing spec profile assignment so healer specs use the Healer profile and other specs use Tank/DPS.", function() return state.autoAssign end, function(v) state.autoAssign = v end, -140, 0, "profiles-auto")
+        end
         return page
     end
 
@@ -551,7 +563,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             none:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -66)
             none:SetJustifyH("LEFT")
             none:SetTextColor(0.72, 0.72, 0.72)
-            none:SetText("No supported optional addon profiles are available. Install and enable DBM, BigWigs, Blizzi Party Tools, or wMarker to import those profiles.")
+            none:SetText(addonTable.IsForever and "Forever uses EllesmereUI only. OakUI Edit Mode import is available; your EUI spell configuration is preserved." or "No supported optional addon profiles are available. Install and enable DBM, BigWigs, Blizzi Party Tools, or wMarker to import those profiles.")
         end
         return page
     end
@@ -732,10 +744,10 @@ function addonTable.BuildInstallerUI(parentFrame)
             cWrap .. "Profiles:|r " .. GetRoleSummary() .. "\n" ..
             cWrap .. "Import Scope:|r " .. sections .. "\n" ..
             cWrap .. "EUI Spec Assignment:|r " .. auto .. "\n\n" ..
-            cWrap .. "Addon Profiles:|r DBM " .. (state.optionalProfiles.dbm and "Install" or "Skip") ..
+            (addonTable.IsForever and "Forever: EUI only; OakUI Edit Mode import enabled; EUI spell setup preserved.\n" or (cWrap .. "Addon Profiles:|r DBM " .. (state.optionalProfiles.dbm and "Install" or "Skip") ..
             ", BigWigs " .. (state.optionalProfiles.bigwigs and "Install" or "Skip") ..
             ", Blizzi " .. (state.optionalProfiles.blizzi and "Install" or "Skip") ..
-            ", wMarker " .. (state.optionalProfiles.wmarker and "Install" or "Skip") .. "\n" ..
+            ", wMarker " .. (state.optionalProfiles.wmarker and "Install" or "Skip") .. "\n")) ..
             cWrap .. "Chat Layout:|r " .. (state.chatLayout and "Apply" or "Skip") .. "\n" ..
             cWrap .. "Visibility:|r Chat " .. HiddenShown(state.visibility.chat) ..
             ", Unit Frames " .. HiddenShown(state.visibility.unitFrames) ..
@@ -971,6 +983,7 @@ function addonTable.BuildInstallerUI(parentFrame)
         end
 
         local importedDPS, importedHeals
+        local editModeImported = true
         local chatLayoutApplied = false
         if state.mode == "fresh" then
             if state.roles.dps then
@@ -993,7 +1006,13 @@ function addonTable.BuildInstallerUI(parentFrame)
         end
 
         if state.mode == "fresh" then
-            if Inj.EditMode then pcall(Inj.EditMode) end
+            if Inj.EditMode then
+                local ok, result = pcall(addonTable.ImportOakEditModeLayout, false)
+                editModeImported = ok and result == true
+                if not ok then
+                    print("|cffff0000[OakUI Error]|r Edit Mode import failed: " .. tostring(result))
+                end
+            end
             if addonTable.ApplyOakFontPreset then pcall(addonTable.ApplyOakFontPreset) end
         end
 
@@ -1079,14 +1098,9 @@ function addonTable.BuildInstallerUI(parentFrame)
             end
         end
         local function ShowReloadPrompt()
-            ShowOakInstallerModal({
-                text = "OakUI install is complete.\n\nReload your UI now?",
-                acceptText = "Reload UI",
-                cancelText = "Later",
-                onAccept = function()
-                    if ReloadUI then ReloadUI() end
-                end,
-            })
+            local message = editModeImported and "OakUI install is complete."
+                or "OakUI profile setup finished, but the OakUI Edit Mode layout was not imported and activated. Check chat for the error, then retry Import Layout."
+            addonTable.ShowReloadPrompt(message .. "\n\nReload your UI now?")
         end
         if C_Timer and C_Timer.After then
             C_Timer.After(1.5, ShowReloadPrompt)

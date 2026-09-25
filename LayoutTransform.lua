@@ -631,6 +631,7 @@ local function PatchDamageMeterAnchor(anchors, preset, offsetX)
 end
 
 local function IsOakDragonRidingAnchoringEnabled()
+    if addonTable.IsForever then return false end
     local visibility = OakUI_DB and OakUI_DB.visibility
     return not (type(visibility) == "table" and visibility.dragonRidingAnchoring == false)
 end
@@ -639,6 +640,7 @@ local ScheduleOakDragonRidingLiveAnchor
 local EnsureOakDragonRidingHooks
 
 local function PatchDragonRidingAnchor(anchors)
+    if addonTable.IsForever then return false end
     if not IsOakDragonRidingAnchoringEnabled() then return false end
     if type(anchors) ~= "table" then return false end
     local anchor = anchors[DRAGON_RIDING_KEY]
@@ -657,6 +659,7 @@ local function PatchDragonRidingAnchor(anchors)
 end
 
 local function PatchDragonRidingWidthMatch(widthMatch)
+    if addonTable.IsForever then return false end
     if not IsOakDragonRidingAnchoringEnabled() then return false end
     if type(widthMatch) ~= "table" then return false end
     if widthMatch[DRAGON_RIDING_KEY] == DRAGON_RIDING_TARGET_KEY then return false end
@@ -665,6 +668,7 @@ local function PatchDragonRidingWidthMatch(widthMatch)
 end
 
 local function PatchDragonRidingLayer(layer)
+    if addonTable.IsForever then return false end
     if not IsOakDragonRidingAnchoringEnabled() then return false end
     if type(layer) ~= "table" then return false end
     layer.anchors = layer.anchors or {}
@@ -675,6 +679,7 @@ local function PatchDragonRidingLayer(layer)
 end
 
 local function PatchDragonRidingProfile(profile)
+    if addonTable.IsForever then return false end
     if not IsOakDragonRidingAnchoringEnabled() then return false end
     if type(profile) ~= "table" then return false end
 
@@ -692,6 +697,7 @@ local function PatchDragonRidingProfile(profile)
 end
 
 local function ClearDragonRidingModuleUnlockPos(profileName)
+    if addonTable.IsForever then return false end
     if not IsOakDragonRidingAnchoringEnabled() then return false end
     local db = _G.EllesmereUIDragonRidingDB
     local profiles = type(db) == "table" and db.profiles
@@ -893,6 +899,7 @@ local function HookOakDragonRidingGlobal(name)
 end
 
 EnsureOakDragonRidingHooks = function()
+    if addonTable.IsForever then return end
     local EUI = _G.EllesmereUI
     HookOakDragonRidingFunction(EUI, "RefreshAllAddons")
     HookOakDragonRidingFunction(EUI, "ReapplyAllUnlockAnchors")
@@ -968,6 +975,7 @@ local function ComputeDBMHugeBarCenterOffset(options)
 end
 
 local function IsOakDBMHugeBarAnchoringEnabled()
+    if addonTable.IsForever then return false end
     local visibility = OakUI_DB and OakUI_DB.visibility
     return not (type(visibility) == "table" and visibility.dbmAnchoring == false)
 end
@@ -977,6 +985,7 @@ function addonTable.GetOakDBMHugeBarAnchoringEnabled()
 end
 
 function addonTable.SetOakDBMHugeBarAnchoringEnabled(enabled)
+    if addonTable.IsForever then return end
     OakUI_DB = OakUI_DB or {}
     OakUI_DB.visibility = OakUI_DB.visibility or {}
     OakUI_DB.visibility.dbmAnchoring = enabled == true
@@ -991,6 +1000,7 @@ function addonTable.GetOakDragonRidingAnchoringEnabled()
 end
 
 function addonTable.SetOakDragonRidingAnchoringEnabled(enabled)
+    if addonTable.IsForever then return end
     OakUI_DB = OakUI_DB or {}
     OakUI_DB.visibility = OakUI_DB.visibility or {}
     OakUI_DB.visibility.dragonRidingAnchoring = enabled == true
@@ -1515,6 +1525,8 @@ function addonTable.TransformOakLayoutOffset(x, y)
     if not factors or not factors.active then return x, y end
     return (tonumber(x) or 0) * factors.x, (tonumber(y) or 0) * factors.y
 end
+
+if addonTable.IsForever then return end
 
 local OakDragonRidingAnchorEvents = CreateFrame("Frame")
 OakDragonRidingAnchorEvents:RegisterEvent("ADDON_LOADED")

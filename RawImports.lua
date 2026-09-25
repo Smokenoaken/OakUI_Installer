@@ -40,6 +40,11 @@ function addonTable.BuildRawImportsUI(parentFrame)
     table.insert(imports, { name = "Blizzi Party Tools", var = P.BLIZZI_PARTY_TOOLS_PROFILE, desc = "Import this into Blizzi Party Tools profile import." })
     table.insert(imports, { name = "Blizzi Party Tools (Healer)", var = P.BLIZZI_PARTY_TOOLS_HEALS_PROFILE, desc = "Import this into Blizzi Party Tools profile import for the healer setup." })
 
+    if addonTable.IsForever then
+        imports = { imports[1] }
+        RawDesc:SetText("Forever: import the Edit Mode layout below, or use the Installer. Raw EUI profiles stay hidden to preserve your local spell configuration.")
+    end
+
     local activeEditBoxes = {} 
     local yOffset = -10
     

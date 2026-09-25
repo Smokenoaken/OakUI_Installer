@@ -61,6 +61,7 @@ local function GetWMarkerProfile()
 end
 
 local function IsWMarkerAvailable()
+    if addonTable.IsForever then return false end
     if _G.wMarkerAce then return true end
     return C_AddOns and C_AddOns.IsAddOnLoaded
         and C_AddOns.IsAddOnLoaded("wMarker") == true
@@ -1953,6 +1954,7 @@ local function ApplyBossModRoundThinLive(state)
 end
 
 local function IsBossModRoundThinEnabled()
+    if addonTable.IsForever then return false end
     return EnsureVisibilityDB().roundThinBossModBars == true
 end
 
@@ -2022,6 +2024,7 @@ local function EnsureBossModRoundThinHooks()
 end
 
 local function RefreshBossModRoundThinBorders()
+    if addonTable.IsForever then return end
     EnsureBossModRoundThinHooks()
     ApplyBossModRoundThinLive(IsBossModRoundThinEnabled())
     if not IsBossModRoundThinEnabled() then
@@ -2032,20 +2035,23 @@ local function RefreshBossModRoundThinBorders()
     end
 end
 
-local BossModRoundThinLoadFrame = CreateFrame("Frame")
-BossModRoundThinLoadFrame:RegisterEvent("ADDON_LOADED")
-BossModRoundThinLoadFrame:SetScript("OnEvent", function(self, _, addonName)
-    if addonName ~= "BigWigs_Plugins" then return end
-    self:UnregisterEvent("ADDON_LOADED")
-    if _G.C_Timer and _G.C_Timer.After then
-        _G.C_Timer.After(0, RefreshBossModRoundThinBorders)
-        _G.C_Timer.After(0.5, RefreshBossModRoundThinBorders)
-    else
-        RefreshBossModRoundThinBorders()
-    end
-end)
+if not addonTable.IsForever then
+    local BossModRoundThinLoadFrame = CreateFrame("Frame")
+    BossModRoundThinLoadFrame:RegisterEvent("ADDON_LOADED")
+    BossModRoundThinLoadFrame:SetScript("OnEvent", function(self, _, addonName)
+        if addonName ~= "BigWigs_Plugins" then return end
+        self:UnregisterEvent("ADDON_LOADED")
+        if _G.C_Timer and _G.C_Timer.After then
+            _G.C_Timer.After(0, RefreshBossModRoundThinBorders)
+            _G.C_Timer.After(0.5, RefreshBossModRoundThinBorders)
+        else
+            RefreshBossModRoundThinBorders()
+        end
+    end)
+end -- Retail boss-mod load watcher
 
 local function SetBossModRoundThinBorders(state)
+    if addonTable.IsForever then return end
     EnsureVisibilityDB().roundThinBossModBars = state == true
     RefreshBossModRoundThinBorders()
 end
@@ -2060,6 +2066,7 @@ function addonTable.ApplyOakRoundThinBossModBarsIfEnabled()
 end
 
 local function IsBlizziRoundThinEnabled()
+    if addonTable.IsForever then return false end
     return EnsureVisibilityDB().roundThinBlizziInterrupts == true
 end
 
@@ -2130,6 +2137,7 @@ local function EnsureBlizziRoundThinHook()
 end
 
 local function RefreshBlizziRoundThinBorders()
+    if addonTable.IsForever then return end
     EnsureBlizziRoundThinHook()
     local BIT = _G.BIT
     if type(BIT) == "table" and type(BIT.UI) == "table" and type(BIT.UI.ApplyBorderToAll) == "function" then
@@ -2138,6 +2146,7 @@ local function RefreshBlizziRoundThinBorders()
 end
 
 local function SetBlizziRoundThinBorders(state)
+    if addonTable.IsForever then return end
     EnsureVisibilityDB().roundThinBlizziInterrupts = state == true
     RefreshBlizziRoundThinBorders()
 end
@@ -2172,11 +2181,11 @@ local function GetAllRoundedBorders()
         and GetNameplateRoundThinBorders()
         and GetBossFrameRoundThinBorders()
         and GetTrackingBarRoundThinBorders()
-        and GetBossModRoundThinBorders()
-        and GetBlizziRoundThinBorders()
+        and (addonTable.IsForever or GetBossModRoundThinBorders())
+        and (addonTable.IsForever or GetBlizziRoundThinBorders())
         and GetDamageMeterRoundThinBorders()
         and addonTable.GetOakRoundThinDragonRidingBorders
-        and addonTable.GetOakRoundThinDragonRidingBorders()
+        and (addonTable.IsForever or addonTable.GetOakRoundThinDragonRidingBorders())
 end
 
 local function RefreshEllesmereUnitFrameSettings()
@@ -2856,11 +2865,13 @@ function addonTable.BuildVisibilityUI(parentFrame)
 
         AddSection("Tweaks", leftX, -260)
         AddOption("Show Player In Group", SetEllesmerePlayerGroupVisibility, GetEllesmerePlayerGroupVisibility, "Toggles Ellesmere's Player Visibility conditions for In Raid Group and In Party without changing the other conditions or Match Mode.", leftX, -280, colWidth)
-        AddOption("OakUI DBM Anchoring", addonTable.SetOakDBMHugeBarAnchoringEnabled, addonTable.GetOakDBMHugeBarAnchoringEnabled, "Keeps OakUI's DBM Large bars positioned above the target frame. Turn this off to customize DBM's own bar position without OakUI reapplying it.", rightX, -280, colWidth)
-        AddOption("OakUI Dragon Riding Anchoring", addonTable.SetOakDragonRidingAnchoringEnabled, addonTable.GetOakDragonRidingAnchoringEnabled, "Keeps Dragon Riding attached to the Class Resource bar even if EUI misses the saved anchor. Turn this off to customize Dragon Riding's position through EUI.", leftX, -310, colWidth)
-        local mplusForcesCheckbox = AddOption("M+ Enemy Forces", addonTable.SetOakEllesmereMythicForcesEnabled, addonTable.GetOakEllesmereMythicForcesEnabled, "OakUI-only: shows each enemy's Mythic+ forces percentage in OakUI's nameplate font to the right of the enemy cast bar. The default text size is 15; use the resize icon for Size and X/Y offset controls. It is active only inside an active Mythic+ key.", leftX, -340, colWidth)
-        if addonTable.BuildOakEllesmereMythicForcesCog then
-            addonTable.BuildOakEllesmereMythicForcesCog(parentFrame, mplusForcesCheckbox)
+        if not addonTable.IsForever then
+            AddOption("OakUI DBM Anchoring", addonTable.SetOakDBMHugeBarAnchoringEnabled, addonTable.GetOakDBMHugeBarAnchoringEnabled, "Keeps OakUI's DBM Large bars positioned above the target frame. Turn this off to customize DBM's own bar position without OakUI reapplying it.", rightX, -280, colWidth)
+            AddOption("OakUI Dragon Riding Anchoring", addonTable.SetOakDragonRidingAnchoringEnabled, addonTable.GetOakDragonRidingAnchoringEnabled, "Keeps Dragon Riding attached to the Class Resource bar even if EUI misses the saved anchor. Turn this off to customize Dragon Riding's position through EUI.", leftX, -310, colWidth)
+            local mplusForcesCheckbox = AddOption("M+ Enemy Forces", addonTable.SetOakEllesmereMythicForcesEnabled, addonTable.GetOakEllesmereMythicForcesEnabled, "OakUI-only: shows each enemy's Mythic+ forces percentage in OakUI's nameplate font to the right of the enemy cast bar. The default text size is 15; use the resize icon for Size and X/Y offset controls. It is active only inside an active Mythic+ key.", leftX, -340, colWidth)
+            if addonTable.BuildOakEllesmereMythicForcesCog then
+                addonTable.BuildOakEllesmereMythicForcesCog(parentFrame, mplusForcesCheckbox)
+            end
         end
         if IsWMarkerAvailable() then
             AddOption("wMarker Mouseover Fade", SetWMarkerMouseoverFade, GetWMarkerMouseoverFade, "Fades wMarker when the mouse is away and restores its normal alpha when you move over it.", rightX, -310, colWidth)
@@ -2868,15 +2879,21 @@ function addonTable.BuildVisibilityUI(parentFrame)
         end
         AddSection("Rounded Borders", leftX, -364)
         AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles the rounded-border options used by OakUI default installs. Chat Windows remains a separate opt-in.", leftX, -386, colWidth)
-        AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -386, colWidth)
+        if not addonTable.IsForever then
+            AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -386, colWidth)
+        end
         AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -386 + roundedRowGap, colWidth)
         AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -386 + roundedRowGap, colWidth)
         AddOption("Cast Bars", SetCastBarRoundThinBorders, GetCastBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere cast bars, including unit-frame cast bars and the resource cast bar.", leftX, -386 + roundedRowGap * 2, colWidth)
         AddOption("Boss Frames", SetBossFrameRoundThinBorders, GetBossFrameRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere boss frames without enabling the full EUI Frames/Bars option.", rightX, -386 + roundedRowGap * 2, colWidth)
         AddOption("Nameplates", SetNameplateRoundThinBorders, GetNameplateRoundThinBorders, "Applies OakUI rounded masking to Ellesmere nameplates and their cast bars. Nameplate cast bars use OakUI's standalone rounded status-bar renderer because Ellesmere does not expose the same custom-border path there.", leftX, -386 + roundedRowGap * 3, colWidth)
-        AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -386 + roundedRowGap * 3, colWidth)
+        if not addonTable.IsForever then
+            AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -386 + roundedRowGap * 3, colWidth)
+        end
         AddOption("Tracking Bars", SetTrackingBarRoundThinBorders, GetTrackingBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere Tracking Bars. Turning it off restores their previous saved border settings.", leftX, -386 + roundedRowGap * 4, colWidth)
-        AddOption("Dragon Riding", addonTable.SetOakRoundThinDragonRidingBorders, addonTable.GetOakRoundThinDragonRidingBorders, "Applies the OakUI very thin rounded border to Ellesmere's Dragon Riding bar cluster. The border follows the bars when EUI rebuilds or reanchors them.", rightX, -386 + roundedRowGap * 4, colWidth)
+        if not addonTable.IsForever then
+            AddOption("Dragon Riding", addonTable.SetOakRoundThinDragonRidingBorders, addonTable.GetOakRoundThinDragonRidingBorders, "Applies the OakUI very thin rounded border to Ellesmere's Dragon Riding bar cluster. The border follows the bars when EUI rebuilds or reanchors them.", rightX, -386 + roundedRowGap * 4, colWidth)
+        end
         AddOption("Chat Windows", addonTable.SetOakRoundThinChatBorders, addonTable.GetOakRoundThinChatBorders, "Opt-in: applies the OakUI very thin rounded border to Blizzard chat windows. This is independent of Hide Chat and is disabled by default. The change applies immediately.", leftX, -386 + roundedRowGap * 5, colWidth)
 
         parentFrame.UpdateVisibilityCheckboxes = function()
@@ -2941,6 +2958,8 @@ CleanupFrame:SetScript("OnEvent", function(self)
     end)
     self:UnregisterEvent("PLAYER_LOGIN")
 end)
+
+if addonTable.IsForever then return end
 
 WMarkerFadeWatcher = CreateFrame("Frame")
 WMarkerFadeWatcher:RegisterEvent("ADDON_LOADED")

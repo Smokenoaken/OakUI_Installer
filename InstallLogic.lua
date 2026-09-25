@@ -80,6 +80,7 @@ local function ForEachKnownSpec(callback)
 end
 
 function addonTable.AssignOakEllesmereProfilesToSpecs(dpsProfileName, healerProfileName)
+    if addonTable.IsForever then return false end
     if type(_G.EllesmereUIDB) ~= "table" then return false end
     local db = _G.EllesmereUIDB
     db.specProfiles = db.specProfiles or {}
@@ -199,6 +200,7 @@ function addonTable.RepopulateActiveEllesmereCDMFromBlizzard(quiet)
 end
 
 function addonTable.Injectors.Ellesmere(profileName, role)
+    if addonTable.IsForever then return addonTable.ApplyOakEllesmereProfileImportAll(profileName, role) end
     if not C_AddOns.IsAddOnLoaded("EllesmereUI") then return end
     profileName = profileName or "OakUI"
 
@@ -322,6 +324,7 @@ local function ApplyBigWigsTimelineSettings(profileName)
 end
 
 function addonTable.Injectors.BigWigs(profileName, role)
+    if addonTable.IsForever then return false end
     if not C_AddOns.IsAddOnLoaded("BigWigs") then return end
     local encoded = string.gsub(P.BIGWIGS_PROFILE or "", "^%s+", ""):gsub("%s+$", "")
     if encoded == "" then return end
@@ -372,6 +375,7 @@ local function DecodeDBMProfile(encoded)
 end
 
 function addonTable.Injectors.DBM(profileName, role)
+    if addonTable.IsForever then return false end
     if not C_AddOns.IsAddOnLoaded("DBM-Core") then return end
     local encoded = TrimProfileString(P.DBM_PROFILE)
     if encoded == "" then
@@ -471,6 +475,7 @@ local function ActivateWMarkerProfile(db, profileName, profile)
 end
 
 function addonTable.Injectors.WMarker(profileName, role)
+    if addonTable.IsForever then return false end
     if not C_AddOns.IsAddOnLoaded("wMarker") then return end
 
     local encoded = TrimProfileString(P.WMARKER_PROFILE)
@@ -579,6 +584,7 @@ local function EnsureMatchingBlizziProfile(profileName, role, forceFromRoleSourc
 end
 
 function addonTable.Injectors.BlizziPartyTools(profileName, role)
+    if addonTable.IsForever then return false end
     if C_AddOns and C_AddOns.IsAddOnLoaded and not C_AddOns.IsAddOnLoaded("BliZzi_Interrupts") then
         if C_AddOns.LoadAddOn then
             pcall(C_AddOns.LoadAddOn, "BliZzi_Interrupts")
@@ -760,11 +766,59 @@ function addonTable.GetActiveEditModeLayoutName()
     return type(activeLayout) == "table" and activeLayout.layoutName or nil
 end
 
+function addonTable.RecoverMalformedOakEditMode()
+    if not addonTable.IsForever or (InCombatLockdown and InCombatLockdown()) then return false end
+    if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SetActiveLayout) then return false end
+    local ok, info = pcall(C_EditMode.GetLayouts)
+    if not ok or type(info) ~= "table" then return false end
+    local presets = GetEditModePresetLayouts()
+    if #presets == 0 then return false end
+    for index, layout in ipairs(info.layouts or {}) do
+        if layout.layoutName == "OakUI" then
+            for _, system in ipairs(layout.systems or {}) do
+                for _, key in ipairs({ "anchorInfo", "anchorInfo2" }) do
+                    local anchor = system[key]
+                    if anchor and tonumber(anchor.relativeTo) then
+                        if info.activeLayout == #presets + index then
+                            local style = InputUtil and InputUtil.GetCurrentInterfaceStyle and InputUtil.GetCurrentInterfaceStyle()
+                            local safeIndex
+                            for i, preset in ipairs(presets) do
+                                if not style or preset.interfaceStyle == style or preset.interfaceStyle == nil then
+                                    safeIndex = i
+                                    break
+                                end
+                            end
+                            if not safeIndex then return false end
+                            local switched = pcall(C_EditMode.SetActiveLayout, safeIndex)
+                            local readOK, current = pcall(C_EditMode.GetLayouts)
+                            if not switched or not readOK or current.activeLayout ~= safeIndex then return false end
+                            print("|cffffcc00[OakUI]|r Disabled the malformed OakUI layout. Run /oaklayout to replace it with a validated import.")
+                        end
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
 function addonTable.ActivateEditModeLayout(layoutName)
     if InCombatLockdown and InCombatLockdown() then return false end
     if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SetActiveLayout) then return false end
     local activeIndex = GetActiveOakEditModeLayoutIndex(TrimProfileString(layoutName))
     if not activeIndex then return false end
+    if addonTable.IsForever then
+        local readOK, info = pcall(C_EditMode.GetLayouts)
+        if not readOK or type(info) ~= "table" then return false end
+        local layouts = BuildCombinedEditModeLayouts(info)
+        for _, system in ipairs(layouts[activeIndex] and layouts[activeIndex].systems or {}) do
+            for _, key in ipairs({ "anchorInfo", "anchorInfo2" }) do
+                local anchor = system[key]
+                if anchor and tonumber(anchor.relativeTo) then return false end
+            end
+        end
+    end
     local ok = pcall(C_EditMode.SetActiveLayout, activeIndex)
     if not ok then return false end
 
@@ -784,90 +838,139 @@ end
 
 function addonTable.Injectors.EditMode()
     local layoutName = "OakUI"
-
+    local function Fail(message)
+        print("|cffff0000[OakUI Error]|r " .. message)
+        return false, message
+    end
     if InCombatLockdown and InCombatLockdown() then
-        print("|cffff0000[OakUI Error]|r Leave combat before importing the Blizzard Edit Mode layout.")
-        return false
+        return Fail("Leave combat before importing the Blizzard Edit Mode layout.")
     end
-
-    if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts and C_EditMode.ConvertStringToLayoutInfo) then
-        print("|cffff0000[OakUI Error]|r Blizzard Edit Mode import APIs are unavailable.")
-        return false
+    if not EditModeManagerFrame and C_AddOns and C_AddOns.LoadAddOn then
+        pcall(C_AddOns.LoadAddOn, "Blizzard_EditMode")
     end
-
-    local ok, editModeLayouts = pcall(C_EditMode.GetLayouts)
-    if not ok or type(editModeLayouts) ~= "table" or type(editModeLayouts.layouts) ~= "table" then
-        print("|cffff0000[OakUI Error]|r Could not read Blizzard Edit Mode layouts.")
-        return false
+    if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts
+        and C_EditMode.ConvertStringToLayoutInfo and C_EditMode.SetActiveLayout) then
+        return Fail("Blizzard Edit Mode import APIs are unavailable.")
     end
-
-    local editModeString = GetOakEditModeString()
+    -- Saved layout indices include the presets. Never save against an empty
+    -- preset list while Blizzard's Edit Mode manager is still loading.
+    local presets = GetEditModePresetLayouts()
+    if #presets == 0 then
+        return Fail("Blizzard Edit Mode presets are not ready. Reload and retry Import Layout.")
+    end
+    local ok, info = pcall(C_EditMode.GetLayouts)
+    if not ok or type(info) ~= "table" or type(info.layouts) ~= "table" then
+        return Fail("Could not read Blizzard Edit Mode layouts.")
+    end
+    local encoded = GetOakEditModeString()
     if addonTable.ApplyOakEditModeLayoutAdjustmentsString then
-        editModeString = addonTable.ApplyOakEditModeLayoutAdjustmentsString(editModeString)
+        encoded = addonTable.ApplyOakEditModeLayoutAdjustmentsString(encoded)
     end
-
-    local importOk, importLayoutInfo = pcall(C_EditMode.ConvertStringToLayoutInfo, editModeString)
-    if not importOk or type(importLayoutInfo) ~= "table" then
-        print("|cffff0000[OakUI Error]|r Could not convert the OakUI Edit Mode layout string.")
-        return false
-    end
-
-    importLayoutInfo.layoutName = layoutName
-    importLayoutInfo.layoutType = Enum.EditModeLayoutType.Account
-    ReconcileEditModeLayout(importLayoutInfo)
-    if addonTable.ApplyOakEditModeLayoutAdjustmentsInfo then
-        pcall(addonTable.ApplyOakEditModeLayoutAdjustmentsInfo, importLayoutInfo)
-    end
-
-    for _, layout in ipairs(editModeLayouts.layouts) do
-        ReconcileEditModeLayout(layout)
-    end
-
-    local combinedLayouts, presetCount = BuildCombinedEditModeLayouts(editModeLayouts)
-    for index = #combinedLayouts, presetCount + 1, -1 do
-        if combinedLayouts[index].layoutName == layoutName then
-            table.remove(combinedLayouts, index)
-        end
-    end
-
-    local activeIndex = FindEditModeInsertSlot(combinedLayouts, presetCount)
-    table.insert(combinedLayouts, activeIndex, importLayoutInfo)
-    editModeLayouts.layouts = combinedLayouts
-    editModeLayouts.activeLayout = activeIndex
-
-    local saveOk, saveErr = pcall(C_EditMode.SaveLayouts, editModeLayouts)
-    if not saveOk then
-        print("|cffff0000[OakUI Error]|r Could not save the OakUI Edit Mode layout: " .. tostring(saveErr))
-        return false
-    end
-
-    activeIndex = GetActiveOakEditModeLayoutIndex(layoutName)
-    if activeIndex then
-        if C_EditMode.OnLayoutAdded then
-            pcall(C_EditMode.OnLayoutAdded, activeIndex)
-        end
-        if C_EditMode.SetActiveLayout then
-            local activeOk, activeErr = pcall(C_EditMode.SetActiveLayout, activeIndex)
-            if not activeOk then
-                print("|cffff0000[OakUI Error]|r OakUI Edit Mode layout was saved, but could not be activated: " .. tostring(activeErr))
-                return false
-            end
-        end
-        if addonTable.MarkOakEditModeActivationAfterReload then
-            addonTable.MarkOakEditModeActivationAfterReload()
-        end
+    local converted, layout, decodeError
+    if addonTable.IsForever then
+        converted, layout, decodeError = pcall(addonTable.DecodeForeverEditMode, encoded, presets[1])
     else
-        print("|cffff0000[OakUI Error]|r Blizzard did not save the OakUI Edit Mode layout. Delete unused Blizzard Edit Mode layouts and run the install again.")
-        return false
+        converted, layout = pcall(C_EditMode.ConvertStringToLayoutInfo, encoded)
     end
-
-    if EditModeManagerFrame then
-        pcall(EditModeManagerFrame.Show, EditModeManagerFrame)
-        pcall(EditModeManagerFrame.Hide, EditModeManagerFrame)
+    if not converted or type(layout) ~= "table" then
+        return Fail("Could not convert the OakUI Edit Mode layout string: " .. tostring(converted and decodeError or layout))
     end
-
+    layout.layoutName = layoutName
+    layout.layoutType = Enum.EditModeLayoutType.Account
+    layout.layoutIndex = nil
+    if addonTable.IsForever then
+        -- Retail exports can decode with a style value Forever cannot save.
+        -- Use the recipient's input style, as Blizzard's layout picker does.
+        layout.interfaceStyle = InputUtil and InputUtil.GetCurrentInterfaceStyle
+            and InputUtil.GetCurrentInterfaceStyle()
+            or (Enum.InputDeviceInterfaceType and Enum.InputDeviceInterfaceType.Mkb)
+    end
+    local manager = EditModeManagerFrame
+    if not (manager and manager.ReconcileWithModern) then
+        return Fail("Blizzard Edit Mode is not ready to reconcile the imported layout.")
+    end
+    local reconciled, reconcileError = pcall(manager.ReconcileWithModern, manager, layout)
+    if not reconciled then
+        return Fail("Could not reconcile the OakUI Edit Mode layout: " .. tostring(reconcileError))
+    end
+    if addonTable.ApplyOakEditModeLayoutAdjustmentsInfo then
+        addonTable.ApplyOakEditModeLayoutAdjustmentsInfo(layout)
+    end
+    local presetCount = #presets
+    local slot
+    for _, saved in ipairs(info.layouts) do
+        presets[#presets + 1] = saved
+        if saved.layoutName == layoutName then slot = #presets end
+    end
+    local isNew = slot == nil
+    if isNew then
+        slot = FindEditModeInsertSlot(presets, presetCount)
+        table.insert(presets, slot, layout)
+    else
+        -- Replace only OakUI, in place. Other characters' indices stay stable.
+        presets[slot] = layout
+    end
+    info.layouts = presets
+    info.activeLayout = slot
+    local saved, saveError = pcall(C_EditMode.SaveLayouts, info)
+    if not saved then
+        return Fail("Could not save the OakUI Edit Mode layout: " .. tostring(saveError))
+    end
+    local savedSlot = GetActiveOakEditModeLayoutIndex(layoutName)
+    if not savedSlot then
+        return Fail("Blizzard did not save OakUI. Check your Edit Mode layout limit and retry Import Layout.")
+    end
+    if addonTable.MarkOakEditModeActivationAfterReload then
+        addonTable.MarkOakEditModeActivationAfterReload()
+    end
+    if isNew and C_EditMode.OnLayoutAdded then
+        -- Match Blizzard's imported-layout notification, including activation.
+        pcall(C_EditMode.OnLayoutAdded, savedSlot, true, true)
+    end
+    if not addonTable.ActivateEditModeLayout(layoutName) then
+        return Fail("OakUI was saved but is not active yet. Reload, then select OakUI in Edit Mode if needed.")
+    end
+    -- Do not Show/Hide the editor: that starts all of its preview systems.
     print("|cff17ee15[OakUI]|r Blizzard Edit Mode layout imported and activated as OakUI.")
     return true
+end
+
+-- A reachable standalone action shared by the wizard and /oaklayout.
+function addonTable.ImportOakEditModeLayout(showReload)
+    local ok, imported, reason = pcall(addonTable.Injectors.EditMode)
+    if ok and imported == true then
+        if showReload and addonTable.ShowReloadPrompt then
+            addonTable.ShowReloadPrompt("OakUI Edit Mode layout created and selected. Reload to finish applying it.")
+        end
+        return true
+    end
+    local report = {
+        "OakUI Edit Mode import failed",
+        "Diagnostic revision: layout-header-3",
+        "Client: " .. tostring((GetBuildInfo())) .. " / " .. tostring(select(4, GetBuildInfo())),
+        "Error: " .. tostring(ok and reason or imported),
+    }
+    if C_EditMode and C_EditMode.GetLayouts then
+        local readOK, info = pcall(C_EditMode.GetLayouts)
+        if readOK and type(info) == "table" then
+            report[#report + 1] = "Active index: " .. tostring(info.activeLayout)
+            report[#report + 1] = "Preset count: " .. tostring(#GetEditModePresetLayouts())
+            for i, layout in ipairs(info.layouts or {}) do
+                report[#report + 1] = "Saved " .. i .. ": " .. tostring(layout.layoutName) .. " (type " .. tostring(layout.layoutType) .. ")"
+            end
+        end
+    end
+    local message = table.concat(report, "\n")
+    print(message)
+    if addonTable.ShowCopyBox then
+        addonTable.ShowCopyBox(message, "Copy this import result and send it to me (Ctrl+A, Ctrl+C).")
+    end
+    return false
+end
+
+SLASH_OAKLAYOUT1 = "/oaklayout"
+SlashCmdList["OAKLAYOUT"] = function()
+    addonTable.ImportOakEditModeLayout(true)
 end
 
 -- EXECUTION ENGINE
