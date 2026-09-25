@@ -1,3 +1,8 @@
+## v2.7.1
+
+- Replaced OakUI's Smart Player override with EllesmereUI's native Show When Health Missing behavior on Retail and WoW Forever.
+- Migrated existing Smart Player users automatically and removed redundant health polling and frame visibility hooks.
+
 ## v2.7.0
 
 - WoW Forever Beta Support! OakUI now supports Retail and Forever Beta in one addon with automatic client detection.

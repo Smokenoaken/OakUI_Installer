@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.0"
+P.VERSION = "2.7.1"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -148,6 +148,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.1",
+        date = "September 24, 2026",
+        notes = {
+            "Replaced OakUI's Smart Player override with EllesmereUI's native Show When Health Missing behavior on Retail and WoW Forever.",
+            "Migrated existing Smart Player users automatically and removed redundant health polling and frame visibility hooks.",
+        }
+    },
     {
         version = "v2.7.0",
         date = "September 24, 2026",
