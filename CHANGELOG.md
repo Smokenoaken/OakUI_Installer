@@ -1,3 +1,11 @@
+## v2.7.0
+
+- WoW Forever Beta Support! OakUI now supports Retail and Forever Beta in one addon with automatic client detection.
+- Bring the OakUI look to Forever with compatible EllesmereUI profile imports and an OakUI Edit Mode layout that imports and selects correctly.
+- Forever keeps local EUI spell setup and skips DBM, BigWigs, Blizzi, wMarker, Mythic+ and Dragon Riding integrations. Retail integrations remain available.
+- Added a standalone Import Layout button and /oaklayout command with clear import diagnostics.
+- Fixed protected reload prompts and the Forever cooldown-preview icon error; added recovery for malformed layouts from early testing.
+
 ## v2.6.45
 
 - Added an optional Apply OakUI Chat Layout toggle to Set Up Alt for restoring General, Trade, and Loot chat windows on alts

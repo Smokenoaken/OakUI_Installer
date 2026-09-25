@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.6.45"
+P.VERSION = "2.7.0"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -73,6 +73,7 @@ P.PATREONS = {
     "Brian Ehlers",
     "mglass",
     "Shawn Snyder",
+    "Emil Sundström",
     "Tony",
     "Inuyasha",
     "Emmanuel leroy",
@@ -125,7 +126,6 @@ P.PATREONS = {
     "Bryan",
     "martin frimand",
     "JON",
-    "Benjamin Keene",
     "Ryan Couture",
     "Renegades Guild",
     "Marcel Dekker",
@@ -148,6 +148,17 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.0",
+        date = "September 24, 2026",
+        notes = {
+            "WoW Forever Beta Support! OakUI now supports Retail and Forever Beta in one addon with automatic client detection.",
+            "Bring the OakUI look to Forever with compatible EllesmereUI profile imports and an OakUI Edit Mode layout that imports and selects correctly.",
+            "Forever keeps local EUI spell setup and skips DBM, BigWigs, Blizzi, wMarker, Mythic+ and Dragon Riding integrations. Retail integrations remain available.",
+            "Added a standalone Import Layout button and /oaklayout command with clear import diagnostics.",
+            "Fixed protected reload prompts and the Forever cooldown-preview icon error; added recovery for malformed layouts from early testing.",
+        }
+    },
     {
         version = "v2.6.45",
         date = "September 13, 2026",
