@@ -30,262 +30,6 @@ local function GetEllesmereChatProfileKey()
     return type(profileDB) == "table" and profileDB.activeProfile or "__default"
 end
 
-local function UnitIsInjured(unit)
-    if not UnitExists(unit) then return false end
-
-    -- Retail exposes a C-side boolean for this boundary. Prefer it when
-    -- available so Smart Player is not defeated by protected health values.
-    if type(UnitIsFullHealth) == "function" then
-        local ok, full = pcall(UnitIsFullHealth, unit)
-        if ok and type(full) == "boolean" then
-            return not full
-        end
-    end
-
-    local ok, injured = pcall(function()
-        local maxHealth = UnitHealthMax(unit) or 0
-        local health = UnitHealth(unit) or maxHealth
-        return maxHealth > 0 and health < maxHealth
-    end)
-    return ok and injured == true
-end
-
-local playerHealthBelowMax = false
-local playerHealthStableTimer
-local lastPlayerHealthEventTime = 0
-local HEALTH_STABLE_DURATION = 3
-local ShouldForcePlayerFrameShown
-local ApplyPlayerFrameVisibilityOverride
-local ApplySmartPlayerPetVisibilityOverrides
-
-local function SetPlayerHealthChanging()
-    local wasBelowMax = playerHealthBelowMax
-    playerHealthBelowMax = true
-    lastPlayerHealthEventTime = GetTime and GetTime() or 0
-
-    if not wasBelowMax and addonTable.RefreshEllesmereVisibilityTweaks then
-        addonTable.RefreshEllesmereVisibilityTweaks()
-    end
-
-    if playerHealthStableTimer or not C_Timer or not C_Timer.NewTicker then return end
-    playerHealthStableTimer = C_Timer.NewTicker(1, function()
-        if InCombatLockdown and InCombatLockdown() then return end
-        local now = GetTime and GetTime() or 0
-        if now - lastPlayerHealthEventTime < HEALTH_STABLE_DURATION then return end
-
-        playerHealthStableTimer:Cancel()
-        playerHealthStableTimer = nil
-        playerHealthBelowMax = false
-        if addonTable.RefreshEllesmereVisibilityTweaks then
-            addonTable.RefreshEllesmereVisibilityTweaks()
-        end
-    end)
-end
-
-local function PlayerHealthBelowMax()
-    return playerHealthBelowMax or UnitIsInjured("player")
-end
-
-local hookedEllesmereUnitFrameVisibility
-local applyingEllesmereVisibility
-
-local function ClearLegacyFrameVisibilityOverride(frame, isPet)
-    if not frame or not frame.oakVisibilityTweaksManaged then return end
-    frame.oakVisibilityTweaksManaged = nil
-    frame:SetAlpha(1)
-    if isPet then
-        frame.dfPetHidden = nil
-    end
-    if isPet and (not InCombatLockdown or not InCombatLockdown()) then
-        if frame.Show then frame:Show() end
-    end
-end
-
-local function ForcePetFrameShown(frame)
-    if not frame then return end
-    frame:SetAlpha(1)
-    frame.dfPetHidden = nil
-    if (not InCombatLockdown or not InCombatLockdown()) and frame.Show then
-        frame:Show()
-    end
-end
-
-local function GetDandersPlayerPetFrame()
-    local DF = _G.DandersFrames
-    if DF and DF.petFrames and DF.petFrames.player then
-        return DF.petFrames.player
-    end
-    return _G.DandersFrames_Pet_Pet
-end
-
-local function GetEllesmereUnitHideNoTarget(unit)
-    local unitFrames = GetEllesmereAddonProfile("EllesmereUIUnitFrames")
-    local settings = unitFrames and unitFrames[unit]
-    if type(settings) ~= "table" or settings.visHideNoTarget == nil then return nil end
-    return settings.visHideNoTarget == true
-end
-
-local function SyncPlayerPetVisibilityState()
-    local db = EnsureVisibilityDB()
-    local playerHidden = GetEllesmereUnitHideNoTarget("player")
-    local petHidden = GetEllesmereUnitHideNoTarget("pet")
-    -- EUI's saved values remain authoritative. Smart Player may reveal an
-    -- injured unit frame, but it must not change the saved Hide Unit Frames
-    -- preference or replace EUI's native visibility result.
-    if playerHidden ~= nil or petHidden ~= nil then
-        local playerEnabled = playerHidden == true
-        local petEnabled = petHidden == true
-        local changed = (playerHidden ~= nil and db.playerFrameHidden ~= playerEnabled)
-            or (petHidden ~= nil and db.petFrameHidden ~= petEnabled)
-        if playerHidden ~= nil then
-            db.playerFrameHidden = playerEnabled
-        end
-        if petHidden ~= nil then
-            db.petFrameHidden = petEnabled
-        end
-        if changed and addonTable.RefreshVisibilityCheckboxes then
-            addonTable.RefreshVisibilityCheckboxes()
-        end
-    end
-    return playerHidden, petHidden
-end
-
-local function PlayerPetVisibilityOptionsEnabled()
-    if not IsEllesmereProvider() then return false end
-    local db = EnsureVisibilityDB()
-    return db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true
-end
-
-local function PlayerVisibilityOverrideEnabled()
-    if not PlayerPetVisibilityOptionsEnabled() then return false end
-    local db = EnsureVisibilityDB()
-    if db.playerFrameHidden ~= nil then
-        return db.playerFrameHidden == true
-    end
-    local playerHidden = GetEllesmereUnitHideNoTarget("player")
-    if playerHidden ~= nil then return playerHidden == true end
-    return false
-end
-
-local function PetVisibilityOverrideEnabled()
-    if not PlayerPetVisibilityOptionsEnabled() then return false end
-    local db = EnsureVisibilityDB()
-    if db.petFrameHidden ~= nil then
-        return db.petFrameHidden == true
-    end
-    if db.playerFrameHidden ~= nil then
-        return db.playerFrameHidden == true
-    end
-    local petHidden = GetEllesmereUnitHideNoTarget("pet")
-    if petHidden ~= nil then return petHidden == true end
-    return false
-end
-
-local function RefreshEllesmereUnitFrameVisibility()
-    local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
-    if not ns or type(ns.UpdateFrameVisibility) ~= "function" or applyingEllesmereVisibility then
-        return false
-    end
-
-    applyingEllesmereVisibility = true
-    pcall(ns.UpdateFrameVisibility)
-    applyingEllesmereVisibility = nil
-    return true
-end
-
-local function SmartPlayerVisibilityEnabled()
-    local db = EnsureVisibilityDB()
-    return db.smartPlayerPetVisibility == true or db.showPlayerWhenInjured == true
-end
-
-local function GetEllesmerePlayerFrame()
-    local frame = _G.EllesmereUIUnitFrames_Player
-    if frame then return frame end
-
-    -- EUI keeps its live frames in this registry after a rebuild. The named
-    -- global is normally present, but the registry is the reliable fallback
-    -- during the login/reload construction sequence.
-    local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
-    return ns and ns.frames and ns.frames.player or nil
-end
-
-local function HookEllesmereUnitFrameVisibility()
-    local ns = type(_G.EllesmereUIUnitFrames) == "table" and _G.EllesmereUIUnitFrames
-    if not ns or type(ns.UpdateFrameVisibility) ~= "function" or not hooksecurefunc then return end
-    if hookedEllesmereUnitFrameVisibility == ns.UpdateFrameVisibility then return end
-
-    -- Reloading EUI's unit frames replaces this function. Track the function
-    -- itself rather than a boolean so the runtime override remains hooked after
-    -- an EUI frame rebuild.
-    hookedEllesmereUnitFrameVisibility = ns.UpdateFrameVisibility
-    hooksecurefunc(ns, "UpdateFrameVisibility", function()
-        if applyingEllesmereVisibility then return end
-        -- EUI writes the player wrapper's alpha during this pass. Reassert
-        -- OakUI's temporary injury display override immediately after
-        -- EUI returns, avoiding a visible one-frame hide/show oscillation.
-        if ApplySmartPlayerPetVisibilityOverrides then
-            ApplySmartPlayerPetVisibilityOverrides()
-        end
-    end)
-end
-
-ShouldForcePlayerFrameShown = function()
-    if not PlayerVisibilityOverrideEnabled() then return false end
-    return SmartPlayerVisibilityEnabled()
-        and (PlayerHealthBelowMax() or UnitIsInjured("pet"))
-end
-
-ApplyPlayerFrameVisibilityOverride = function()
-    local playerFrame = GetEllesmerePlayerFrame()
-    local target = playerFrame and (playerFrame._visWrap or playerFrame)
-    if not target then return end
-    if ShouldForcePlayerFrameShown() then
-        target:SetAlpha(1)
-        local portrait3D = playerFrame.Portrait and playerFrame.Portrait.backdrop and playerFrame.Portrait.backdrop._3d
-        if portrait3D then portrait3D:SetAlpha(1) end
-
-        -- A reload can leave the player frame physically hidden before its
-        -- next visibility pass. Smart Player is additive: revive the frame
-        -- only while injury requires it, then let EUI own every hide decision.
-        if not (InCombatLockdown and InCombatLockdown()) and not playerFrame:IsShown() then
-            if playerFrame.SetAttribute then playerFrame:SetAttribute("unit", "player") end
-            if playerFrame.Show then playerFrame:Show() end
-        end
-    end
-end
-
-
-ApplySmartPlayerPetVisibilityOverrides = function()
-    local injured = SmartPlayerVisibilityEnabled()
-        and (PlayerHealthBelowMax() or UnitIsInjured("pet"))
-    if not injured then return end
-
-    if PlayerVisibilityOverrideEnabled() then
-        ApplyPlayerFrameVisibilityOverride()
-    end
-    if PetVisibilityOverrideEnabled() and UnitExists("pet") then
-        ForcePetFrameShown(_G.EllesmereUIUnitFrames_Pet)
-        ForcePetFrameShown(GetDandersPlayerPetFrame())
-    end
-end
-
-function addonTable.RefreshEllesmereVisibilityTweaks()
-    HookEllesmereUnitFrameVisibility()
-    SyncPlayerPetVisibilityState()
-    local playerFrame = GetEllesmerePlayerFrame()
-    local petFrame = _G.EllesmereUIUnitFrames_Pet
-    local dandersPetFrame = GetDandersPlayerPetFrame()
-
-    -- v2.6.42 and earlier marked these frames while forcing both visible and
-    -- hidden states. Clear that legacy ownership before asking EUI to resolve
-    -- its native combat, target, party, raid, and custom visibility settings.
-    ClearLegacyFrameVisibilityOverride(playerFrame and playerFrame._visWrap or playerFrame, false)
-    ClearLegacyFrameVisibilityOverride(petFrame, true)
-    ClearLegacyFrameVisibilityOverride(dandersPetFrame, true)
-    RefreshEllesmereUnitFrameVisibility()
-    ApplySmartPlayerPetVisibilityOverrides()
-end
-
 local originalResetIdleTimer
 local chatFadeApplied
 local CHAT_LINE_FADE_DEFAULT_DELAY = 15
@@ -765,42 +509,8 @@ function addonTable.QueueEllesmereChatLineFadeRefresh()
 end
 
 local function ScheduleLayoutRefresh()
-    ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
-    ScheduleRefresh("visibilityInit", 0.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
-    ScheduleRefresh("visibilityLate", 1.5, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
     ScheduleRefresh("tooltip", 0.2, addonTable.RefreshEllesmereTooltipAnchor, 1)
     ScheduleRefresh("specialActionBars", 0.3, addonTable.RefreshEllesmereSpecialActionBarVisibility, 1)
-end
-
--- EUI handles GROUP_ROSTER_UPDATE with a next-frame local visibility update.
--- It bypasses the public function hook above, so Smart Player needs its own
--- event-driven pass after that update when the feature is enabled.
-local groupVisibilitySettleTimer
-local groupVisibilityPostUpdatePending
-local function ScheduleSmartVisibilityAfterGroupUpdate()
-    if not PlayerPetVisibilityOptionsEnabled() then return end
-    if groupVisibilitySettleTimer then
-        groupVisibilitySettleTimer:Cancel()
-    end
-
-    if not groupVisibilityPostUpdatePending then
-        groupVisibilityPostUpdatePending = true
-        C_Timer.After(0, function()
-            C_Timer.After(0, function()
-                groupVisibilityPostUpdatePending = nil
-                if addonTable.RefreshEllesmereVisibilityTweaks then
-                    addonTable.RefreshEllesmereVisibilityTweaks()
-                end
-            end)
-        end)
-    end
-
-    groupVisibilitySettleTimer = C_Timer.NewTimer(0.2, function()
-        groupVisibilitySettleTimer = nil
-        if addonTable.RefreshEllesmereVisibilityTweaks then
-            addonTable.RefreshEllesmereVisibilityTweaks()
-        end
-    end)
 end
 
 local function ScheduleDeprecatedResourceCleanup()
@@ -811,11 +521,6 @@ frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("UPDATE_CHAT_WINDOWS")
 frame:RegisterEvent("UPDATE_FLOATING_CHAT_WINDOWS")
-frame:RegisterEvent("PLAYER_TARGET_CHANGED")
-frame:RegisterEvent("UNIT_HEALTH")
-frame:RegisterEvent("UNIT_MAXHEALTH")
-frame:RegisterEvent("UNIT_PET")
-frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 frame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 frame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 frame:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
@@ -824,11 +529,7 @@ frame:RegisterEvent("LFG_UPDATE")
 frame:RegisterEvent("LFG_QUEUE_STATUS_UPDATE")
 frame:RegisterEvent("LFG_ROLE_CHECK_UPDATE")
 frame:RegisterEvent("LFG_PROPOSAL_UPDATE")
-frame:SetScript("OnEvent", function(_, event, unit)
-    if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" then
-        if unit ~= "player" and unit ~= "pet" then return end
-    end
-
+frame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
         ScheduleLayoutRefresh()
         ScheduleChatLineFadeRefresh()
@@ -838,15 +539,6 @@ frame:SetScript("OnEvent", function(_, event, unit)
         -- the selected per-line fade settings again after Blizzard/EUI finish
         -- rebuilding the chat windows.
         ScheduleChatLineFadeRefresh()
-    elseif event == "PLAYER_TARGET_CHANGED" or event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" then
-        if event == "UNIT_HEALTH" and (unit == "player" or unit == "pet") then
-            SetPlayerHealthChanging()
-        end
-        if event == "GROUP_ROSTER_UPDATE" then
-            ScheduleSmartVisibilityAfterGroupUpdate()
-        else
-            ScheduleRefresh("visibility", 0, addonTable.RefreshEllesmereVisibilityTweaks, 0.1)
-        end
     elseif event == "PLAYER_SPECIALIZATION_CHANGED" or event == "ACTIVE_TALENT_GROUP_CHANGED" or event == "UPDATE_SHAPESHIFT_FORM" then
         ScheduleDeprecatedResourceCleanup()
     elseif event == "UPDATE_EXTRA_ACTIONBAR" or event == "LFG_UPDATE" or event == "LFG_QUEUE_STATUS_UPDATE" or event == "LFG_ROLE_CHECK_UPDATE" or event == "LFG_PROPOSAL_UPDATE" then

@@ -638,7 +638,7 @@ function addonTable.BuildInstallerUI(parentFrame)
         MakeCheckbox(page, "Hide Chat", "Hide the chat background and use OakUI's chat fade choice.", function() return state.visibility.chat end, function(v) state.visibility.chat = v end, -78, 0, "visibility-chat")
         local groupRow, cdmRow, actionBarsRow, chatLineFadeRow, disableChatFadeRow
         local RefreshUnitFrameOptions
-        MakeCheckbox(page, "Hide Unit Frames", "Show Player/Pet only with a target when enabled; disabling this sets their EUI Visibility to Always.", function() return state.visibility.unitFrames end, function(v)
+        MakeCheckbox(page, "Hide Unit Frames", "Hide Player/Pet without a target and use EUI's native Player health reveal; disabling this sets their EUI Visibility to Always.", function() return state.visibility.unitFrames end, function(v)
             state.visibility.unitFrames = v
             if not v then state.visibility.showPlayerInGroup = false end
             RefreshUnitFrameOptions()
