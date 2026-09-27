@@ -9,7 +9,6 @@
 ## OptionalDeps: EllesmereUI, EllesmereUIActionBars, EllesmereUIAuraBuffReminders, EllesmereUIBags, EllesmereUIBlizzardSkin, EllesmereUIChat, EllesmereUICooldownManager, EllesmereUIDataBars, EllesmereUIDamageMeters, EllesmereUIFriends, EllesmereUIMinimap, EllesmereUIMythicTimer, EllesmereUINameplates, EllesmereUIQoL, EllesmereUIQuestTracker, EllesmereUIRaidFrames, EllesmereUIResourceBars, EllesmereUIUnitFrames, SharedMedia, DBM-Core, BigWigs, BliZzi_Interrupts, wMarker
 ## SavedVariables: OakUI_DB
 ClientCompat.lua
-ForeverIconCompat.lua
 Profiles.lua
 OakRoundThinBorder.lua
 OakRoundThinLive.lua

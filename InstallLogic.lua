@@ -209,8 +209,9 @@ function addonTable.Injectors.Ellesmere(profileName, role)
         addonTable.RegisterOakFonts()
     end
 
-    local healerEncoded = role == "heals" and TrimProfileString(P.ELLESMERE_PROFILE_HEALS) or ""
-    local encoded = healerEncoded ~= "" and healerEncoded or TrimProfileString(P.ELLESMERE_PROFILE)
+    local encoded = addonTable.GetOakEllesmereEncodedProfile
+        and addonTable.GetOakEllesmereEncodedProfile(role)
+        or TrimProfileString(role == "heals" and P.ELLESMERE_PROFILE_HEALS or P.ELLESMERE_PROFILE)
     if encoded == "" then
         print("|cffff0000[OakUI Error]|r EllesmereUI profile string is missing or empty.")
         return

@@ -5,6 +5,7 @@ local BORDER_PATH = MEDIA_PATH .. "Borders\\"
 local ROUND_THIN_BORDER_NAME = "OakUI Round Thin"
 local ROUND_THIN_BORDER_PATH = BORDER_PATH .. "OakRoundThinBorder.png"
 local ROUND_THIN_MASK_PATH = BORDER_PATH .. "OakRoundThinMask.png"
+local ROUND_THIN_BAR_FILL_PATH = BORDER_PATH .. "OakRoundThinBarFill.png"
 local ROUND_THIN_BORDER_WIDTH = 20
 local ROUND_THIN_BORDER_HEIGHT = 20
 local ROUND_THIN_BORDER_MARGIN = 0.48
@@ -344,10 +345,22 @@ local function RegisterOakRoundThinBorderRenderer()
         AddMaskGroup(groups, owner, owner, targets)
     end
 
+    local function IsEllesmerePartyPetButton(owner)
+        local moduleNS = E._ModuleNS and E._ModuleNS.EllesmereUIRaidFrames
+        local PF = moduleNS and moduleNS._PF
+        return PF and PF.ownerOf and PF.ownerOf[owner] ~= nil
+    end
+
     local function CollectOakRoundThinMaskGroups(owner, borderFrame, extraTarget)
         local groups = {}
         if not owner or IsForbiddenFrame(owner) then return groups end
         local seenStatusBars = {}
+        -- Forever cannot render this secret-driven fill with a MaskTexture.
+        -- Its rounded alpha is baked into a replacement bar texture below;
+        -- the ordinary background texture keeps the normal rounded mask.
+        if IsEllesmerePartyPetButton(owner) and owner._health then
+            seenStatusBars[owner._health] = true
+        end
         -- Main EUI unit frames either already have their shared bar clip or
         -- are between creation and the clip's reparent pass. Their bars must
         -- stay on the safe, dedicated path below. Raid/party/resource layouts
@@ -636,7 +649,7 @@ local function RegisterOakRoundThinBorderRenderer()
         end
         if not borderOnly and _G.C_Timer and _G.C_Timer.After and not state.deferredRefreshDone and not state.refreshPending then
             state.refreshPending = true
-            _G.C_Timer.After(0, function()
+            _G.C_Timer.After(0.05, function()
                 local current = GetBorderState(borderFrame, false)
                 if current then
                     current.refreshPending = nil
@@ -685,6 +698,92 @@ local function RegisterOakRoundThinBorderRenderer()
 
         if originalSetBorderStyleColor then
             return originalSetBorderStyleColor(borderFrame, r, g, b, a)
+        end
+    end
+
+    -- EUI 9.3's Beside Owner party-pet buttons are the values in PF.ownerOf.
+    -- Their live health fill disappears when a MaskTexture remains attached.
+    -- Repair only those buttons, after OakUI's deferred mask refresh as well
+    -- as immediately after EUI styles or repaints them.
+    local moduleNS = E._ModuleNS and E._ModuleNS.EllesmereUIRaidFrames
+    local FB = moduleNS and moduleNS._FB
+    local PF = moduleNS and moduleNS._PF
+    if type(FB) == "table" and type(PF) == "table" and type(hooksecurefunc) == "function" then
+        local roundedFills = setmetatable({}, { __mode = "k" })
+
+        local function RemoveAllTextureMasks(texture)
+            if not texture or type(texture.GetNumMaskTextures) ~= "function" then return end
+            local ok, count = pcall(texture.GetNumMaskTextures, texture)
+            if not ok or type(count) ~= "number" or (_G.issecretvalue and issecretvalue(count)) then return end
+            for index = count, 1, -1 do
+                local maskOK, mask = pcall(texture.GetMaskTexture, texture, index)
+                if maskOK and mask and not (_G.issecretvalue and issecretvalue(mask)) then
+                    pcall(texture.RemoveMaskTexture, texture, mask)
+                end
+            end
+        end
+
+        local function ApplyRoundedPartyPetFill(button, enabled)
+            local health = button and button._health
+            local ok, fill = CallWidgetMethodSafe(health, "GetStatusBarTexture")
+            if not ok or not fill then return nil end
+
+            local state = roundedFills[button]
+            local textureOK, currentTexture = CallWidgetMethodSafe(fill, "GetTexture")
+            if enabled then
+                RemoveAllTextureMasks(fill)
+                if not state or not textureOK or currentTexture ~= state.roundedTexture then
+                    state = state or {}
+                    if textureOK then state.originalTexture = currentTexture end
+                    local setOK = pcall(health.SetStatusBarTexture, health, ROUND_THIN_BAR_FILL_PATH)
+                    if not setOK then return fill end
+                    ok, fill = CallWidgetMethodSafe(health, "GetStatusBarTexture")
+                    if not ok or not fill then return nil end
+                    if fill.SetHorizTile then pcall(fill.SetHorizTile, fill, false) end
+                    local roundedOK, roundedTexture = CallWidgetMethodSafe(fill, "GetTexture")
+                    state.roundedTexture = roundedOK and roundedTexture or ROUND_THIN_BAR_FILL_PATH
+                    roundedFills[button] = state
+                end
+                RemoveAllTextureMasks(fill)
+            elseif state then
+                if textureOK and currentTexture == state.roundedTexture and state.originalTexture then
+                    pcall(health.SetStatusBarTexture, health, state.originalTexture)
+                    ok, fill = CallWidgetMethodSafe(health, "GetStatusBarTexture")
+                    if ok and fill and fill.SetHorizTile then pcall(fill.SetHorizTile, fill, false) end
+                end
+                roundedFills[button] = nil
+            end
+
+            return fill
+        end
+
+        local function RepairPartyPetButton(button)
+            if not button or not PF.ownerOf or not PF.ownerOf[button] then return end
+            local settings = type(FB.Source) == "function" and FB.Source(button)
+            if type(settings) ~= "table" then return end
+            local rounded = IsOakRoundThinBorderKey(settings.borderTexture)
+
+            ApplyRoundedPartyPetFill(button, rounded)
+            if rounded and type(FB.PaintBarColor) == "function" then
+                FB.PaintBarColor(button, PF, settings)
+            end
+        end
+
+        local function RepairPartyPetButtonDeferred(button)
+            RepairPartyPetButton(button)
+            if not button or button._oakPartyPetRepairPending or not _G.C_Timer or not _G.C_Timer.After then return end
+            button._oakPartyPetRepairPending = true
+            _G.C_Timer.After(0, function()
+                button._oakPartyPetRepairPending = nil
+                RepairPartyPetButton(button)
+            end)
+        end
+
+        if type(FB.StyleBorder) == "function" then
+            hooksecurefunc(FB, "StyleBorder", RepairPartyPetButtonDeferred)
+        end
+        if type(PF.Refresh) == "function" then
+            hooksecurefunc(PF, "Refresh", RepairPartyPetButtonDeferred)
         end
     end
 

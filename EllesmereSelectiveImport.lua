@@ -100,12 +100,17 @@ local function TrimProfileString(profileString)
 end
 
 local function GetEncodedProfile(role)
+    local isForever = addonTable.IsForever == true
     if role == "heals" then
-        local healer = TrimProfileString(P.ELLESMERE_PROFILE_HEALS)
+        local healer = TrimProfileString(isForever and P.ELLESMERE_PROFILE_FOREVER_HEALS or P.ELLESMERE_PROFILE_HEALS)
         if healer ~= "" then return healer end
     end
+    local encoded = TrimProfileString(isForever and P.ELLESMERE_PROFILE_FOREVER or P.ELLESMERE_PROFILE)
+    if encoded ~= "" then return encoded end
     return TrimProfileString(P.ELLESMERE_PROFILE)
 end
+
+addonTable.GetOakEllesmereEncodedProfile = GetEncodedProfile
 
 local function SelectionIncludes(selection, key)
     return selection == nil or selection.all or selection[key] == true
