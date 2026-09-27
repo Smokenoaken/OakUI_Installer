@@ -1,3 +1,10 @@
+## v2.7.2
+
+- Added rounded-border support for EllesmereUI party-pet frames while preserving live health colors and updates.
+- Restored EllesmereUI damage-meter bars after the latest EUI update when OakUI Rounded Borders are enabled.
+- Added separate Forever Tank/DPS and Healer profile imports plus a Smart Player toggle backed by EUI native settings.
+- Removed the Forever icon compatibility override that could taint protected Blizzard UI.
+
 ## v2.7.1
 
 - Replaced OakUI's Smart Player override with EllesmereUI's native Show When Health Missing behavior on Retail and WoW Forever.

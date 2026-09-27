@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.1"
+P.VERSION = "2.7.2"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -123,9 +123,9 @@ P.PATREONS = {
     "Symisch",
     "Alexander Hartwich",
     "Frank franz",
+    "Blake Stover",
     "Loonie74",
     "Paul T",
-    "Hermez",
     "Alexey Fedorov",
     "Roland",
     "Sridhar Mantha",
@@ -154,6 +154,16 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.2",
+        date = "September 27, 2026",
+        notes = {
+            "Added rounded-border support for EllesmereUI party-pet frames while preserving live health colors and updates.",
+            "Restored EllesmereUI damage-meter bars after the latest EUI update when OakUI Rounded Borders are enabled.",
+            "Added separate Forever Tank/DPS and Healer profile imports plus a Smart Player toggle backed by EUI native settings.",
+            "Removed the Forever icon compatibility override that could taint protected Blizzard UI.",
+        }
+    },
     {
         version = "v2.7.1",
         date = "September 24, 2026",
