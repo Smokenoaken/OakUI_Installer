@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.2"
+P.VERSION = "2.7.3"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -95,8 +95,6 @@ P.PATREONS = {
     "Paul Westervelt",
     "Typical Panda",
     "Jermaine Adams",
-    "Justin Vaughn",
-    "Allan Nielsen",
     "Doc_waffle",
     "Jon Jordan",
     "michael arguedas",
@@ -137,7 +135,6 @@ P.PATREONS = {
     "Renegades Guild",
     "Marcel Dekker",
     "Christopher Saffle",
-    "dwayne baldock",
     "MadCow",
     "Brian Wease",
     "Alex Tegnazian",
@@ -155,6 +152,16 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.3",
+        date = "September 28, 2026",
+        notes = {
+            "Updated the Forever Tank/DPS and Healer EllesmereUI profiles and added the dedicated Forever Edit Mode layout.",
+            "Restored smart damage-meter sizing with 5 Damage Done rows, 5 Overall Damage Done rows, and 3 Healing Done rows after the latest EUI changes.",
+            "Preserved Need, Greed, Disenchant, pass, roll, and winner messages when Chat Cleaner formats group loot.",
+            "Made Forever Action Bar 6 follow the Hide Cooldown Manager target-visibility choice instead of the general action-bar mouseover rule.",
+        }
+    },
     {
         version = "v2.7.2",
         date = "September 27, 2026",

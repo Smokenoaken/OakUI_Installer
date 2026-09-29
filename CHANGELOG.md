@@ -1,3 +1,10 @@
+## v2.7.3
+
+- Updated the Forever Tank/DPS and Healer EllesmereUI profiles and added the dedicated Forever Edit Mode layout.
+- Restored smart damage-meter sizing with 5 Damage Done rows, 5 Overall Damage Done rows, and 3 Healing Done rows after the latest EUI changes.
+- Preserved Need, Greed, Disenchant, pass, roll, and winner messages when Chat Cleaner formats group loot.
+- Made Forever Action Bar 6 follow the Hide Cooldown Manager target-visibility choice instead of the general action-bar mouseover rule.
+
 ## v2.7.2
 
 - Added rounded-border support for EllesmereUI party-pet frames while preserving live health colors and updates.
