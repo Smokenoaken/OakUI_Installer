@@ -968,7 +968,11 @@ addonTable.RefreshOakDamageMeterWindows = function()
 
     for _, window in ipairs(windows) do
         if type(window) == "table" and type(window.Refresh) == "function" then
-            if not window._oakDamageMeterRefreshHooked then
+            -- EUI 9.3+ queues its own viewport repopulation and refreshes on
+            -- show. Keep Oak's old hooks only for builds without that API;
+            -- do not double-queue the modern row pool while EUI settles it.
+            local hasNativeRepopulation = type(window.QueueRepopulate) == "function"
+            if not hasNativeRepopulation and not window._oakDamageMeterRefreshHooked then
                 window._oakDamageMeterRefreshHooked = true
                 window._oakQueueDamageMeterRefresh = function()
                     if EnsureVisibilityDB().roundThinDamageMeters ~= true
@@ -1003,7 +1007,7 @@ addonTable.RefreshOakDamageMeterWindows = function()
                 end
             end
 
-            if window._oakQueueDamageMeterRefresh then
+            if not hasNativeRepopulation and window._oakQueueDamageMeterRefresh then
                 window._oakQueueDamageMeterRefresh()
             end
             pcall(window.Refresh)
@@ -1046,6 +1050,32 @@ local function EnsureDamageMeterRowVisibilityHook(window, index, bar)
     end)
 end
 
+local function ApplyDamageMeterLiveBarBorder(window, index, bar, state, hasNativeRepopulation)
+    if not bar then return end
+    if not hasNativeRepopulation then
+        EnsureDamageMeterRowVisibilityHook(window, index, bar)
+    end
+
+    local row = bar.row
+    local hasData = DamageMeterRowHasData(window, index, bar)
+    if state and hasData and bar.fill then
+        -- EUI applies Oak's border to the row itself. Mask only its background
+        -- here; a second fill-level border can outlive a pooled-row rebuild.
+        if row and bar._bg and addonTable.ApplyOakRoundThinMaskOnly then
+            addonTable.ApplyOakRoundThinMaskOnly(row, bar._bg, row)
+        end
+        RemoveStandaloneStatusBarRoundThin(bar.fill)
+    else
+        if bar.fill then RemoveStandaloneStatusBarRoundThin(bar.fill) end
+        if row and addonTable.RemoveOakRoundThinMaskOnly then
+            addonTable.RemoveOakRoundThinMaskOnly(row)
+        end
+        if not hasNativeRepopulation and row and row.IsShown and row:IsShown() and not hasData then
+            row:Hide()
+        end
+    end
+end
+
 local function ApplyDamageMeterLiveRowBorders(state)
     local module = GetEllesmereDamageMeterModule()
     local windows = module and module._windows
@@ -1054,26 +1084,15 @@ local function ApplyDamageMeterLiveRowBorders(state)
         -- below a meter window, so blank API placeholders cannot leave a
         -- standalone OakUI border visible after the row has no data.
         for _, window in ipairs(windows) do
+            local hasNativeRepopulation = type(window.QueueRepopulate) == "function"
             for index, bar in ipairs(window.rowPool or {}) do
-                EnsureDamageMeterRowVisibilityHook(window, index, bar)
-                local row = bar and bar.row
-                local hasData = DamageMeterRowHasData(window, index, bar)
-                if state and hasData and bar and bar.fill then
-                    -- EUI 12.1 already applies the Oak border natively to the
-                    -- row frame. Do not add a second border directly to the
-                    -- StatusBar; that fill-level overlay can survive EUI's
-                    -- pooled-row rebuild and leave an empty-looking row.
-                    if row and bar._bg and addonTable.ApplyOakRoundThinMaskOnly then
-                        addonTable.ApplyOakRoundThinMaskOnly(row, bar._bg, row)
-                    end
-                    RemoveStandaloneStatusBarRoundThin(bar.fill)
-                else
-                    if bar and bar.fill then RemoveStandaloneStatusBarRoundThin(bar.fill) end
-                    if row and addonTable.RemoveOakRoundThinMaskOnly then
-                        addonTable.RemoveOakRoundThinMaskOnly(row)
-                    end
-                    if row and row.IsShown and row:IsShown() and not hasData then row:Hide() end
-                end
+                ApplyDamageMeterLiveBarBorder(window, index, bar, state, hasNativeRepopulation)
+            end
+            -- Pinned Player is made by the same EUI row factory but lives
+            -- outside rowPool. Treat it identically so it lines up when EUI
+            -- pins the local player above or below the scrolling rows.
+            if window.stickyPlayer then
+                ApplyDamageMeterLiveBarBorder(window, nil, window.stickyPlayer, state, hasNativeRepopulation)
             end
         end
         return
@@ -2255,6 +2274,35 @@ local function RefreshEllesmereActionBars()
     RefreshEllesmereOptionsPage()
 end
 
+local function GetForeverCooldownActionBarSettings(create)
+    if not addonTable.IsForever then return nil end
+    local actionBars = GetEllesmereAddonProfile("EllesmereUIActionBars", create)
+    if type(actionBars) ~= "table" then return nil end
+    if type(actionBars.bars) ~= "table" then
+        if not create then return nil end
+        actionBars.bars = {}
+    end
+    if type(actionBars.bars.Bar6) ~= "table" then
+        if not create then return nil end
+        actionBars.bars.Bar6 = {}
+    end
+    return actionBars.bars.Bar6
+end
+
+local function ApplyForeverCooldownActionBarVisibility(state)
+    local settings = GetForeverCooldownActionBarSettings(true)
+    local apply = addonTable.ApplyForeverCooldownActionBarVisibility
+    if type(settings) ~= "table" or type(apply) ~= "function" then return false end
+    return apply(settings, state)
+end
+
+local function GetForeverCooldownActionBarVisibility()
+    local settings = GetForeverCooldownActionBarSettings(false)
+    local get = addonTable.GetForeverCooldownActionBarVisibility
+    if type(settings) ~= "table" or type(get) ~= "function" then return nil end
+    return get(settings)
+end
+
 local function SetEllesmereActionBars(state)
     EnsureVisibilityDB().actionBarsHidden = state == true
     local actionBars = GetEllesmereAddonProfile("EllesmereUIActionBars", true)
@@ -2268,7 +2316,10 @@ local function SetEllesmereActionBars(state)
     }
     for key, settings in pairs(actionBars.bars) do
         if type(settings) == "table" then
-            if alwaysVisibleSpecialBars[key] then
+            if addonTable.IsForever and key == "Bar6" then
+                -- Forever uses this bar as its Cooldown Manager replacement.
+                -- Its target visibility is applied below from the CDM choice.
+            elseif alwaysVisibleSpecialBars[key] then
                 settings.barVisibility = "always"
                 settings.mouseoverEnabled = false
                 settings.alwaysHidden = false
@@ -2301,6 +2352,7 @@ local function SetEllesmereActionBars(state)
             end
         end
     end
+    ApplyForeverCooldownActionBarVisibility(EnsureVisibilityDB().cdmFading == true)
     RefreshEllesmereActionBars()
     if addonTable.RefreshEllesmereSpecialActionBarVisibility then
         addonTable.RefreshEllesmereSpecialActionBarVisibility()
@@ -2313,7 +2365,10 @@ local function GetEllesmereActionBars()
     if type(bars) == "table" then
         local found = false
         for key, settings in pairs(bars) do
-            if type(settings) == "table" and key ~= "ExtraActionButton" and key ~= "QueueStatus" then
+            if type(settings) == "table"
+                and key ~= "ExtraActionButton"
+                and key ~= "QueueStatus"
+                and not (addonTable.IsForever and key == "Bar6") then
                 local visibility = settings.barVisibility or "always"
                 local isEnabled = settings.enabled ~= false and visibility ~= "never" and settings.alwaysHidden ~= true
                 if isEnabled then
@@ -2462,30 +2517,47 @@ end
 
 local function SetEllesmereCDM(state)
     EnsureVisibilityDB().cdmFading = state == true
-    local cdm = GetEllesmereAddonProfile("EllesmereUICooldownManager", true)
-    local bars = cdm and cdm.cdmBars and cdm.cdmBars.bars
-    if type(bars) == "table" then
-        local wanted = { cooldowns = true, utility = true, buffs = true }
-        for _, key in ipairs({ "cooldowns", "utility", "buffs" }) do
-            if type(bars[key]) == "table" then
-                bars[key].barVisibility = "always"
-                SetEllesmereHideNoTargetOption(bars[key], state)
+    if not addonTable.IsForever then
+        local cdm = GetEllesmereAddonProfile("EllesmereUICooldownManager", true)
+        local bars = cdm and cdm.cdmBars and cdm.cdmBars.bars
+        if type(bars) == "table" then
+            local wanted = { cooldowns = true, utility = true, buffs = true }
+            for _, key in ipairs({ "cooldowns", "utility", "buffs" }) do
+                if type(bars[key]) == "table" then
+                    bars[key].barVisibility = "always"
+                    SetEllesmereHideNoTargetOption(bars[key], state)
+                end
             end
-        end
-        for _, bar in ipairs(bars) do
-            if type(bar) == "table" and wanted[bar.key] then
-                bar.barVisibility = "always"
-                SetEllesmereHideNoTargetOption(bar, state)
+            for _, bar in ipairs(bars) do
+                if type(bar) == "table" and wanted[bar.key] then
+                    bar.barVisibility = "always"
+                    SetEllesmereHideNoTargetOption(bar, state)
+                end
             end
+            RefreshEllesmereCDM()
         end
-        RefreshEllesmereCDM()
     end
 
     SetEllesmereResourceBarsVisibility(state)
+    if ApplyForeverCooldownActionBarVisibility(state) then
+        RefreshEllesmereActionBars()
+    end
 end
 
 local function GetEllesmereCDM()
     local resourceHidden = GetEllesmereResourceBarsVisibility()
+    if addonTable.IsForever then
+        local actionBarHidden = GetForeverCooldownActionBarVisibility()
+        if resourceHidden == false or actionBarHidden == false then
+            EnsureVisibilityDB().cdmFading = false
+            return false
+        end
+        if resourceHidden ~= nil or actionBarHidden ~= nil then
+            EnsureVisibilityDB().cdmFading = true
+            return true
+        end
+        return EnsureVisibilityDB().cdmFading == true
+    end
     local cdm = GetEllesmereAddonProfile("EllesmereUICooldownManager")
     local bars = cdm and cdm.cdmBars and cdm.cdmBars.bars
     if type(bars) == "table" then
@@ -2874,8 +2946,12 @@ function addonTable.BuildVisibilityUI(parentFrame)
 
         AddSection("Visibility", leftX, -78)
         AddOption("Hide Unit Frames", SetUnitframes, GetUnitframes, "Hides Player/Pet without a target. Smart Player controls EllesmereUI's native Player health reveal separately. Disabling this sets Player/Pet Visibility to Always. Requires a UI reload to finish applying.", leftX, -98, colWidth, true)
-        AddOption("Hide Cooldown Manager", SetCDMFading, GetCDMFading, "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -98, colWidth)
-        AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover. Requires a UI reload to finish applying.", leftX, -98 + rowGap, colWidth, true)
+        AddOption("Hide Cooldown Manager", SetCDMFading, GetCDMFading, addonTable.IsForever
+            and "Toggles Action Bar 6 and Ellesmere's Resource Bars between Always and Hide without Target."
+            or "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -98, colWidth)
+        AddOption("Hide Action Bars", SetMouseover, GetMouseover, addonTable.IsForever
+            and "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover. Action Bar 6 follows Hide Cooldown Manager. Requires a UI reload to finish applying."
+            or "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover. Requires a UI reload to finish applying.", leftX, -98 + rowGap, colWidth, true)
         AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade. Requires a UI reload to finish applying.", rightX, -98 + rowGap, colWidth, true)
         AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -98 + rowGap * 2, colWidth)
         AddSlider("Chat Line Fade Delay", addonTable.SetOakChatLineFadeDelay, addonTable.GetOakChatLineFadeDelay, "Controls how long each chat line stays visible before it begins fading. This adjusts EUI's active chat profile delay.", rightX, -158, colWidth, 1, 120, 1, "s")
@@ -2936,6 +3012,9 @@ CleanupFrame:RegisterEvent("PLAYER_LOGIN")
 CleanupFrame:SetScript("OnEvent", function(self)
     C_Timer.After(1, function()
         MigrateLegacyHealthVisibilityToEllesmere()
+        if addonTable.ApplyOakDamageMeterRowLayout then
+            pcall(addonTable.ApplyOakDamageMeterRowLayout)
+        end
         if addonTable.ApplyOakRoundThinBordersIfEnabled then
             pcall(addonTable.ApplyOakRoundThinBordersIfEnabled)
         end

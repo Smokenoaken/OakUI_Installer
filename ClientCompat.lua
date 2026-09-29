@@ -55,6 +55,72 @@ addonTable.ForeverExcludedModules = {
     EllesmereUIQuickdraw = true,
 }
 
+-- Forever uses Action Bar 6 in place of the Retail Cooldown Manager. Keep
+-- this client-specific translation here so Retail never changes Bar 6.
+local FOREVER_ACTION_BAR_VISIBILITY_KEYS = {
+    "visOnlyInstances", "visHideInstances",
+    "visOnlyDungeons", "visHideDungeons",
+    "visHideHousing", "visOnlyHousing",
+    "visHideMounted", "visOnlyMounted",
+    "visHideDragonriding", "visOnlySkyriding",
+    "visHideNoTarget", "visHideWithTarget",
+    "visHideNoEnemy", "visHideWithEnemy",
+    "visOnlyResting", "visHideResting",
+    "visOnlyVehicle", "visHideVehicle",
+    "visOnlyPartyMode", "visHidePartyMode",
+}
+
+local function GetForeverActionBarVisibilityKeys()
+    return type(_G.EllesmereUI) == "table"
+        and type(_G.EllesmereUI.VIS_OPT_KEYS) == "table"
+        and _G.EllesmereUI.VIS_OPT_KEYS
+        or FOREVER_ACTION_BAR_VISIBILITY_KEYS
+end
+
+function addonTable.ApplyForeverCooldownActionBarVisibility(settings, hideWithoutTarget)
+    if type(settings) ~= "table" then return false end
+
+    local savedAlpha = settings._savedBarAlpha
+    settings.barVisibility = "always"
+    settings.alwaysHidden = false
+    settings.mouseoverEnabled = false
+    settings.combatHideEnabled = false
+    settings.combatShowEnabled = false
+    settings.visibilityModes = nil
+    settings.visibilityMatch = nil
+    settings.visibilityOverride = nil
+    if savedAlpha ~= nil then
+        settings.mouseoverAlpha = savedAlpha
+        settings._savedBarAlpha = nil
+    elseif settings.mouseoverAlpha == nil or settings.mouseoverAlpha <= 0 then
+        settings.mouseoverAlpha = 1
+    end
+
+    for _, key in ipairs(GetForeverActionBarVisibilityKeys()) do
+        settings[key] = false
+    end
+    settings.visHideNoTarget = hideWithoutTarget == true
+    return true
+end
+
+function addonTable.GetForeverCooldownActionBarVisibility(settings)
+    if type(settings) ~= "table" then return nil end
+    if settings.barVisibility ~= "always"
+        or settings.alwaysHidden == true
+        or settings.mouseoverEnabled == true
+        or settings.visibilityModes ~= nil
+        or settings.visibilityOverride ~= nil
+        or settings.visHideNoTarget ~= true then
+        return false
+    end
+    for _, key in ipairs(GetForeverActionBarVisibilityKeys()) do
+        if key ~= "visHideNoTarget" and settings[key] == true then
+            return false
+        end
+    end
+    return true
+end
+
 -- Operates only on a newly decoded OakUI payload, never on existing profiles.
 -- EUI merges omitted modules from the player's current Forever profile.
 function addonTable.PrepareForeverPayload(payload)

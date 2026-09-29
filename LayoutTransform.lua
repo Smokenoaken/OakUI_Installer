@@ -64,6 +64,7 @@ local DAMAGE_METER_VISIBLE_ROWS = {
     [2] = 5, -- Damage Done
     [3] = 3, -- Healing Done
 }
+local DAMAGE_METER_ROW_LAYOUT_VERSION = 2
 
 local function EnsureDB()
     if not OakUI_DB then OakUI_DB = {} end
@@ -559,22 +560,50 @@ local function ComputeDBMHugeBarGap(preset)
     return DBM_HUGE_BAR_TARGET_GAP - nudge
 end
 
-local function DamageMeterPixelMultiplier(preset)
-    preset = preset or addonTable.GetOakLayoutPreset()
-    local height = tonumber(preset and preset.height) or BASE_HEIGHT
-    local scale = tonumber(preset and preset.scale) or BASE_UI_SCALE
-    if height <= 0 then height = BASE_HEIGHT end
-    if scale <= 0 then scale = BASE_UI_SCALE end
-    return (768 / height) / scale
+local function GetDamageMeterModuleNamespace()
+    local EUI = _G.EllesmereUI
+    return EUI and EUI._ModuleNS and EUI._ModuleNS.EllesmereUIDamageMeters
+end
+
+local function GetDamageMeterSettings(profile)
+    return profile
+        and profile.addons
+        and profile.addons.EllesmereUIDamageMeters
+        and profile.addons.EllesmereUIDamageMeters.dm
+end
+
+local function ComputeDamageMeterChromeHeight(dm)
+    local headerHeight = tonumber(dm and dm.hdrHeight) or 22
+    local inset = 0
+    local moduleNS = GetDamageMeterModuleNamespace()
+
+    if dm and dm.useClassicStyle == true then
+        inset = tonumber(moduleNS and moduleNS.DM_CLASSIC_INSET) or 5
+    elseif addonTable.IsForever and dm and dm.useBlizzardStyle == true and dm.useForeverStyle == true then
+        local foreverStyle = moduleNS and moduleNS.DM_FV
+        local railScale = tonumber(foreverStyle and foreverStyle.hdrRail) or 0.25
+        headerHeight = headerHeight + math.floor((headerHeight * railScale) + 0.5)
+        inset = tonumber(foreverStyle and foreverStyle.inset) or 3
+    end
+
+    return headerHeight + (inset * 2)
+end
+
+local function ComputeDamageMeterRowStride(dm)
+    local barHeight = tonumber(dm and dm.barHeight) or 22
+    local barSpacing = tonumber(dm and dm.barSpacing) or 2
+    local moduleNS = GetDamageMeterModuleNamespace()
+    if moduleNS and type(moduleNS._RowMetrics) == "function" then
+        local ok, _, _, stride = pcall(moduleNS._RowMetrics, barHeight, barSpacing)
+        if ok and tonumber(stride) and stride > 0 then return stride end
+    end
+    return barHeight + barSpacing
 end
 
 ComputeDamageMeterHeightForRows = function(dm, rows, preset)
     rows = tonumber(rows) or 0
-    local headerHeight = tonumber(dm and dm.hdrHeight) or 22
-    local barHeight = tonumber(dm and dm.barHeight) or 22
-    local barSpacing = tonumber(dm and dm.barSpacing) or 2
-    local mult = DamageMeterPixelMultiplier(preset)
-    return math.floor(headerHeight + (rows * ((barHeight + barSpacing) * mult)) + 0.5)
+    local height = ComputeDamageMeterChromeHeight(dm) + (rows * ComputeDamageMeterRowStride(dm))
+    return math.ceil(height - 0.001)
 end
 
 local function PatchDamageMeterRowHeights(dm, preset)
@@ -593,10 +622,7 @@ local function PatchDamageMeterRowHeights(dm, preset)
 end
 
 local function PatchDamageMeterWindowSizes(profile, preset)
-    local dm = profile
-        and profile.addons
-        and profile.addons.EllesmereUIDamageMeters
-        and profile.addons.EllesmereUIDamageMeters.dm
+    local dm = GetDamageMeterSettings(profile)
     if type(dm) ~= "table" or type(dm.windows) ~= "table" then return false end
 
     local targetSizeScale = LayoutSizeScaleForPreset(preset)
@@ -614,6 +640,49 @@ local function PatchDamageMeterWindowSizes(profile, preset)
     dm._oakLayoutSizeScale = targetSizeScale
 
     changed = PatchDamageMeterRowHeights(dm, preset) or changed
+    if dm._oakDamageMeterRowsVersion ~= DAMAGE_METER_ROW_LAYOUT_VERSION then
+        dm._oakDamageMeterRowsVersion = DAMAGE_METER_ROW_LAYOUT_VERSION
+        changed = true
+    end
+
+    return changed
+end
+
+function addonTable.ApplyOakDamageMeterRowLayout(db)
+    db = db or _G.EllesmereUIDB
+    if type(db) ~= "table" or type(db.profiles) ~= "table" then return false end
+
+    local preset = addonTable.GetOakLayoutPreset()
+    local activeName = db.activeProfile or db.profile or GetActiveEllesmereProfileName()
+    local changed = false
+    local activeChanged = false
+
+    for profileName, profile in pairs(db.profiles) do
+        local dm = GetDamageMeterSettings(profile)
+        if type(dm) == "table" and type(dm.windows) == "table"
+            and (dm._oakLayoutSizeScale ~= nil or GetProfileRole(profileName) ~= nil)
+            and dm._oakDamageMeterRowsVersion ~= DAMAGE_METER_ROW_LAYOUT_VERSION then
+            local profileChanged = PatchDamageMeterRowHeights(dm, preset)
+            dm._oakDamageMeterRowsVersion = DAMAGE_METER_ROW_LAYOUT_VERSION
+            changed = true
+            if profileChanged and profileName == activeName then activeChanged = true end
+        end
+    end
+
+    if activeChanged then
+        local liveDB = _G._EDM_DB
+        local liveDM = liveDB and liveDB.profile and liveDB.profile.dm
+        if type(liveDM) == "table" and type(liveDM.windows) == "table" then
+            PatchDamageMeterRowHeights(liveDM, preset)
+        end
+
+        local moduleNS = GetDamageMeterModuleNamespace()
+        if moduleNS and type(moduleNS.ApplyDMSize) == "function" then
+            pcall(moduleNS.ApplyDMSize)
+        elseif type(_G._EDM_Apply) == "function" then
+            pcall(_G._EDM_Apply)
+        end
+    end
 
     return changed
 end

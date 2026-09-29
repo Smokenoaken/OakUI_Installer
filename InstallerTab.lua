@@ -644,8 +644,12 @@ function addonTable.BuildInstallerUI(parentFrame)
             RefreshUnitFrameOptions()
         end, -118, 0, "visibility-unitframes")
         groupRow = MakeCheckbox(page, "Show Player In Group", "Show the hidden Player frame while in a party or raid.", function() return state.visibility.showPlayerInGroup end, function(v) state.visibility.showPlayerInGroup = v end, -158, 0, "visibility-playergroup")
-        cdmRow = MakeCheckbox(page, "Hide Cooldown Manager", "Hide EUI CDM and resource bars without a target.", function() return state.visibility.cdm end, function(v) state.visibility.cdm = v end, -198, 0, "visibility-cdm")
-        actionBarsRow = MakeCheckbox(page, "Hide Action Bars", "Use mouseover visibility for EUI action bars.", function() return state.visibility.actionBars end, function(v) state.visibility.actionBars = v end, -238, 0, "visibility-actionbars")
+        cdmRow = MakeCheckbox(page, "Hide Cooldown Manager", addonTable.IsForever
+            and "Hide Action Bar 6 and EUI resource bars without a target."
+            or "Hide EUI CDM and resource bars without a target.", function() return state.visibility.cdm end, function(v) state.visibility.cdm = v end, -198, 0, "visibility-cdm")
+        actionBarsRow = MakeCheckbox(page, "Hide Action Bars", addonTable.IsForever
+            and "Use mouseover visibility for EUI action bars. Action Bar 6 follows the Cooldown Manager choice."
+            or "Use mouseover visibility for EUI action bars.", function() return state.visibility.actionBars end, function(v) state.visibility.actionBars = v end, -238, 0, "visibility-actionbars")
         chatLineFadeRow = MakeCheckbox(page, "Chat Line Fade", "Use Blizzard per-line fading instead of EUI full-text idle fade.", function() return state.visibility.chatLineFade and not state.visibility.disableChatFade end, function(v) state.visibility.chatLineFade = v; if v then state.visibility.disableChatFade = false end end, -288, 0, "visibility-chatfade")
         disableChatFadeRow = MakeCheckbox(page, "Disable Chat Fade", "Set EUI Idle Fade Strength to 0 and keep chat visible.", function() return state.visibility.disableChatFade end, function(v) state.visibility.disableChatFade = v; if v then state.visibility.chatLineFade = false end end, -328, 0, "visibility-chatvisible")
 

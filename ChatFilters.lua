@@ -98,6 +98,87 @@ local function MatchLootGlobal(msg, globalName)
     return string.match(msg, P[fmt])
 end
 
+local LOOT_ROLL_GLOBAL_NAMES = {
+    "LOOT_ROLL_ALL_PASSED",
+    "LOOT_ROLL_DISENCHANT",
+    "LOOT_ROLL_DISENCHANT_SELF",
+    "LOOT_ROLL_GREED",
+    "LOOT_ROLL_GREED_SELF",
+    "LOOT_ROLL_NEED",
+    "LOOT_ROLL_NEED_SELF",
+    "LOOT_ROLL_PASSED",
+    "LOOT_ROLL_PASSED_AUTO",
+    "LOOT_ROLL_PASSED_AUTO_FEMALE",
+    "LOOT_ROLL_PASSED_SELF",
+    "LOOT_ROLL_PASSED_SELF_AUTO",
+    "LOOT_ROLL_ROLLED_DE",
+    "LOOT_ROLL_ROLLED_GREED",
+    "LOOT_ROLL_ROLLED_NEED",
+    "LOOT_ROLL_ROLLED_NEED_ROLE_BONUS",
+    "LOOT_ROLL_WON",
+    "LOOT_ROLL_WON_NO_SPAM_DE",
+    "LOOT_ROLL_WON_NO_SPAM_GREED",
+    "LOOT_ROLL_WON_NO_SPAM_NEED",
+    "LOOT_ROLL_YOU_WON",
+    "LOOT_ROLL_YOU_WON_NO_SPAM_DE",
+    "LOOT_ROLL_YOU_WON_NO_SPAM_GREED",
+    "LOOT_ROLL_YOU_WON_NO_SPAM_NEED",
+}
+
+local exactGlobalPatterns = {}
+
+local function EscapeLuaPatternText(text)
+    return (text:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1"))
+end
+
+local function MakeExactGlobalPattern(format)
+    local cached = exactGlobalPatterns[format]
+    if cached then return cached end
+
+    local parts = { "^" }
+    local cursor = 1
+    while cursor <= #format do
+        local percent = string.find(format, "%", cursor, true)
+        if not percent then
+            parts[#parts + 1] = EscapeLuaPatternText(string.sub(format, cursor))
+            break
+        end
+
+        if percent > cursor then
+            parts[#parts + 1] = EscapeLuaPatternText(string.sub(format, cursor, percent - 1))
+        end
+
+        local tail = string.sub(format, percent)
+        local token, conversion = string.match(tail, "^(%%[%d]*%$?([sd]))")
+        if token then
+            parts[#parts + 1] = conversion == "d" and "%d+" or ".+"
+            cursor = percent + #token
+        elseif string.sub(format, percent + 1, percent + 1) == "%" then
+            parts[#parts + 1] = "%%"
+            cursor = percent + 2
+        else
+            parts[#parts + 1] = "%%"
+            cursor = percent + 1
+        end
+    end
+    parts[#parts + 1] = "$"
+
+    local pattern = table.concat(parts)
+    exactGlobalPatterns[format] = pattern
+    return pattern
+end
+
+local function IsLootRollMessage(msg)
+    if type(msg) ~= "string" then return false end
+    for _, globalName in ipairs(LOOT_ROLL_GLOBAL_NAMES) do
+        local format = _G[globalName]
+        if type(format) == "string" and string.match(msg, MakeExactGlobalPattern(format)) then
+            return true
+        end
+    end
+    return false
+end
+
 local function ExtractLootPlayer(msg, author)
     local player = MatchLootGlobal(msg, "LOOT_ITEM_MULTIPLE")
         or MatchLootGlobal(msg, "LOOT_ITEM")
@@ -252,6 +333,13 @@ local function FilterLoot(self, event, msg, author, ...)
     end
     
     if event == "CHAT_MSG_LOOT" then
+        -- Need/Greed/Disenchant choices, rolls, passes, and winners already
+        -- carry the useful player and result text. Rewriting every linked
+        -- CHAT_MSG_LOOT line reduced all of these to repeated "Loot" entries.
+        if IsLootRollMessage(msg) then
+            return false, msg, author, ...
+        end
+
         local count = string.match(msg, "x(%d+)")
         local item = string.match(msg, "(|c.-|H.-|h.-|h|r)")
         local player = ExtractLootPlayer(msg, author)
