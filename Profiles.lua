@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.4"
+P.VERSION = "2.7.5"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -148,6 +148,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.5",
+        date = "October 8, 2026",
+        notes = {
+            "Include the chat-filter fix so party quest prerequisite warnings are no longer rewritten as quest completions.",
+            "Includes the rounded-border improvements, live radius preview, rounded icons, and updated WoW Forever profiles from v2.7.4.",
+        }
+    },
     {
         version = "v2.7.4",
         date = "October 8, 2026",

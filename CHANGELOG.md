@@ -1,3 +1,8 @@
+## v2.7.5
+
+- Include the chat-filter fix so party quest prerequisite warnings are no longer rewritten as quest completions.
+- Includes the rounded-border improvements, live radius preview, rounded icons, and updated WoW Forever profiles from v2.7.4.
+
 ## v2.7.4
 
 - Use EUI native Corner Radius for supported frames and bars while preserving Solid, Glow, and Shadow border styles.
