@@ -84,6 +84,11 @@ local function RegisterOakRoundThinBorderRenderer()
 
     local function HideOakRoundThinBorder(borderFrame)
         local state = GetBorderState(borderFrame, false)
+        if state and state.native then
+            E.RoundCorners(state.nativeOwner or borderFrame, 0)
+            if E.PP and E.PP.HideBorder then E.PP.HideBorder(borderFrame) end
+        end
+        if state and state.icon then addonTable.RemoveOakIconCorners(state.icon) end
         local texture = state and state.texture
         if texture then texture:Hide() end
         local entries = state and state.maskEntries
@@ -422,12 +427,37 @@ local function RegisterOakRoundThinBorderRenderer()
         end
     end
 
+    local function ShapeOakMask(mask, anchor)
+        if addonTable.HasOakNativeCorners() then
+            local radius = addonTable.GetOakCornerRadius()
+            local w, h = anchor:GetSize()
+            if not (issecretvalue and (issecretvalue(w) or issecretvalue(h))) then
+                radius = math.min(radius, math.max(1, math.floor((math.min(w, h) - 1) / 2)))
+            end
+            if radius == 0 then return false end
+            mask:SetTexture("Interface\\AddOns\\EllesmereUI\\media\\rounded\\rounded-" .. radius .. ".tga", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            mask:SetTextureSliceMargins(radius, radius, radius, radius)
+        else
+            mask:SetTexture(ROUND_THIN_MASK_PATH, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            mask:SetTextureSliceMargins(margins.left, margins.top, margins.right, margins.bottom)
+        end
+        if mask.SetTextureSliceMode and Enum and Enum.UITextureSliceMode then
+            mask:SetTextureSliceMode(Enum.UITextureSliceMode.Stretched)
+        end
+        return true
+    end
+
     local function ApplyOakRoundThinMask(borderFrame, extraTarget)
         local owner = borderFrame and borderFrame:GetParent()
         if not owner then return end
         local state = GetBorderState(borderFrame, true)
 
         RemoveMaskEntries(state.maskEntries)
+        if addonTable.HasOakNativeCorners() and addonTable.GetOakCornerRadius() == 0 then
+            state.maskEntries = nil
+            state.maskReady = true
+            return
+        end
 
         local groups = CollectOakRoundThinMaskGroups(owner, borderFrame, extraTarget)
         local masks = state.masksByParent
@@ -449,13 +479,7 @@ local function RegisterOakRoundThinBorderRenderer()
             end
 
             if mask then
-                mask:SetTexture(ROUND_THIN_MASK_PATH, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-                if mask.SetTextureSliceMargins then
-                    mask:SetTextureSliceMargins(margins.left, margins.top, margins.right, margins.bottom)
-                end
-                if mask.SetTextureSliceMode and Enum and Enum.UITextureSliceMode then
-                    mask:SetTextureSliceMode(Enum.UITextureSliceMode.Stretched)
-                end
+                ShapeOakMask(mask, group.anchorFrame)
                 mask:ClearAllPoints()
                 mask:SetAllPoints(group.anchorFrame)
                 mask:Show()
@@ -549,6 +573,7 @@ local function RegisterOakRoundThinBorderRenderer()
         if not next(targetSet) then return false end
 
         RemoveOakRoundThinMaskOnly(maskParent)
+        if addonTable.HasOakNativeCorners() and addonTable.GetOakCornerRadius() == 0 then return false end
 
         local state = maskOnlyStates[maskParent]
         if not state then
@@ -565,13 +590,7 @@ local function RegisterOakRoundThinBorderRenderer()
             state.mask = mask
         end
 
-        mask:SetTexture(ROUND_THIN_MASK_PATH, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-        if mask.SetTextureSliceMargins then
-            mask:SetTextureSliceMargins(margins.left, margins.top, margins.right, margins.bottom)
-        end
-        if mask.SetTextureSliceMode and Enum and Enum.UITextureSliceMode then
-            mask:SetTextureSliceMode(Enum.UITextureSliceMode.Stretched)
-        end
+        ShapeOakMask(mask, anchorFrame)
         mask:ClearAllPoints()
         mask:SetAllPoints(anchorFrame)
         mask:Show()
@@ -590,14 +609,73 @@ local function RegisterOakRoundThinBorderRenderer()
         return true
     end
 
-    local function ApplyOakRoundThinBorder(borderFrame, size, r, g, b, a, offsetOverride, offsetYOverride, shiftX, shiftY, extraTarget, borderOnly)
+    local function NativeBodyOptions(state, owner, borderFrame, extraTarget, borderOnly, addonKey)
+        local opts = state.roundOpts
+        if not opts then
+            opts = { roots = {}, textures = {}, border = borderFrame, rect = borderFrame, style = "solid" }
+            state.roundOpts = opts
+        end
+        local roots, textures = opts.roots, opts.textures
+        for i = 1, 6 do roots[i] = nil end
+        for i = 1, 8 do textures[i] = nil end
+        opts.clip = nil
+        local icon
+        if borderOnly or not owner or owner == _G.UIParent or IsForbiddenFrame(owner) then
+            return borderFrame, false
+        end
+        if addonKey == "damagemeters" then
+            -- Mask the row background and fill only. EUI owns the icon rendering.
+            local slot = 0
+            for _, region in ipairs({ owner:GetRegions() }) do
+                if region:GetObjectType() == "Texture" and slot < 7 then
+                    slot = slot + 1
+                    textures[slot] = region
+                end
+            end
+            for _, child in ipairs(GetFrameChildrenSafe(owner) or {}) do
+                if IsWidgetObjectType(child, "StatusBar") then
+                    textures[8] = child:GetStatusBarTexture()
+                    for _, region in ipairs({ child:GetRegions() }) do
+                        if region ~= textures[8] and region:GetObjectType() == "Texture" then
+                            icon = region
+                            break
+                        end
+                    end
+                    break
+                end
+            end
+        elseif owner._bar and owner._barClip then
+            roots[1] = owner._barClip
+            icon = owner._icon
+            textures[1] = owner._bg
+            opts.clip = owner._barClip
+        elseif IsWidgetObjectType(owner, "StatusBar") then
+            -- Detached icons stay outside this bar's shape. Never read fill geometry.
+            textures[1] = owner:GetStatusBarTexture()
+            if not (owner._iconFrame and owner._iconFrame._pbd) then icon = owner.Icon end
+            textures[2], textures[3], textures[4] = owner.bg, owner.BG, owner._bg
+            textures[5] = owner._modernBase
+            textures[6], textures[7] = owner.castTintLayer, owner._shieldedTint
+            local ok, parent = CallWidgetMethodSafe(extraTarget, "GetParent")
+            if ok and parent == owner then textures[8] = extraTarget end
+        else
+            return borderFrame, false
+        end
+        if state.icon and state.icon ~= icon then addonTable.RemoveOakIconCorners(state.icon) end
+        state.icon = icon
+        if icon then addonTable.ApplyOakIconCorners(icon) end
+        return owner, true
+    end
+
+    local function ApplyOakRoundThinBorder(borderFrame, size, r, g, b, a, offsetOverride, offsetYOverride, shiftX, shiftY, extraTarget, borderOnly, addonKey)
         if not borderFrame or not size or size <= 0 then
             HideOakRoundThinBorder(borderFrame)
             if borderFrame then borderFrame:Hide() end
             return
         end
 
-        HideEllesmereBorderSystems(borderFrame)
+        if IsForbiddenFrame(borderFrame) then return end
+        if not addonTable.HasOakNativeCorners() then HideEllesmereBorderSystems(borderFrame) end
         local state = GetBorderState(borderFrame, true)
         local owner = borderFrame:GetParent()
         local isLiveEUIUnitFrame = owner and (owner._barClip or owner.Health)
@@ -614,37 +692,51 @@ local function RegisterOakRoundThinBorderRenderer()
             ClearOakRoundThinMasks(borderFrame)
         end
 
-        local texture = state.texture
-        if not texture then
-            texture = borderFrame:CreateTexture(nil, "OVERLAY", nil, 7)
-            texture:SetTexture(ROUND_THIN_BORDER_PATH)
-            if texture.SetTextureSliceMargins then
-                texture:SetTextureSliceMargins(margins.left, margins.top, margins.right, margins.bottom)
-            end
-            if texture.SetTextureSliceMode and Enum and Enum.UITextureSliceMode then
-                texture:SetTextureSliceMode(Enum.UITextureSliceMode.Stretched)
-            end
-            state.texture = texture
+        if addonTable.HasOakNativeCorners() then
+            if state.texture then state.texture:Hide() end
+            originalApplyBorderStyle(borderFrame, size, r, g, b, a, "solid",
+                offsetOverride, offsetYOverride, shiftX, shiftY)
+            state.native = true
+            local nativeOwner, nativeBody = NativeBodyOptions(state, owner, borderFrame, extraTarget, borderOnly, addonKey)
+            if state.nativeOwner and state.nativeOwner ~= nativeOwner then E.RoundCorners(state.nativeOwner, 0) end
+            state.nativeOwner, state.nativeBody = nativeOwner, nativeBody
+            if nativeBody then ClearOakRoundThinMasks(borderFrame) end
+            E.RoundCorners(nativeOwner, addonTable.GetOakCornerRadius(), state.roundOpts)
+            borderFrame:Show()
         else
-            texture:SetTexture(ROUND_THIN_BORDER_PATH)
+            local texture = state.texture
+            if not texture then
+                texture = borderFrame:CreateTexture(nil, "OVERLAY", nil, 7)
+                texture:SetTexture(ROUND_THIN_BORDER_PATH)
+                if texture.SetTextureSliceMargins then
+                    texture:SetTextureSliceMargins(margins.left, margins.top, margins.right, margins.bottom)
+                end
+                if texture.SetTextureSliceMode and Enum and Enum.UITextureSliceMode then
+                    texture:SetTextureSliceMode(Enum.UITextureSliceMode.Stretched)
+                end
+                state.texture = texture
+            else
+                texture:SetTexture(ROUND_THIN_BORDER_PATH)
+            end
+
+            local padX = ROUND_THIN_BORDER_OUTSET + GetOffset(offsetOverride, 0)
+            local padY = ROUND_THIN_BORDER_OUTSET + GetOffset(offsetYOverride, 0)
+            local sx = shiftX or 0
+            local sy = shiftY or 0
+
+            texture:ClearAllPoints()
+            texture:SetPoint("TOPLEFT", borderFrame, "TOPLEFT", -padX + sx, padY + sy)
+            texture:SetPoint("BOTTOMRIGHT", borderFrame, "BOTTOMRIGHT", padX + sx, -padY + sy)
+            texture:SetVertexColor(r or 0, g or 0, b or 0, a or 1)
+            texture:Show()
+            borderFrame:Show()
+
         end
-
-        local padX = ROUND_THIN_BORDER_OUTSET + GetOffset(offsetOverride, 0)
-        local padY = ROUND_THIN_BORDER_OUTSET + GetOffset(offsetYOverride, 0)
-        local sx = shiftX or 0
-        local sy = shiftY or 0
-
-        texture:ClearAllPoints()
-        texture:SetPoint("TOPLEFT", borderFrame, "TOPLEFT", -padX + sx, padY + sy)
-        texture:SetPoint("BOTTOMRIGHT", borderFrame, "BOTTOMRIGHT", padX + sx, -padY + sy)
-        texture:SetVertexColor(r or 0, g or 0, b or 0, a or 1)
-        texture:Show()
-        borderFrame:Show()
 
         -- EUI's live unit frames can replace/reparent bar regions during a
         -- restyle. Reattach their masks each pass; legacy layouts retain their
         -- stable, bounded mask set unless their target actually changes.
-        if needsMaskRefresh then
+        if needsMaskRefresh and not state.nativeBody then
             ApplyOakRoundThinMask(borderFrame, extraTarget)
         end
         if not borderOnly and _G.C_Timer and _G.C_Timer.After and not state.deferredRefreshDone and not state.refreshPending then
@@ -655,8 +747,13 @@ local function RegisterOakRoundThinBorderRenderer()
                     current.refreshPending = nil
                     current.deferredRefreshDone = true
                 end
-                if current and current.texture and current.texture:IsShown() then
-                    ApplyOakRoundThinMask(borderFrame, current.extraTarget)
+                if current and (current.native or (current.texture and current.texture:IsShown())) then
+                    if current.nativeBody then
+                        NativeBodyOptions(current, owner, borderFrame, current.extraTarget, borderOnly, addonKey)
+                        E.RoundCorners(current.nativeOwner, addonTable.GetOakCornerRadius(), current.roundOpts)
+                    else
+                        ApplyOakRoundThinMask(borderFrame, current.extraTarget)
+                    end
                 end
             end)
         end
@@ -670,7 +767,7 @@ local function RegisterOakRoundThinBorderRenderer()
     addonTable.RemoveOakRoundThinCastTintInset = RemoveOakRoundThinCastTintInset
     addonTable.HasOakRoundThinBorderFrame = function(borderFrame)
         local state = borderFrame and borderStates[borderFrame]
-        return state and state.texture and state.texture:IsShown() or false
+        return state and (state.native or (state.texture and state.texture:IsShown())) or false
     end
     addonTable.HasOakRoundThinMaskOnly = function(maskParent)
         local state = maskParent and maskOnlyStates[maskParent]
@@ -681,7 +778,7 @@ local function RegisterOakRoundThinBorderRenderer()
         if IsOakRoundThinBorderKey(textureKey) then
             return ApplyOakRoundThinBorder(borderFrame, size, r, g, b, a,
                 offsetOverride, offsetYOverride, shiftX, shiftY, nil,
-                addonKey == "chat" and borderFrame and borderFrame:GetParent() == _G.UIParent)
+                addonKey == "chat" and borderFrame and borderFrame:GetParent() == _G.UIParent, addonKey)
         end
 
         HideOakRoundThinBorder(borderFrame)
@@ -690,6 +787,11 @@ local function RegisterOakRoundThinBorderRenderer()
 
     function E.SetBorderStyleColor(borderFrame, r, g, b, a)
         local state = borderFrame and borderStates[borderFrame]
+        if state and state.native then
+            if originalSetBorderStyleColor then originalSetBorderStyleColor(borderFrame, r, g, b, a) end
+            E.RoundedBorderColor(borderFrame, r, g, b, a)
+            return
+        end
         local texture = state and state.texture
         if texture and texture:IsShown() then
             texture:SetVertexColor(r or 0, g or 0, b or 0, a or 1)
@@ -708,7 +810,7 @@ local function RegisterOakRoundThinBorderRenderer()
     local moduleNS = E._ModuleNS and E._ModuleNS.EllesmereUIRaidFrames
     local FB = moduleNS and moduleNS._FB
     local PF = moduleNS and moduleNS._PF
-    if type(FB) == "table" and type(PF) == "table" and type(hooksecurefunc) == "function" then
+    if not addonTable.HasOakNativeCorners() and type(FB) == "table" and type(PF) == "table" and type(hooksecurefunc) == "function" then
         local roundedFills = setmetatable({}, { __mode = "k" })
 
         local function RemoveAllTextureMasks(texture)

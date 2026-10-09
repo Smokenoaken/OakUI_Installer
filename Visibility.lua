@@ -389,12 +389,15 @@ end
 
 local OAK_BORDER_NIL = "__OAKUI_NIL__"
 local OAK_RESOURCE_BORDER_FIELDS = {
+    "cornerRadius",
     "borderSize",
     "borderR", "borderG", "borderB", "borderA",
     "borderTexture", "borderTextureOffset", "borderTextureOffsetY",
     "borderTextureShiftX", "borderTextureShiftY", "borderBehind",
 }
 local OAK_UNIT_BORDER_FIELDS = {
+    "party_cornerRadius", "party_borderTexture",
+    "cornerRadius",
     "borderSize", "borderColor", "borderAlpha", "borderTexture", "borderBehind",
     "borderTextureOffset", "borderTextureOffsetY", "borderTextureShiftX", "borderTextureShiftY",
 }
@@ -411,11 +414,12 @@ local OAK_TRACKING_BAR_BORDER_FIELDS = {
     "borderTextureShiftX", "borderTextureShiftY", "borderBehind", "borderThickness",
 }
 local OAK_NAMEPLATE_BORDER_FIELDS = {
-    "customBorderEnabled", "customBorderTexture", "customBorderSize", "customBorderColor",
+    "cornerRadius",
+    "wrapBorderCastbar", "customBorderEnabled", "customBorderTexture", "customBorderSize", "customBorderColor",
     "customBorderAlpha", "customBorderBehind", "customBorderOffset", "customBorderOffsetY",
     "customBorderShiftX", "customBorderShiftY", "castBorderSize", "castBorderColor",
 }
-local OAK_RESOURCE_BORDER_KEYS = { "health", "primary", "secondary", "castBar", "totemBar" }
+local OAK_RESOURCE_BORDER_KEYS = { "health", "primary", "secondary", "castBar", "totemBar", "swingTimer" }
 local OAK_UNIT_FRAME_KEYS = { "player", "target", "targettarget", "pet", "totPet", "focus", "focustarget", "boss" }
 
 local function DeepCopy(value, seen)
@@ -532,8 +536,11 @@ local function RestoreBorderFieldsOrFallback(backup, settings, fields, fallbackF
     end
 end
 
-local function ApplyResourceRoundThin(settings, borderKey)
+local function ApplyResourceRoundThin(settings, borderKey, native)
     if type(settings) ~= "table" then return end
+    if native and addonTable.ApplyOakNativeCornerSettings(settings, "borderTexture") then
+        return
+    end
     settings.borderSize = settings.borderSize and math.max(settings.borderSize, 1) or 1
     settings.borderR, settings.borderG, settings.borderB, settings.borderA = 0, 0, 0, 1
     settings.borderTexture = borderKey
@@ -558,6 +565,9 @@ end
 
 local function ApplyUnitRoundThin(settings, borderKey)
     if type(settings) ~= "table" then return end
+    if addonTable.ApplyOakNativeCornerSettings(settings, "borderTexture") then
+        return
+    end
     settings.borderSize = settings.borderSize and math.max(settings.borderSize, 1) or 1
     settings.borderColor = { r = 0, g = 0, b = 0 }
     settings.borderAlpha = 1
@@ -626,6 +636,10 @@ end
 
 local function ApplyNameplateRoundThin(settings, borderKey)
     if type(settings) ~= "table" then return end
+    if addonTable.ApplyOakNativeCornerSettings(settings, "customBorderTexture") then
+        settings.wrapBorderCastbar = false
+        return
+    end
     settings.customBorderEnabled = true
     settings.customBorderTexture = borderKey
     settings.customBorderSize = 1
@@ -709,7 +723,7 @@ local function ApplyEllesmereRoundThinBorders(state, profileName, skipRefresh)
                         profileBackup.resourcebars[key] = {}
                         SaveBorderFields(profileBackup.resourcebars[key], settings, OAK_RESOURCE_BORDER_FIELDS)
                     end
-                    ApplyResourceRoundThin(settings, borderKey)
+                    ApplyResourceRoundThin(settings, borderKey, key ~= "castBar" and key ~= "totemBar")
                 else
                     RestoreBorderFieldsOrFallback(profileBackup and profileBackup.resourcebars and profileBackup.resourcebars[key], settings, OAK_RESOURCE_BORDER_FIELDS, FallbackResourceBorder)
                 end
@@ -728,7 +742,7 @@ local function ApplyEllesmereRoundThinBorders(state, profileName, skipRefresh)
                         profileBackup.resourcebarsLive[key] = {}
                         SaveBorderFields(profileBackup.resourcebarsLive[key], settings, OAK_RESOURCE_BORDER_FIELDS)
                     end
-                    ApplyResourceRoundThin(settings, borderKey)
+                    ApplyResourceRoundThin(settings, borderKey, key ~= "castBar" and key ~= "totemBar")
                 else
                     RestoreBorderFieldsOrFallback(profileBackup and profileBackup.resourcebarsLive and profileBackup.resourcebarsLive[key], settings, OAK_RESOURCE_BORDER_FIELDS, FallbackResourceBorder)
                 end
@@ -783,6 +797,7 @@ local function ApplyEllesmereRoundThinBorders(state, profileName, skipRefresh)
                 profileBackup.raidframes.root = {}
                 SaveBorderFields(profileBackup.raidframes.root, raidFrames, OAK_UNIT_BORDER_FIELDS)
             end
+            addonTable.ApplyOakNativePartyCorners(raidFrames)
             ApplyUnitRoundThin(raidFrames, borderKey)
         else
             RestoreBorderFieldsOrFallback(profileBackup and profileBackup.raidframes and profileBackup.raidframes.root, raidFrames, OAK_UNIT_BORDER_FIELDS, FallbackUnitBorder)
@@ -798,6 +813,7 @@ local function ApplyEllesmereRoundThinBorders(state, profileName, skipRefresh)
                 profileBackup.raidframesLive.root = {}
                 SaveBorderFields(profileBackup.raidframesLive.root, liveRaidFrames, OAK_UNIT_BORDER_FIELDS)
             end
+            addonTable.ApplyOakNativePartyCorners(liveRaidFrames)
             ApplyUnitRoundThin(liveRaidFrames, borderKey)
         else
             RestoreBorderFieldsOrFallback(profileBackup and profileBackup.raidframesLive and profileBackup.raidframesLive.root, liveRaidFrames, OAK_UNIT_BORDER_FIELDS, FallbackUnitBorder)
@@ -825,11 +841,6 @@ function addonTable.ApplyOakRoundThinBordersIfEnabled(profileName)
     local db = EnsureVisibilityDB()
     local enabled = db.roundThinBorders == true
     if not enabled and not profileName then return end
-    local activeProfile = GetActiveEllesmereProfileName(profileName)
-    if enabled and activeProfile then
-        db.roundThinBorderBackups = db.roundThinBorderBackups or {}
-        db.roundThinBorderBackups[activeProfile] = nil
-    end
     ApplyEllesmereRoundThinBorders(enabled, profileName)
 end
 
@@ -1059,9 +1070,10 @@ local function ApplyDamageMeterLiveBarBorder(window, index, bar, state, hasNativ
     local row = bar.row
     local hasData = DamageMeterRowHasData(window, index, bar)
     if state and hasData and bar.fill then
-        -- EUI applies Oak's border to the row itself. Mask only its background
-        -- here; a second fill-level border can outlive a pooled-row rebuild.
-        if row and bar._bg and addonTable.ApplyOakRoundThinMaskOnly then
+        -- The native row mask includes the background, fill and nested icon.
+        if row and addonTable.HasOakNativeCorners() and addonTable.RemoveOakRoundThinMaskOnly then
+            addonTable.RemoveOakRoundThinMaskOnly(row)
+        elseif row and bar._bg and addonTable.ApplyOakRoundThinMaskOnly then
             addonTable.ApplyOakRoundThinMaskOnly(row, bar._bg, row)
         end
         RemoveStandaloneStatusBarRoundThin(bar.fill)
@@ -1382,7 +1394,9 @@ ApplyStandaloneStatusBarRoundThin = function(statusbar, bgTexture)
 
     HideFramePPBorders(statusbar)
 
-    if addonTable.ApplyOakRoundThinCastTintInset then
+    if addonTable.HasOakNativeCorners() then
+        if addonTable.RemoveOakRoundThinCastTintInset then addonTable.RemoveOakRoundThinCastTintInset(statusbar) end
+    elseif addonTable.ApplyOakRoundThinCastTintInset then
         addonTable.ApplyOakRoundThinCastTintInset(statusbar)
     end
 
@@ -1602,8 +1616,9 @@ local function ApplyNameplateHealthBackgroundRoundThinToPlate(plate, state)
 end
 
 local function ApplyNameplateRoundThinToPlate(plate, state)
-    ApplyNameplateHealthBackgroundRoundThinToPlate(plate, state)
-    ApplyNameplateCastbarRoundThinToPlate(plate, state)
+    local native = addonTable.HasOakNativeCorners()
+    ApplyNameplateHealthBackgroundRoundThinToPlate(plate, state and not native)
+    if not native then ApplyNameplateCastbarRoundThinToPlate(plate, state) end
 end
 
 local function ApplyEllesmereNameplateRoundThinToUnit(unit, state)
@@ -1785,11 +1800,6 @@ function addonTable.ApplyOakRoundThinNameplatesIfEnabled(profileName)
     local db = EnsureVisibilityDB()
     local enabled = db.roundThinNameplates == true
     if not enabled and not profileName then return end
-    local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
-    if enabled and activeProfile then
-        db.roundThinNameplateBackups = db.roundThinNameplateBackups or {}
-        db.roundThinNameplateBackups[activeProfile] = nil
-    end
     ApplyNameplateRoundThinBorders(enabled, profileName)
 end
 
@@ -1862,11 +1872,6 @@ function addonTable.ApplyOakRoundThinBossFramesIfEnabled(profileName)
     local db = EnsureVisibilityDB()
     local enabled = db.roundThinBossFrames == true
     if not enabled and not profileName then return end
-    local activeProfile = GetActiveEllesmereProfileName(profileName)
-    if enabled and activeProfile then
-        db.roundThinBossFrameBackups = db.roundThinBossFrameBackups or {}
-        db.roundThinBossFrameBackups[activeProfile] = nil
-    end
     ApplyBossFrameRoundThinBorders(enabled, profileName)
 end
 
@@ -2978,11 +2983,11 @@ function addonTable.BuildVisibilityUI(parentFrame)
         if not addonTable.IsForever then
             AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -386, colWidth)
         end
-        AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Resource Bars, Unit Frames, and Raid/Party Frames.", leftX, -386 + roundedRowGap, colWidth)
+        AddOption("EUI Frames/Bars", SetEllesmereRoundThinBorders, GetEllesmereRoundThinBorders, "Uses EUI native Corner Radius for Resource Bars, Unit Frames, and Raid/Party Frames. Solid, Glow, and Shadow styles are preserved.", leftX, -386 + roundedRowGap, colWidth)
         AddOption("Damage Meters", SetDamageMeterRoundThinBorders, GetDamageMeterRoundThinBorders, "Applies the OakUI rounded border style to Ellesmere Damage Meters. Turning it off restores the base no-border Damage Meter look.", rightX, -386 + roundedRowGap, colWidth)
         AddOption("Cast Bars", SetCastBarRoundThinBorders, GetCastBarRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere cast bars, including unit-frame cast bars and the resource cast bar.", leftX, -386 + roundedRowGap * 2, colWidth)
         AddOption("Boss Frames", SetBossFrameRoundThinBorders, GetBossFrameRoundThinBorders, "Applies the OakUI very thin rounded border to Ellesmere boss frames without enabling the full EUI Frames/Bars option.", rightX, -386 + roundedRowGap * 2, colWidth)
-        AddOption("Nameplates", SetNameplateRoundThinBorders, GetNameplateRoundThinBorders, "Applies OakUI rounded masking to Ellesmere nameplates and their cast bars. Nameplate cast bars use OakUI's standalone rounded status-bar renderer because Ellesmere does not expose the same custom-border path there.", leftX, -386 + roundedRowGap * 3, colWidth)
+        AddOption("Nameplates", SetNameplateRoundThinBorders, GetNameplateRoundThinBorders, "Uses EUI native Corner Radius for nameplates, including their cast bars on supported EUI versions. Disables Wrap Border Around Castbar while enabled.", leftX, -386 + roundedRowGap * 3, colWidth)
         if not addonTable.IsForever then
             AddOption("Boss Mods", SetBossModRoundThinBorders, GetBossModRoundThinBorders, "Applies removable OakUI very thin rounded borders to live DBM and BigWigs timer bars.", rightX, -386 + roundedRowGap * 3, colWidth)
         end
@@ -2991,6 +2996,12 @@ function addonTable.BuildVisibilityUI(parentFrame)
             AddOption("Dragon Riding", addonTable.SetOakRoundThinDragonRidingBorders, addonTable.GetOakRoundThinDragonRidingBorders, "Applies the OakUI very thin rounded border to Ellesmere's Dragon Riding bar cluster. The border follows the bars when EUI rebuilds or reanchors them.", rightX, -386 + roundedRowGap * 4, colWidth)
         end
         AddOption("Chat Windows", addonTable.SetOakRoundThinChatBorders, addonTable.GetOakRoundThinChatBorders, "Opt-in: applies the OakUI very thin rounded border to Blizzard chat windows. This is independent of Hide Chat and is disabled by default. The change applies immediately.", leftX, -386 + roundedRowGap * 5, colWidth)
+
+        local radiusPreview = addonTable.CreateOakCornerPreview(parentFrame, rightX, -478, colWidth)
+        AddSlider("Corner Radius", function(value)
+            radiusPreview:UpdateRadius(value)
+            addonTable.SetOakCornerRadius(value, true)
+        end, addonTable.GetOakCornerRadius, "Sets the radius for all enabled rounded-border elements. 0 gives square corners. Requires a reload; small bars clamp to fit.", leftX, -478, colWidth, 0, 16, 1, "")
 
         parentFrame.UpdateVisibilityCheckboxes = function()
             for _, cb in ipairs(checkboxes) do cb:UpdateState() end
