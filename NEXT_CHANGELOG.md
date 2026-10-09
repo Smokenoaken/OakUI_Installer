@@ -1,3 +1,4 @@
-- Use EUI native Corner Radius for supported frames and bars while preserving Solid, Glow, and Shadow border styles.
-- Add a shared 0-16 corner radius setting with a live preview and rounded cast-bar and damage-meter icons; fresh installs default to radius 8.
-- Update the WoW Forever DPS and healer profile imports.
+# Add one bullet per line for the next release.
+# Example:
+# Updated the installer flow for a smoother first-run experience
+# Refined a module import profile

@@ -1,3 +1,9 @@
+## v2.7.4
+
+- Use EUI native Corner Radius for supported frames and bars while preserving Solid, Glow, and Shadow border styles.
+- Add a shared 0-16 corner radius setting with a live preview and rounded cast-bar and damage-meter icons; fresh installs default to radius 8.
+- Update the WoW Forever DPS and healer profile imports.
+
 ## v2.7.3
 
 - Updated the Forever Tank/DPS and Healer EllesmereUI profiles and added the dedicated Forever Edit Mode layout.

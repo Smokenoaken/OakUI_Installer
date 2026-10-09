@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.3"
+P.VERSION = "2.7.4"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -95,7 +95,7 @@ P.PATREONS = {
     "Paul Westervelt",
     "Typical Panda",
     "Jermaine Adams",
-    "Doc_waffle",
+    "Allan Nielsen",
     "Jon Jordan",
     "michael arguedas",
     "Devron Lee",
@@ -116,20 +116,16 @@ P.PATREONS = {
     "Sparrowhawk Sr",
     "Chris Garland",
     "Josh Cooper",
-    "Chris Nelms",
-    "Bryan Erickson",
     "Norving Gutierrez",
     "Symisch",
     "Alexander Hartwich",
     "Frank franz",
     "Blake Stover",
-    "Loonie74",
     "Paul T",
     "Alexey Fedorov",
     "Roland",
     "Sridhar Mantha",
     "Bryan",
-    "martin frimand",
     "JON",
     "Ryan Couture",
     "Renegades Guild",
@@ -137,21 +133,30 @@ P.PATREONS = {
     "Christopher Saffle",
     "MadCow",
     "Brian Wease",
-    "Alex Tegnazian",
     "Laurie Timothy",
     "JimmyJam",
     "Mack",
     "Jennifer Carlson",
     "Gianluca Berian",
     "Leslie Beck",
-    "SnAaZ",
     "Cody Birdsall",
+    "James Beck",
+    "brodders",
 }
 
 -- ==========================================
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.4",
+        date = "October 8, 2026",
+        notes = {
+            "Use EUI native Corner Radius for supported frames and bars while preserving Solid, Glow, and Shadow border styles.",
+            "Add a shared 0-16 corner radius setting with a live preview and rounded cast-bar and damage-meter icons; fresh installs default to radius 8.",
+            "Update the WoW Forever DPS and healer profile imports.",
+        }
+    },
     {
         version = "v2.7.3",
         date = "September 28, 2026",
