@@ -151,7 +151,7 @@ local function MakeExactGlobalPattern(format)
         local tail = string.sub(format, percent)
         local token, conversion = string.match(tail, "^(%%[%d]*%$?([sd]))")
         if token then
-            parts[#parts + 1] = conversion == "d" and "%d+" or ".+"
+            parts[#parts + 1] = conversion == "d" and "(%d+)" or "(.+)"
             cursor = percent + #token
         elseif string.sub(format, percent + 1, percent + 1) == "%" then
             parts[#parts + 1] = "%%"
@@ -254,10 +254,11 @@ local function FilterSystem(self, event, msg, author, ...)
         if msg == CLEARED_DND then return false, "|cff888888You are no longer DND.|r", author, ... end
     end
     if db.quests then
-        local qAccept = string.match(msg, P[ERR_QUEST_ACCEPTED_S])
+        local qAccept = string.match(msg, MakeExactGlobalPattern(ERR_QUEST_ACCEPTED_S))
         if qAccept then return false, pfx .. "|cff00ccffAccepted:|r |cffFFD100" .. qAccept:gsub("[%[/%]]", "") .. "|r", author, ... end
         if not string.match(msg, P[ERR_QUEST_ALREADY_DONE]) then
-            local qComplete = string.match(msg, P[ERR_QUEST_COMPLETE_S])
+            -- Partial matches also catch party quest prerequisite warnings.
+            local qComplete = string.match(msg, MakeExactGlobalPattern(ERR_QUEST_COMPLETE_S))
             if qComplete then return false, pfx .. "|cff22ff22Complete:|r |cffFFD100" .. qComplete:gsub("[%[/%]]", "") .. "|r", author, ... end
         end
     end

@@ -1,4 +1,2 @@
-# Add one bullet per line for the next release.
-# Example:
-# Updated the installer flow for a smoother first-run experience
-# Refined a module import profile
+- Include the chat-filter fix so party quest prerequisite warnings are no longer rewritten as quest completions.
+- Includes the rounded-border improvements, live radius preview, rounded icons, and updated WoW Forever profiles from v2.7.4.
