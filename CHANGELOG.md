@@ -1,3 +1,7 @@
+## v2.7.6
+
+- Updated TOC compatibility for World of Warcraft 12.1.5.
+
 ## v2.7.5
 
 - Include the chat-filter fix so party quest prerequisite warnings are no longer rewritten as quest completions.

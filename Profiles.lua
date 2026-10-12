@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.5"
+P.VERSION = "2.7.6"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -102,7 +102,6 @@ P.PATREONS = {
     "Tenelle Mallard",
     "Iury Sampaio",
     "coot",
-    "Edwin Cridland",
     "Robert D Jones",
     "Edrick Nickerson",
     "B 87",
@@ -133,7 +132,6 @@ P.PATREONS = {
     "Christopher Saffle",
     "MadCow",
     "Brian Wease",
-    "Laurie Timothy",
     "JimmyJam",
     "Mack",
     "Jennifer Carlson",
@@ -148,6 +146,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.6",
+        date = "October 12, 2026",
+        notes = {
+            "Updated TOC compatibility for World of Warcraft 12.1.5.",
+        }
+    },
     {
         version = "v2.7.5",
         date = "October 8, 2026",
