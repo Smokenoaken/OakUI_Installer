@@ -1,4 +1,4 @@
-## Interface: 120000, 120001, 120005, 120007, 120100, 16001
+## Interface: 120000, 120001, 120005, 120007, 120100, 120105, 16001
 ## Title: |cff9482c9OakUI|r Standalone Installer
 ## Notes: One-click profile importer for the OakUI suite.
 ## Author: Oakensoul
