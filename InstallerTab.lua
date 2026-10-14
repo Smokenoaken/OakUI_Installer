@@ -563,7 +563,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             none:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -66)
             none:SetJustifyH("LEFT")
             none:SetTextColor(0.72, 0.72, 0.72)
-            none:SetText(addonTable.IsForever and "Forever uses EllesmereUI only. OakUI Edit Mode import is available; your EUI spell configuration is preserved." or "No supported optional addon profiles are available. Install and enable DBM, BigWigs, Blizzi Party Tools, or wMarker to import those profiles.")
+            none:SetText(addonTable.IsForever and "Forever uses EllesmereUI only. Full installs include the complete Forever EUI profile and OakUI Edit Mode layout." or "No supported optional addon profiles are available. Install and enable DBM, BigWigs, Blizzi Party Tools, or wMarker to import those profiles.")
         end
         return page
     end
@@ -748,7 +748,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             cWrap .. "Profiles:|r " .. GetRoleSummary() .. "\n" ..
             cWrap .. "Import Scope:|r " .. sections .. "\n" ..
             cWrap .. "EUI Spec Assignment:|r " .. auto .. "\n\n" ..
-            (addonTable.IsForever and "Forever: EUI only; OakUI Edit Mode import enabled; EUI spell setup preserved.\n" or (cWrap .. "Addon Profiles:|r DBM " .. (state.optionalProfiles.dbm and "Install" or "Skip") ..
+            (addonTable.IsForever and "Forever: complete EUI profile and OakUI Edit Mode layout; custom selections apply.\n" or (cWrap .. "Addon Profiles:|r DBM " .. (state.optionalProfiles.dbm and "Install" or "Skip") ..
             ", BigWigs " .. (state.optionalProfiles.bigwigs and "Install" or "Skip") ..
             ", Blizzi " .. (state.optionalProfiles.blizzi and "Install" or "Skip") ..
             ", wMarker " .. (state.optionalProfiles.wmarker and "Install" or "Skip") .. "\n")) ..
@@ -1091,7 +1091,7 @@ function addonTable.BuildInstallerUI(parentFrame)
         if (importedDPS or importedHeals) and addonTable.MarkInstallerVisibilityAfterReload then
             addonTable.MarkInstallerVisibilityAfterReload(state.visibility)
         end
-        if state.mode == "fresh" and (importedDPS or importedHeals) and addonTable.MarkEllesmereCDMRepopulateAfterReload then
+        if (state.mode == "fresh" or addonTable.IsForever) and (importedDPS or importedHeals) and addonTable.MarkEllesmereCDMRepopulateAfterReload then
             addonTable.MarkEllesmereCDMRepopulateAfterReload()
         end
         if state.chatLayout and chatLayoutApplied then

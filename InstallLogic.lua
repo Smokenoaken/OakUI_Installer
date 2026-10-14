@@ -176,7 +176,9 @@ local function TryOpenEllesmereCDMRepopulatePopup()
 
     local ok = pcall(EUI.ShowConfirmPopup, EUI, {
         title = "Repopulate Bars",
-        message = "This will repopulate your active Ellesmere CDM bars from Blizzard's Cooldown Manager while preserving your custom entries. Continue?",
+        message = addonTable.IsForever
+            and "Repopulate your CDM bars for this character to finish OakUI setup. You can also type /oakcdm to reopen this prompt. Custom entries are preserved. Continue?"
+            or "This will repopulate your active Ellesmere CDM bars from Blizzard's Cooldown Manager while preserving your custom entries. Continue?",
         confirmText = "Repopulate",
         cancelText = "Cancel",
         onConfirm = function()

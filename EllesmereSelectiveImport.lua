@@ -59,12 +59,6 @@ local CATEGORY_TREE = {
     },
 }
 
-for i = #MODULES, 1, -1 do
-    if addonTable.IsForever and addonTable.ForeverExcludedModules[MODULES[i].folder] then
-        table.remove(MODULES, i)
-    end
-end
-
 for _, module in ipairs(MODULES) do
     table.insert(CATEGORY_TREE[2].children, {
         id = "module:" .. module.folder,
@@ -170,7 +164,6 @@ local function DecodeOakEllesmerePayload(role)
     if not payload then
         return nil, err or "Could not decode OakUI's Ellesmere profile string."
     end
-    if addonTable.IsForever then return addonTable.PrepareForeverPayload(payload) end
     return payload
 end
 

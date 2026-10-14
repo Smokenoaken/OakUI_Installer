@@ -1190,7 +1190,6 @@ local function ConsumeOakEditModeActivationAfterReload()
 end
 
 function addonTable.MarkEllesmereCDMRepopulateAfterReload()
-    if addonTable.IsForever then return end
     if not OakUI_DB then OakUI_DB = {} end
     if not OakUI_DB.install then OakUI_DB.install = { characters = {} } end
     if not OakUI_DB.install.characters then OakUI_DB.install.characters = {} end
@@ -1216,7 +1215,6 @@ end
 addonTable.MarkOakChatLayoutAfterReload = addonTable.MarkOakChatGeometryAfterReload
 
 local function ConsumeEllesmereCDMRepopulateAfterReload()
-    if addonTable.IsForever then return end
     if not OakUI_DB or not OakUI_DB.install or not OakUI_DB.install.characters then return end
     local state = OakUI_DB.install.characters[GetCharacterInstallKey()]
     if not state or state.pendingEllesmereCDMRepopulate ~= true then return end

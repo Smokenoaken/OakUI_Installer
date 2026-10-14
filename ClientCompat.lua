@@ -47,14 +47,6 @@ function addonTable.DecodeForeverEditMode(encoded, preset)
     return layout
 end
 
-addonTable.ForeverExcludedModules = {
-    EllesmereUIDragonRiding = true,
-    EllesmereUIMythicTimer = true,
-    EllesmereUICooldownManager = true,
-    EllesmereUIAuraBuffReminders = true,
-    EllesmereUIQuickdraw = true,
-}
-
 -- Forever uses Action Bar 6 in place of the Retail Cooldown Manager. Keep
 -- this client-specific translation here so Retail never changes Bar 6.
 local FOREVER_ACTION_BAR_VISIBILITY_KEYS = {
@@ -119,52 +111,4 @@ function addonTable.GetForeverCooldownActionBarVisibility(settings)
         end
     end
     return true
-end
-
--- Operates only on a newly decoded OakUI payload, never on existing profiles.
--- EUI merges omitted modules from the player's current Forever profile.
-function addonTable.PrepareForeverPayload(payload)
-    local data = type(payload) == "table" and payload.data
-    if type(data) ~= "table" or type(data.addons) ~= "table" then
-        return nil, "OakUI's Ellesmere profile payload is invalid."
-    end
-
-    local folders = {}
-    for folder in pairs(data.addons) do
-        if addonTable.ForeverExcludedModules[folder]
-            or not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(folder)) then
-            data.addons[folder] = nil
-        else
-            folders[folder] = true
-        end
-    end
-
-    data.cdmSpells = nil
-    data.spellAssignments = nil
-    data.assignedSpecs = nil
-    data.blizzSkinGlobals = nil
-    data.applyBlizzSkinGlobals = nil
-    for _, key in ipairs({
-        "specOverrides", "specOverrideGroups", "specOverrideNextId",
-        "condOverrides", "condOverrideGroups", "condOverrideNextId",
-        "specUnlockOverrides", "condUnlockOverrides", "specBmOverrides", "condBmOverrides",
-    }) do
-        data[key] = nil
-    end
-    data.overridesIncluded = nil
-    data.overridesExcluded = true
-    data.partialImport = true
-
-    if data.unlockLayout then
-        local EUI = _G.EllesmereUI
-        if not (EUI and type(EUI.BuildImportKeyToFolder) == "function"
-            and type(EUI.FilterLayoutToFolders) == "function") then
-            return nil, "Update EllesmereUI before importing an OakUI Forever layout."
-        end
-        local meta = data.unlockLayoutMeta
-        local keyToFolder = EUI.BuildImportKeyToFolder(data.unlockLayout, meta and meta.keyToFolder)
-        data.unlockLayout = EUI.FilterLayoutToFolders(data.unlockLayout, folders, keyToFolder)
-        data.unlockLayoutMeta = nil
-    end
-    return payload
 end
