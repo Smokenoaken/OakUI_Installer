@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.6"
+P.VERSION = "2.7.7"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -80,7 +80,6 @@ P.PATREONS = {
     "Brian Ehlers",
     "mglass",
     "Shawn Snyder",
-    "Emil Sundström",
     "Tony",
     "Inuyasha",
     "Emmanuel leroy",
@@ -102,7 +101,6 @@ P.PATREONS = {
     "Tenelle Mallard",
     "Iury Sampaio",
     "coot",
-    "Robert D Jones",
     "Edrick Nickerson",
     "B 87",
     "Nalu Rider",
@@ -120,7 +118,6 @@ P.PATREONS = {
     "Alexander Hartwich",
     "Frank franz",
     "Blake Stover",
-    "Paul T",
     "Alexey Fedorov",
     "Roland",
     "Sridhar Mantha",
@@ -146,6 +143,15 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.7",
+        date = "October 13, 2026",
+        notes = {
+            "Updated the Retail and WoW Forever profile strings.",
+            "Import complete native Forever EUI profiles without automatic exclusions; custom installs still honor selected sections.",
+            "Prompt Forever users to repopulate CDM bars after installation and show /oakcdm to reopen the confirmation.",
+        }
+    },
     {
         version = "v2.7.6",
         date = "October 12, 2026",

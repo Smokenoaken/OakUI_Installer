@@ -1,3 +1,9 @@
+## v2.7.7
+
+- Updated the Retail and WoW Forever profile strings.
+- Import complete native Forever EUI profiles without automatic exclusions; custom installs still honor selected sections.
+- Prompt Forever users to repopulate CDM bars after installation and show /oakcdm to reopen the confirmation.
+
 ## v2.7.6
 
 - Updated TOC compatibility for World of Warcraft 12.1.5.
