@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.7"
+P.VERSION = "2.7.8"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -80,7 +80,7 @@ P.PATREONS = {
     "Brian Ehlers",
     "mglass",
     "Shawn Snyder",
-    "Tony",
+    "Emil Sundström",
     "Inuyasha",
     "Emmanuel leroy",
     "Casey",
@@ -88,8 +88,6 @@ P.PATREONS = {
     "Zacharias Kouvaras",
     "Topcat357",
     "Deckert Skilso",
-    "Noël Léon Dalstein",
-    "Romain Herlinvaux",
     "Daniel Girgsdies",
     "Paul Westervelt",
     "Typical Panda",
@@ -137,12 +135,23 @@ P.PATREONS = {
     "Cody Birdsall",
     "James Beck",
     "brodders",
+    "Bob Sodman",
 }
 
 -- ==========================================
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.8",
+        date = "October 23, 2026",
+        notes = {
+            "Added EUI Interrupt Tracker rounded borders using EUI's native renderer and OakUI's shared Corner Radius.",
+            "Removed Blizzi profile imports from new installs and recommend disabling it when detected.",
+            "Spaced out rounded-border toggles and kept EUI Interrupt Tracker rounding included in Quick Install.",
+            "Updated OakUI profile exports for the new EUI Interrupt Tracker setup.",
+        }
+    },
     {
         version = "v2.7.7",
         date = "October 13, 2026",

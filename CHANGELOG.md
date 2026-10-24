@@ -1,3 +1,10 @@
+## v2.7.8
+
+- Added EUI Interrupt Tracker rounded borders using EUI's native renderer and OakUI's shared Corner Radius.
+- Removed Blizzi profile imports from new installs and recommend disabling it when detected.
+- Spaced out rounded-border toggles and kept EUI Interrupt Tracker rounding included in Quick Install.
+- Updated OakUI profile exports for the new EUI Interrupt Tracker setup.
+
 ## v2.7.7
 
 - Updated the Retail and WoW Forever profile strings.
