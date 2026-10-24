@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.8"
+P.VERSION = "2.7.9"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -142,6 +142,13 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.9",
+        date = "October 23, 2026",
+        notes = {
+            "Adjusted EUI Interrupt Tracker bars in the Tank/DPS and Healer profiles.",
+        }
+    },
     {
         version = "v2.7.8",
         date = "October 23, 2026",

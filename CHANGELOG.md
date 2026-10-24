@@ -1,3 +1,7 @@
+## v2.7.9
+
+- Adjusted EUI Interrupt Tracker bars in the Tank/DPS and Healer profiles.
+
 ## v2.7.8
 
 - Added EUI Interrupt Tracker rounded borders using EUI's native renderer and OakUI's shared Corner Radius.
