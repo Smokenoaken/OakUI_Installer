@@ -15,10 +15,17 @@ local function IsAddonReady(folder)
     return true
 end
 
+function addonTable.GetOakBlizziRecommendation()
+    if addonTable.IsForever or not C_AddOns or not C_AddOns.GetAddOnInfo then return nil end
+    local name, _, _, _, reason = C_AddOns.GetAddOnInfo("BliZzi_Interrupts")
+    if name and reason ~= "MISSING" then
+        return "Blizzi Party Tools detected. OakUI now uses EUI's Interrupt Tracker. We recommend disabling Blizzi in the AddOns menu."
+    end
+end
+
 local OPTIONAL_PROFILE_FOLDERS = {
     dbm = "DBM-Core",
     bigwigs = "BigWigs",
-    blizzi = "BliZzi_Interrupts",
     wmarker = "wMarker",
 }
 
@@ -64,7 +71,6 @@ local function BuildInstallerAddons(Inj, cWrap, ShowCopyBox)
         },
         { name = "DBM (Optional)", folder = "DBM-Core", url = "https://www.curseforge.com/wow/addons/deadly-boss-mods", func = Inj.DBM, requiresReload = false },
         { name = "BigWigs (Optional)", folder = "BigWigs", url = "https://www.curseforge.com/wow/addons/big-wigs", func = Inj.BigWigs, requiresReload = false },
-        { name = "Blizzi Party Tools (Optional)", folder = "BliZzi_Interrupts", url = "https://www.curseforge.com/wow/addons/blizzi-party-tools", func = Inj.BlizziPartyTools, requiresReload = false },
         { name = "wMarker (Optional)", folder = "wMarker", url = "https://www.curseforge.com/wow/addons/wmarker", func = Inj.WMarker, requiresReload = false },
     }
     if addonTable.IsForever then
@@ -126,7 +132,6 @@ function addonTable.BuildInstallerUI(parentFrame)
         optionalProfiles = {
             dbm = true,
             bigwigs = true,
-            blizzi = true,
             wmarker = true,
         },
         visibility = {
@@ -159,7 +164,6 @@ function addonTable.BuildInstallerUI(parentFrame)
         state.optionalProfiles = {
             dbm = OptionalProfileEnabled(options, "dbm"),
             bigwigs = OptionalProfileEnabled(options, "bigwigs"),
-            blizzi = OptionalProfileEnabled(options, "blizzi"),
             wmarker = OptionalProfileEnabled(options, "wmarker"),
         }
         state.visibility = {
@@ -530,7 +534,7 @@ function addonTable.BuildInstallerUI(parentFrame)
         copy:SetPoint("TOPLEFT", heading, "BOTTOMLEFT", 0, -8)
         copy:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -8)
         copy:SetJustifyH("LEFT")
-        copy:SetText("Choose which optional third-party addon profiles OakUI should install. Uncheck anything you have customized and want to keep.")
+        copy:SetText(addonTable.GetOakBlizziRecommendation() or "Choose which optional third-party addon profiles OakUI should install. Uncheck anything you have customized and want to keep.")
 
         local y = -64
         if IsOptionalProfileReady("dbm") then
@@ -545,12 +549,6 @@ function addonTable.BuildInstallerUI(parentFrame)
         else
             state.optionalProfiles.bigwigs = false
         end
-        if IsOptionalProfileReady("blizzi") then
-            MakeCheckbox(page, "Install Blizzi Profile", "Imports Blizzi Party Tools profiles matching the selected EUI profile names.", function() return state.optionalProfiles.blizzi end, function(v) state.optionalProfiles.blizzi = v end, y, 0, "addons")
-            y = y - 48
-        else
-            state.optionalProfiles.blizzi = false
-        end
         if IsOptionalProfileReady("wmarker") then
             MakeCheckbox(page, "Install wMarker Profile", "Imports OakUI's raid marker, ready check, and countdown layout into wMarker.", function() return state.optionalProfiles.wmarker end, function(v) state.optionalProfiles.wmarker = v end, y, 0, "addons")
             y = y - 48
@@ -563,7 +561,7 @@ function addonTable.BuildInstallerUI(parentFrame)
             none:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -66)
             none:SetJustifyH("LEFT")
             none:SetTextColor(0.72, 0.72, 0.72)
-            none:SetText(addonTable.IsForever and "Forever uses EllesmereUI only. Full installs include the complete Forever EUI profile and OakUI Edit Mode layout." or "No supported optional addon profiles are available. Install and enable DBM, BigWigs, Blizzi Party Tools, or wMarker to import those profiles.")
+            none:SetText(addonTable.IsForever and "Forever uses EllesmereUI only. Full installs include the complete Forever EUI profile and OakUI Edit Mode layout." or "No supported optional addon profiles are available. Install and enable DBM, BigWigs, or wMarker to import those profiles.")
         end
         return page
     end
@@ -680,7 +678,7 @@ function addonTable.BuildInstallerUI(parentFrame)
         local heading = page:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         heading:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -2)
         heading:SetText(cWrap .. "Rounded Borders|r")
-        MakeCheckbox(page, "OakUI Rounded Borders", "Apply OakUI's rounded border renderer to supported EUI frames, bars, Dragon Riding bars, nameplates, boss mods, damage meters, and Blizzi interrupts.", function() return state.rounded.all end, function(v) state.rounded.all = v end, -42, 0, "rounded")
+        MakeCheckbox(page, "OakUI Rounded Borders", "Apply OakUI's rounded border renderer to supported EUI frames, bars, Dragon Riding bars, nameplates, boss mods, damage meters, and EUI Interrupt Tracker bars.", function() return state.rounded.all end, function(v) state.rounded.all = v end, -42, 0, "rounded")
         return page
     end
 
@@ -750,7 +748,6 @@ function addonTable.BuildInstallerUI(parentFrame)
             cWrap .. "EUI Spec Assignment:|r " .. auto .. "\n\n" ..
             (addonTable.IsForever and "Forever: complete EUI profile and OakUI Edit Mode layout; custom selections apply.\n" or (cWrap .. "Addon Profiles:|r DBM " .. (state.optionalProfiles.dbm and "Install" or "Skip") ..
             ", BigWigs " .. (state.optionalProfiles.bigwigs and "Install" or "Skip") ..
-            ", Blizzi " .. (state.optionalProfiles.blizzi and "Install" or "Skip") ..
             ", wMarker " .. (state.optionalProfiles.wmarker and "Install" or "Skip") .. "\n")) ..
             cWrap .. "Chat Layout:|r " .. (state.chatLayout and "Apply" or "Skip") .. "\n" ..
             cWrap .. "Visibility:|r Chat " .. HiddenShown(state.visibility.chat) ..
@@ -1042,12 +1039,7 @@ function addonTable.BuildInstallerUI(parentFrame)
         end
 
         for _, addon in ipairs(FlagshipAddons) do
-            if addon.name == "Blizzi Party Tools (Optional)" then
-                if state.optionalProfiles.blizzi then
-                    if state.roles.dps then ApplyOptionalProfile(addon, "dps") end
-                    if state.roles.heals then ApplyOptionalProfile(addon, "heals") end
-                end
-            elseif addon.name == "DBM (Optional)" or addon.name == "BigWigs (Optional)" then
+            if addon.name == "DBM (Optional)" or addon.name == "BigWigs (Optional)" then
                 if addon.name == "DBM (Optional)" and state.optionalProfiles.dbm then
                     ApplyOptionalProfile(addon, "dps")
                 elseif addon.name == "BigWigs (Optional)" and state.optionalProfiles.bigwigs then

@@ -11,6 +11,7 @@
 ClientCompat.lua
 Profiles.lua
 OakNativeCorners.lua
+OakInterruptCorners.lua
 OakRoundThinBorder.lua
 OakRoundThinLive.lua
 FontEngine.lua

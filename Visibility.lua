@@ -2198,7 +2198,7 @@ local function SetAllRoundedBorders(state)
     SetBossFrameRoundThinBorders(state)
     SetTrackingBarRoundThinBorders(state)
     SetBossModRoundThinBorders(state)
-    SetBlizziRoundThinBorders(state)
+    addonTable.SetOakInterruptCorners(state)
     SetDamageMeterRoundThinBorders(state)
     if addonTable.SetOakRoundThinDragonRidingBorders then
         addonTable.SetOakRoundThinDragonRidingBorders(state)
@@ -2212,7 +2212,7 @@ local function GetAllRoundedBorders()
         and GetBossFrameRoundThinBorders()
         and GetTrackingBarRoundThinBorders()
         and (addonTable.IsForever or GetBossModRoundThinBorders())
-        and (addonTable.IsForever or GetBlizziRoundThinBorders())
+        and (addonTable.IsForever or addonTable.GetOakInterruptCorners())
         and GetDamageMeterRoundThinBorders()
         and addonTable.GetOakRoundThinDragonRidingBorders
         and (addonTable.IsForever or addonTable.GetOakRoundThinDragonRidingBorders())
@@ -2945,7 +2945,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
     local leftX, rightX = 15, 255
         local colWidth = 225
         local rowGap = -30
-        local roundedRowGap = -13
+        local roundedRowGap = -26
 
         AddOption("Apply All", SetAllHidden, GetAllHidden, nil, 300, -23, 150, true)
 
@@ -2979,7 +2979,7 @@ function addonTable.BuildVisibilityUI(parentFrame)
             AddSlider("wMarker Faded Opacity", SetWMarkerFadedAlpha, GetWMarkerFadedAlpha, "Controls how visible wMarker remains while the mouse is away. 0% is invisible; 100% disables the visual fade.", rightX, -338, colWidth, 0, 1, 0.05, "%", 100)
         end
         AddSection("Rounded Borders", leftX, -364)
-        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles the rounded-border options used by OakUI default installs. Chat Windows remains a separate opt-in.", leftX, -386, colWidth)
+        AddOption("All Rounded Borders", SetAllRoundedBorders, GetAllRoundedBorders, "Toggles the rounded-border options used by OakUI default installs. Chat Windows and legacy Blizzi Interrupts remain separate opt-ins.", leftX, -386, colWidth)
         if not addonTable.IsForever then
             AddOption("Blizzi Interrupts", SetBlizziRoundThinBorders, GetBlizziRoundThinBorders, "Applies the OakUI round thin renderer to Blizzi Party Tools interrupt bars. Turning it off immediately falls back to Blizzi's own border settings.", rightX, -386, colWidth)
         end
@@ -2996,12 +2996,15 @@ function addonTable.BuildVisibilityUI(parentFrame)
             AddOption("Dragon Riding", addonTable.SetOakRoundThinDragonRidingBorders, addonTable.GetOakRoundThinDragonRidingBorders, "Applies the OakUI very thin rounded border to Ellesmere's Dragon Riding bar cluster. The border follows the bars when EUI rebuilds or reanchors them.", rightX, -386 + roundedRowGap * 4, colWidth)
         end
         AddOption("Chat Windows", addonTable.SetOakRoundThinChatBorders, addonTable.GetOakRoundThinChatBorders, "Opt-in: applies the OakUI very thin rounded border to Blizzard chat windows. This is independent of Hide Chat and is disabled by default. The change applies immediately.", leftX, -386 + roundedRowGap * 5, colWidth)
+        if not addonTable.IsForever then
+            AddOption("EUI Interrupts", addonTable.SetOakInterruptCorners, addonTable.GetOakInterruptCorners, "Uses EUI's native rounded renderer and OakUI's shared Corner Radius for Interrupt Tracker bars. Turning it off restores EUI's own borders.", rightX, -386 + roundedRowGap * 5, colWidth)
+        end
 
-        local radiusPreview = addonTable.CreateOakCornerPreview(parentFrame, rightX, -478, colWidth)
+        local radiusPreview = addonTable.CreateOakCornerPreview(parentFrame, rightX, -548, colWidth)
         AddSlider("Corner Radius", function(value)
             radiusPreview:UpdateRadius(value)
             addonTable.SetOakCornerRadius(value, true)
-        end, addonTable.GetOakCornerRadius, "Sets the radius for all enabled rounded-border elements. 0 gives square corners. Requires a reload; small bars clamp to fit.", leftX, -478, colWidth, 0, 16, 1, "")
+        end, addonTable.GetOakCornerRadius, "Sets the radius for all enabled rounded-border elements. 0 gives square corners. Requires a reload; small bars clamp to fit.", leftX, -548, colWidth, 0, 16, 1, "")
 
         parentFrame.UpdateVisibilityCheckboxes = function()
             for _, cb in ipairs(checkboxes) do cb:UpdateState() end
@@ -3023,6 +3026,7 @@ CleanupFrame:RegisterEvent("PLAYER_LOGIN")
 CleanupFrame:SetScript("OnEvent", function(self)
     C_Timer.After(1, function()
         MigrateLegacyHealthVisibilityToEllesmere()
+        addonTable.ApplyOakInterruptCornersIfEnabled()
         if addonTable.ApplyOakDamageMeterRowLayout then
             pcall(addonTable.ApplyOakDamageMeterRowLayout)
         end

@@ -207,7 +207,6 @@ end
 local QUICK_OPTIONAL_PROFILE_FOLDERS = {
     dbm = "DBM-Core",
     bigwigs = "BigWigs",
-    blizzi = "BliZzi_Interrupts",
     wmarker = "wMarker",
 }
 
@@ -236,7 +235,6 @@ local QuickState = {
     optionalProfiles = {
         dbm = true,
         bigwigs = true,
-        blizzi = true,
         wmarker = true,
     },
 }
@@ -379,11 +377,11 @@ QuickNoAddonProfiles:SetText(addonTable.IsForever and "Forever: EUI only; Edit M
 local QuickAddonRows = {
     { key = "dbm", row = MakeQuickCheckbox(QuickInstallFrame, "DBM", 18, -246, function() return QuickState.optionalProfiles.dbm end, function(v) QuickState.optionalProfiles.dbm = v end) },
     { key = "bigwigs", row = MakeQuickCheckbox(QuickInstallFrame, "BigWigs", 148, -246, function() return QuickState.optionalProfiles.bigwigs end, function(v) QuickState.optionalProfiles.bigwigs = v end) },
-    { key = "blizzi", row = MakeQuickCheckbox(QuickInstallFrame, "Blizzi", 278, -246, function() return QuickState.optionalProfiles.blizzi end, function(v) QuickState.optionalProfiles.blizzi = v end) },
     { key = "wmarker", row = MakeQuickCheckbox(QuickInstallFrame, "wMarker", 408, -246, function() return QuickState.optionalProfiles.wmarker end, function(v) QuickState.optionalProfiles.wmarker = v end) },
 }
 
 local function RefreshQuickAddonProfileChoices()
+    QuickWarning:SetText(addonTable.GetOakBlizziRecommendation() or "Applies OakUI's full setup using the choices below.")
     local visible = 0
     for _, item in ipairs(QuickAddonRows) do
         local ready = IsQuickOptionalProfileReady(item.key)
@@ -498,7 +496,6 @@ QuickInstallApply:SetScript("OnClick", function()
         optionalProfiles = {
             dbm = QuickState.optionalProfiles.dbm,
             bigwigs = QuickState.optionalProfiles.bigwigs,
-            blizzi = QuickState.optionalProfiles.blizzi,
             wmarker = QuickState.optionalProfiles.wmarker,
         },
     })
@@ -734,7 +731,10 @@ QuickInstallNote:SetPoint("TOP", HomeButtonRow, "BOTTOM", 0, -10)
 QuickInstallNote:SetPoint("LEFT", HomeView, "LEFT", 30, 0)
 QuickInstallNote:SetPoint("RIGHT", HomeView, "RIGHT", -30, 0)
 QuickInstallNote:SetJustifyH("CENTER")
-QuickInstallNote:SetText("Quick and Guided Install import OakUI. Set Up Alt selects existing OakUI profiles without importing them.")
+HomeView:HookScript("OnShow", function()
+    QuickInstallNote:SetText(addonTable.GetOakBlizziRecommendation() or "Quick and Guided Install import OakUI. Set Up Alt selects existing OakUI profiles without importing them.")
+end)
+QuickInstallNote:SetText(addonTable.GetOakBlizziRecommendation() or "Quick and Guided Install import OakUI. Set Up Alt selects existing OakUI profiles without importing them.")
 QuickInstallNote:SetTextColor(0.75, 0.75, 0.75)
 
 local MinimapOption = CreateFrame("Frame", nil, HomeView)
@@ -927,7 +927,19 @@ local ChangelogNavBtn = CreateNavButton(LeftPane, "Changelog", -200, ChangelogVi
 local SuppNavBtn = CreateNavButton(LeftPane, "Supporters", -230, SupportersView)
 
 local visibilityBuilt, ellesmereSelectiveBuilt, rawImportsBuilt, changelogBuilt = false, false, false, false
-VisNavBtn:HookScript("OnClick", function() if not visibilityBuilt and addonTable.BuildVisibilityUI then addonTable.BuildVisibilityUI(VisibilityView); visibilityBuilt = true end end)
+VisNavBtn:HookScript("OnClick", function()
+    if visibilityBuilt or not addonTable.BuildVisibilityUI then return end
+    local scroll = CreateFrame("ScrollFrame", nil, VisibilityView, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 0, 0)
+    scroll:SetPoint("BOTTOMRIGHT", -30, 8)
+    local child = CreateFrame("Frame", nil, scroll)
+    child:SetSize(scroll:GetWidth(), 640)
+    scroll:SetScrollChild(child)
+    scroll:SetScript("OnSizeChanged", function(_, width) child:SetWidth(width) end)
+    SkinScrollbar(scroll)
+    addonTable.BuildVisibilityUI(child)
+    visibilityBuilt = true
+end)
 EllesmereSelectiveNavBtn:HookScript("OnClick", function() if not ellesmereSelectiveBuilt and addonTable.BuildEllesmereSelectiveUI then addonTable.BuildEllesmereSelectiveUI(EllesmereSelectiveView); ellesmereSelectiveBuilt = true end end)
 RawImportsNavBtn:HookScript("OnClick", function() if not rawImportsBuilt and addonTable.BuildRawImportsUI then addonTable.BuildRawImportsUI(RawImportsView); rawImportsBuilt = true end end)
 ChangelogNavBtn:HookScript("OnClick", function() if not changelogBuilt and addonTable.BuildChangelogUI then addonTable.BuildChangelogUI(ChangelogView); changelogBuilt = true end end)
