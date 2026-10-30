@@ -1,3 +1,9 @@
+## v2.7.10
+
+- Fixed chat placement and hidden input boxes when installing alternate UI scales.
+- Fixed damage meter alignment after the installation reload while preserving the existing meter stack and spacing.
+- Validated placement across Retail install presets. WoW Forever uses the shared fix and awaits live testing.
+
 ## v2.7.9
 
 - Adjusted EUI Interrupt Tracker bars in the Tank/DPS and Healer profiles.

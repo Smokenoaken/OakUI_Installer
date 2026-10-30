@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.9"
+P.VERSION = "2.7.10"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -92,7 +92,6 @@ P.PATREONS = {
     "Paul Westervelt",
     "Typical Panda",
     "Jermaine Adams",
-    "Allan Nielsen",
     "Jon Jordan",
     "michael arguedas",
     "Devron Lee",
@@ -103,7 +102,6 @@ P.PATREONS = {
     "B 87",
     "Nalu Rider",
     "Mark Hart",
-    "Khalifa Almajid",
     "Scott Mortell",
     "Donald Ross",
     "Peter O'Toole",
@@ -125,7 +123,6 @@ P.PATREONS = {
     "Renegades Guild",
     "Marcel Dekker",
     "Christopher Saffle",
-    "MadCow",
     "Brian Wease",
     "JimmyJam",
     "Mack",
@@ -142,6 +139,15 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.10",
+        date = "October 29, 2026",
+        notes = {
+            "Fixed chat placement and hidden input boxes when installing alternate UI scales.",
+            "Fixed damage meter alignment after the installation reload while preserving the existing meter stack and spacing.",
+            "Validated placement across Retail install presets. WoW Forever uses the shared fix and awaits live testing.",
+        }
+    },
     {
         version = "v2.7.9",
         date = "October 23, 2026",
