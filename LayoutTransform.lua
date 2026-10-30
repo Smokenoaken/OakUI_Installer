@@ -1331,6 +1331,7 @@ local function ScheduleInstallExtraFramesPosition(profileName, role)
 end
 
 local function ApplyLiveDamageMeterOffset(db, profileName, preset)
+    if InCombatLockdown and InCombatLockdown() then return false end
     local offsetX = ComputeLiveDamageMeterOffset()
     if not offsetX then return false end
 
@@ -1346,6 +1347,41 @@ local function ApplyLiveDamageMeterOffset(db, profileName, preset)
         end
     end
     RefreshEllesmereLayout()
+    return true
+end
+
+function addonTable.ApplyOakDamageMeterPlacementAfterReload()
+    local db = _G.EllesmereUIDB
+    local anchors = db and db.unlockAnchors
+    -- Only finish an installed Oak meter stack, never create one for other profiles.
+    local anchor = anchors and anchors.EDM_Win1
+    if not anchor or anchor.target ~= "EDB_2" or anchor.side ~= "TOP" then return true end
+    if InCombatLockdown and InCombatLockdown() then return false end
+    local name = GetActiveEllesmereProfileName()
+    local offsetX = ComputeLiveDamageMeterOffset()
+    if not offsetX then return false end
+    local preset = addonTable.GetOakLayoutPreset()
+    PatchDamageMeterAnchor(anchors, preset, offsetX)
+    PatchDamageMeterAnchor(db.unlockLayout and db.unlockLayout.anchors, preset, offsetX)
+    local profile = db.profiles and db.profiles[name]
+    if profile then
+        PatchDamageMeterAnchor(profile.unlockLayout and profile.unlockLayout.anchors, preset, offsetX)
+        local function PatchStore(store)
+            if type(store) ~= "table" then return end
+            local function PatchLayer(layer)
+                if type(layer) ~= "table" then return end
+                PatchDamageMeterAnchor(layer.anchors, preset, offsetX)
+                ClearDamageMeterElementPositions(layer)
+            end
+            PatchLayer(store.baselineLayout)
+            for _, layer in pairs(store.layouts or {}) do PatchLayer(layer) end
+        end
+        PatchStore(profile.specUnlockOverrides)
+        PatchStore(profile.condUnlockOverrides)
+    end
+    local EUI = _G.EllesmereUI
+    if not (EUI and type(EUI.ReapplyOwnAnchor) == "function") then return false end
+    for index = 1, 3 do EUI.ReapplyOwnAnchor("EDM_Win" .. index) end
     return true
 end
 

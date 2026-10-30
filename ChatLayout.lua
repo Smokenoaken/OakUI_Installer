@@ -159,6 +159,33 @@ local function RestoreFrameGeometry(frame, geometry)
         return
     end
 
+    local EUI = _G.EllesmereUI
+    local moduleNS = EUI and EUI._ModuleNS and EUI._ModuleNS.EllesmereUIChat
+    local chat = moduleNS and moduleNS.ECHAT
+    local liveDB = _G._ECHAT_DB
+    local config = liveDB and liveDB.profile and liveDB.profile.chat
+    if frame == ChatFrame1 and config and chat and type(chat.ApplyChatPosition) == "function" then
+        -- EUI owns the main frame's position; keep its guard and saved profile in sync.
+        local function SaveGeometry(target)
+            target.chatPosition = {
+                point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT",
+                x = geometry.left, y = geometry.bottom,
+            }
+            target.chatSize = { w = geometry.width, h = geometry.height }
+            target._chatPosOwnership = 1
+        end
+        SaveGeometry(config)
+        local db = _G.EllesmereUIDB
+        local name = EUI.GetActiveProfileName and EUI.GetActiveProfileName()
+            or (db and (db.activeProfile or db.profile))
+        local profile = db and db.profiles and db.profiles[name]
+        local saved = profile and profile.addons and profile.addons.EllesmereUIChat
+        if saved and type(saved.chat) == "table" then SaveGeometry(saved.chat) end
+        chat.ApplyChatPosition()
+        if type(moduleNS.EMChatSync) == "function" then moduleNS.EMChatSync() end
+        return
+    end
+
     BaseClearAllPoints(frame)
     BaseSetPoint(frame, "BOTTOMLEFT", UIParent, "BOTTOMLEFT", geometry.left, geometry.bottom)
     BaseSetSize(frame, geometry.width, geometry.height)
@@ -505,17 +532,17 @@ local function RouteChannelsToFrame(targetFrame, channelsToRoute, ...)
 end
 
 function addonTable.SetupChatWindows(silent, quiet, resetFirst)
+    if InCombatLockdown and InCombatLockdown() then
+        if not quiet then
+            print("|cffff0000[OakUI Error]|r Leave combat before applying the OakUI chat layout.")
+        end
+        return false
+    end
     InstallOakLootFrameRepairHooks()
 
     -- 1. Setup General Window (ChatFrame1)
     local generalGeometry = BuildGeneralChatGeometry(CaptureFrameGeometry(ChatFrame1))
     if resetFirst and type(FCF_ResetChatWindows) == "function" then
-        if InCombatLockdown and InCombatLockdown() then
-            if not quiet then
-                print("|cffff0000[OakUI Error]|r Leave combat before applying the OakUI chat layout.")
-            end
-            return false
-        end
         FCF_ResetChatWindows()
     end
 
@@ -663,6 +690,7 @@ function addonTable.SetupChatWindows(silent, quiet, resetFirst)
 end
 
 function addonTable.ApplyOakChatWindowGeometry(quiet)
+    if InCombatLockdown and InCombatLockdown() then return false end
     InstallOakLootFrameRepairHooks()
 
     local generalFrame = ChatFrame1

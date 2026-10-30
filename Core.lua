@@ -1302,12 +1302,17 @@ local function ConsumeOakChatGeometryAfterReload()
 
         attempts = attempts + 1
         local done = false
+        local metersDone = true
+        if addonTable.ApplyOakDamageMeterPlacementAfterReload then
+            local ok, result = pcall(addonTable.ApplyOakDamageMeterPlacementAfterReload)
+            metersDone = ok and result == true
+        end
         if addonTable.ApplyOakChatWindowGeometry then
             local ok, result = pcall(addonTable.ApplyOakChatWindowGeometry, true)
             done = ok and result == true
         end
 
-        if not done then
+        if not done or not metersDone then
             if attempts < OAK_CHAT_GEOMETRY_MAX_ATTEMPTS then
                 QueueGeometry(self, OAK_CHAT_GEOMETRY_RETRY_DELAY)
             else
