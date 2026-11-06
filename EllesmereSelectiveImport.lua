@@ -164,6 +164,9 @@ local function DecodeOakEllesmerePayload(role)
     if not payload then
         return nil, err or "Could not decode OakUI's Ellesmere profile string."
     end
+    if addonTable.ApplyForeverImportDefaults then
+        addonTable.ApplyForeverImportDefaults(payload.data)
+    end
     return payload
 end
 

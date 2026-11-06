@@ -47,68 +47,69 @@ function addonTable.DecodeForeverEditMode(encoded, preset)
     return layout
 end
 
--- Forever uses Action Bar 6 in place of the Retail Cooldown Manager. Keep
--- this client-specific translation here so Retail never changes Bar 6.
-local FOREVER_ACTION_BAR_VISIBILITY_KEYS = {
-    "visOnlyInstances", "visHideInstances",
-    "visOnlyDungeons", "visHideDungeons",
-    "visHideHousing", "visOnlyHousing",
-    "visHideMounted", "visOnlyMounted",
-    "visHideDragonriding", "visOnlySkyriding",
-    "visHideNoTarget", "visHideWithTarget",
-    "visHideNoEnemy", "visHideWithEnemy",
-    "visOnlyResting", "visHideResting",
-    "visOnlyVehicle", "visHideVehicle",
-    "visOnlyPartyMode", "visHidePartyMode",
-}
-
-local function GetForeverActionBarVisibilityKeys()
-    return type(_G.EllesmereUI) == "table"
-        and type(_G.EllesmereUI.VIS_OPT_KEYS) == "table"
-        and _G.EllesmereUI.VIS_OPT_KEYS
-        or FOREVER_ACTION_BAR_VISIBILITY_KEYS
-end
-
-function addonTable.ApplyForeverCooldownActionBarVisibility(settings, hideWithoutTarget)
-    if type(settings) ~= "table" then return false end
-
-    local savedAlpha = settings._savedBarAlpha
-    settings.barVisibility = "always"
+-- Keep the native visibility selection and legacy fields in agreement.
+function addonTable.SetForeverActionBarVisibility(settings, hidden)
+    local EUI = _G.EllesmereUI
+    if EUI and type(EUI.SetVisibilitySelection) == "function" then
+        EUI.SetVisibilitySelection(settings, "barVisibility", hidden and { mouseover = true } or { always = true })
+    end
+    settings.visibilityModes = nil
+    settings.visibilityOverride = nil
+    settings.barVisibility = hidden and "mouseover" or "always"
     settings.alwaysHidden = false
-    settings.mouseoverEnabled = false
+    settings.mouseoverEnabled = hidden == true
     settings.combatHideEnabled = false
     settings.combatShowEnabled = false
-    settings.visibilityModes = nil
-    settings.visibilityMatch = nil
-    settings.visibilityOverride = nil
-    if savedAlpha ~= nil then
-        settings.mouseoverAlpha = savedAlpha
-        settings._savedBarAlpha = nil
-    elseif settings.mouseoverAlpha == nil or settings.mouseoverAlpha <= 0 then
-        settings.mouseoverAlpha = 1
-    end
-
-    for _, key in ipairs(GetForeverActionBarVisibilityKeys()) do
-        settings[key] = false
-    end
-    settings.visHideNoTarget = hideWithoutTarget == true
-    return true
-end
-
-function addonTable.GetForeverCooldownActionBarVisibility(settings)
-    if type(settings) ~= "table" then return nil end
-    if settings.barVisibility ~= "always"
-        or settings.alwaysHidden == true
-        or settings.mouseoverEnabled == true
-        or settings.visibilityModes ~= nil
-        or settings.visibilityOverride ~= nil
-        or settings.visHideNoTarget ~= true then
-        return false
-    end
-    for _, key in ipairs(GetForeverActionBarVisibilityKeys()) do
-        if key ~= "visHideNoTarget" and settings[key] == true then
-            return false
+    settings.housingHideEnabled = false
+    for key in pairs(settings) do
+        if type(key) == "string" and (key:match("^visOnly") or key:match("^visHide")) then
+            settings[key] = false
         end
     end
-    return true
+    local alpha = settings._savedBarAlpha or settings.mouseoverAlpha or 1
+    if alpha <= 0 then alpha = 1 end
+    settings._savedBarAlpha = hidden and alpha or nil
+    settings.mouseoverAlpha = hidden and 0 or alpha
+end
+
+function addonTable.ClearForeverImportedGamepadHiding(addons)
+    if type(addons) ~= "table" then return end
+    local changed = false
+    local actionBars = addons.EllesmereUIActionBars
+    for _, settings in pairs(actionBars and actionBars.bars or {}) do
+        if type(settings) == "table" and settings.gamepadHideBar == true then
+            settings.gamepadHideBar = false
+            changed = true
+        end
+    end
+    local resourceBars = addons.EllesmereUIResourceBars
+    if resourceBars and type(resourceBars.castBar) == "table" and resourceBars.castBar.gamepadHide == true then
+        resourceBars.castBar.gamepadHide = false
+        changed = true
+    end
+    local unitFrames = addons.EllesmereUIUnitFrames
+    if unitFrames and type(unitFrames.player) == "table" and unitFrames.player.castbarGamepadHide == true then
+        unitFrames.player.castbarGamepadHide = false
+        changed = true
+    end
+    return changed
+end
+
+function addonTable.ApplyForeverImportDefaults(data)
+    local addons = type(data) == "table" and data.addons
+    if type(addons) ~= "table" then return end
+    addonTable.ClearForeverImportedGamepadHiding(addons)
+    local actionBars = addons.EllesmereUIActionBars
+    if not actionBars then return end
+    actionBars.mouseoverShowAll = false
+    actionBars.bars = actionBars.bars or {}
+    for i = 1, 10 do
+        local key = i == 1 and "MainBar" or "Bar" .. i
+        local settings = actionBars.bars[key] or {}
+        actionBars.bars[key] = settings
+        addonTable.SetForeverActionBarVisibility(settings, false)
+        settings.enabled = i <= 5
+        settings.alwaysHidden = i > 5
+        settings.barVisibility = i <= 5 and "always" or "never"
+    end
 end

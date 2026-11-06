@@ -2279,35 +2279,6 @@ local function RefreshEllesmereActionBars()
     RefreshEllesmereOptionsPage()
 end
 
-local function GetForeverCooldownActionBarSettings(create)
-    if not addonTable.IsForever then return nil end
-    local actionBars = GetEllesmereAddonProfile("EllesmereUIActionBars", create)
-    if type(actionBars) ~= "table" then return nil end
-    if type(actionBars.bars) ~= "table" then
-        if not create then return nil end
-        actionBars.bars = {}
-    end
-    if type(actionBars.bars.Bar6) ~= "table" then
-        if not create then return nil end
-        actionBars.bars.Bar6 = {}
-    end
-    return actionBars.bars.Bar6
-end
-
-local function ApplyForeverCooldownActionBarVisibility(state)
-    local settings = GetForeverCooldownActionBarSettings(true)
-    local apply = addonTable.ApplyForeverCooldownActionBarVisibility
-    if type(settings) ~= "table" or type(apply) ~= "function" then return false end
-    return apply(settings, state)
-end
-
-local function GetForeverCooldownActionBarVisibility()
-    local settings = GetForeverCooldownActionBarSettings(false)
-    local get = addonTable.GetForeverCooldownActionBarVisibility
-    if type(settings) ~= "table" or type(get) ~= "function" then return nil end
-    return get(settings)
-end
-
 local function SetEllesmereActionBars(state)
     EnsureVisibilityDB().actionBarsHidden = state == true
     local actionBars = GetEllesmereAddonProfile("EllesmereUIActionBars", true)
@@ -2321,10 +2292,7 @@ local function SetEllesmereActionBars(state)
     }
     for key, settings in pairs(actionBars.bars) do
         if type(settings) == "table" then
-            if addonTable.IsForever and key == "Bar6" then
-                -- Forever uses this bar as its Cooldown Manager replacement.
-                -- Its target visibility is applied below from the CDM choice.
-            elseif alwaysVisibleSpecialBars[key] then
+            if alwaysVisibleSpecialBars[key] then
                 settings.barVisibility = "always"
                 settings.mouseoverEnabled = false
                 settings.alwaysHidden = false
@@ -2336,7 +2304,9 @@ local function SetEllesmereActionBars(state)
                 local isEnabled = settings.enabled ~= false and visibility ~= "never" and settings.alwaysHidden ~= true
                 if isEnabled then
                     SetEllesmereHideNoTargetOption(settings, false)
-                    if state then
+                    if addonTable.IsForever then
+                        addonTable.SetForeverActionBarVisibility(settings, state)
+                    elseif state then
                         settings.barVisibility = "mouseover"
                         settings.mouseoverEnabled = true
                         settings.alwaysHidden = false
@@ -2357,7 +2327,6 @@ local function SetEllesmereActionBars(state)
             end
         end
     end
-    ApplyForeverCooldownActionBarVisibility(EnsureVisibilityDB().cdmFading == true)
     RefreshEllesmereActionBars()
     if addonTable.RefreshEllesmereSpecialActionBarVisibility then
         addonTable.RefreshEllesmereSpecialActionBarVisibility()
@@ -2372,8 +2341,7 @@ local function GetEllesmereActionBars()
         for key, settings in pairs(bars) do
             if type(settings) == "table"
                 and key ~= "ExtraActionButton"
-                and key ~= "QueueStatus"
-                and not (addonTable.IsForever and key == "Bar6") then
+                and key ~= "QueueStatus" then
                 local visibility = settings.barVisibility or "always"
                 local isEnabled = settings.enabled ~= false and visibility ~= "never" and settings.alwaysHidden ~= true
                 if isEnabled then
@@ -2544,22 +2512,14 @@ local function SetEllesmereCDM(state)
     end
 
     SetEllesmereResourceBarsVisibility(state)
-    if ApplyForeverCooldownActionBarVisibility(state) then
-        RefreshEllesmereActionBars()
-    end
 end
 
 local function GetEllesmereCDM()
     local resourceHidden = GetEllesmereResourceBarsVisibility()
     if addonTable.IsForever then
-        local actionBarHidden = GetForeverCooldownActionBarVisibility()
-        if resourceHidden == false or actionBarHidden == false then
-            EnsureVisibilityDB().cdmFading = false
-            return false
-        end
-        if resourceHidden ~= nil or actionBarHidden ~= nil then
-            EnsureVisibilityDB().cdmFading = true
-            return true
+        if resourceHidden ~= nil then
+            EnsureVisibilityDB().cdmFading = resourceHidden
+            return resourceHidden
         end
         return EnsureVisibilityDB().cdmFading == true
     end
@@ -2837,6 +2797,7 @@ end
 
 function addonTable.ApplyOakVisibilityDefaults()
     SetAllHidden(true)
+    if addonTable.IsForever then SetMouseover(false) end
     addonTable.ApplyOakFirstInstallDefaults()
     SetAllRoundedBorders(true)
 end
@@ -2952,11 +2913,9 @@ function addonTable.BuildVisibilityUI(parentFrame)
         AddSection("Visibility", leftX, -78)
         AddOption("Hide Unit Frames", SetUnitframes, GetUnitframes, "Hides Player/Pet without a target. Smart Player controls EllesmereUI's native Player health reveal separately. Disabling this sets Player/Pet Visibility to Always. Requires a UI reload to finish applying.", leftX, -98, colWidth, true)
         AddOption("Hide Cooldown Manager", SetCDMFading, GetCDMFading, addonTable.IsForever
-            and "Toggles Action Bar 6 and Ellesmere's Resource Bars between Always and Hide without Target."
+            and "Toggles Ellesmere's Resource Bars between Always and Hide without Target."
             or "Toggles Ellesmere's Cooldown Manager and Resource Bars Visibility Options between None and Hide without Target.", rightX, -98, colWidth)
-        AddOption("Hide Action Bars", SetMouseover, GetMouseover, addonTable.IsForever
-            and "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover. Action Bar 6 follows Hide Cooldown Manager. Requires a UI reload to finish applying."
-            or "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover. Requires a UI reload to finish applying.", leftX, -98 + rowGap, colWidth, true)
+        AddOption("Hide Action Bars", SetMouseover, GetMouseover, "Toggles Ellesmere's Action Bar Visibility between Always and Mouseover. Requires a UI reload to finish applying.", leftX, -98 + rowGap, colWidth, true)
         AddOption("Hide Chat", SetChatBackgroundHidden, GetChatBackgroundHidden, "Toggles Ellesmere's Chat Settings to make a transparent background and fade. Requires a UI reload to finish applying.", rightX, -98 + rowGap, colWidth, true)
         AddOption("Chat Line Fade", SetEllesmereChatLineFade, GetEllesmereChatLineFade, "Uses Blizzard's per-line fading to hide chat lines instead of Ellesmere's entire chat fade.", leftX, -98 + rowGap * 2, colWidth)
         AddSlider("Chat Line Fade Delay", addonTable.SetOakChatLineFadeDelay, addonTable.GetOakChatLineFadeDelay, "Controls how long each chat line stays visible before it begins fading. This adjusts EUI's active chat profile delay.", rightX, -158, colWidth, 1, 120, 1, "s")
@@ -3021,10 +2980,43 @@ function addonTable.BuildVisibilityUI(parentFrame)
     end)
 end
 
+-- Repair only OakUI imports, once per profile; later user choices stay intact.
+local function MigrateForeverGamepadHiding()
+    if not addonTable.IsForever then return end
+    local euiDB = _G.EllesmereUIDB
+    if type(euiDB) ~= "table" or type(euiDB.profiles) ~= "table" then return end
+    local db = EnsureVisibilityDB()
+    db.foreverGamepadHideFixed = db.foreverGamepadHideFixed or {}
+    local roles = OakUI_DB.layoutTransform and OakUI_DB.layoutTransform.ellesmereProfileRoles or {}
+    local dps = addonTable.GetOakSyncedRoleProfileName("dps")
+    local heals = addonTable.GetOakSyncedRoleProfileName("heals")
+    for name, profile in pairs(euiDB.profiles) do
+        if not db.foreverGamepadHideFixed[name] and type(profile) == "table" and type(profile.addons) == "table"
+            and (roles[name] or name == dps or name == heals
+                or name == "OakUI Tank/DPS" or name == "OakUI Healer") then
+            local changed = addonTable.ClearForeverImportedGamepadHiding(profile.addons)
+            if name == euiDB.activeProfile then
+                local live = GetEllesmereResourceBarsProfile()
+                if live and live.castBar and live.castBar.gamepadHide == true then
+                    live.castBar.gamepadHide = false
+                    changed = true
+                end
+                if changed then
+                    RefreshEllesmereActionBars()
+                    RefreshEllesmereResourceBars()
+                    RefreshEllesmereUnitFrameSettings()
+                end
+            end
+            db.foreverGamepadHideFixed[name] = true
+        end
+    end
+end
+
 local CleanupFrame = CreateFrame("Frame")
 CleanupFrame:RegisterEvent("PLAYER_LOGIN")
 CleanupFrame:SetScript("OnEvent", function(self)
     C_Timer.After(1, function()
+        MigrateForeverGamepadHiding()
         MigrateLegacyHealthVisibilityToEllesmere()
         addonTable.ApplyOakInterruptCornersIfEnabled()
         if addonTable.ApplyOakDamageMeterRowLayout then
