@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.10"
+P.VERSION = "2.7.11"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -136,6 +136,17 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.11",
+        date = "November 6, 2026",
+        notes = {
+            "Forever installs now show action bars by default and enable only action bars 1-5.",
+            "Removed the Forever Bar 6 / Hide Cooldown Manager coupling so visibility changes cannot re-enable Bar 6.",
+            "Cleared unintended gamepad-hide flags from Forever action bars and player cast bars, with a one-time repair for existing OakUI profiles.",
+            "Kept Forever action-bar visibility conditions and opacity consistent when toggling Always / Mouseover.",
+            "Updated the Forever Tank/DPS and healer profile imports.",
+        }
+    },
     {
         version = "v2.7.10",
         date = "October 29, 2026",
