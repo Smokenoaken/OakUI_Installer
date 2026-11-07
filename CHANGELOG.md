@@ -1,3 +1,8 @@
+## v2.7.12
+
+- Keep Forever action bars 6-10 enabled and selectable, with Visibility set to Never by default.
+- Repair extra action bars disabled by v2.7.11 without changing their saved visibility or other bar customization.
+
 ## v2.7.11
 
 - Forever installs now show action bars by default and enable only action bars 1-5.

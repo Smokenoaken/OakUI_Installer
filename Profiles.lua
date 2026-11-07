@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.11"
+P.VERSION = "2.7.12"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -136,6 +136,14 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.12",
+        date = "November 7, 2026",
+        notes = {
+            "Keep Forever action bars 6-10 enabled and selectable, with Visibility set to Never by default.",
+            "Repair extra action bars disabled by v2.7.11 without changing their saved visibility or other bar customization.",
+        }
+    },
     {
         version = "v2.7.11",
         date = "November 6, 2026",
