@@ -108,8 +108,26 @@ function addonTable.ApplyForeverImportDefaults(data)
         local settings = actionBars.bars[key] or {}
         actionBars.bars[key] = settings
         addonTable.SetForeverActionBarVisibility(settings, false)
-        settings.enabled = i <= 5
-        settings.alwaysHidden = i > 5
+        settings.enabled = true
+        settings.alwaysHidden = false
         settings.barVisibility = i <= 5 and "always" or "never"
     end
+end
+
+function addonTable.RepairForeverExtraActionBars(addons)
+    local actionBars = addons and addons.EllesmereUIActionBars
+    local bars = actionBars and actionBars.bars
+    if type(bars) ~= "table" then return false end
+    local changed = false
+    for i = 6, 10 do
+        local settings = bars["Bar" .. i]
+        -- Match the disabled state written by the v2.7.11 installer.
+        if type(settings) == "table" and settings.enabled == false
+            and settings.alwaysHidden == true and settings.barVisibility == "never" then
+            settings.enabled = true
+            settings.alwaysHidden = false
+            changed = true
+        end
+    end
+    return changed
 end

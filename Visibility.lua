@@ -2987,17 +2987,26 @@ local function MigrateForeverGamepadHiding()
     if type(euiDB) ~= "table" or type(euiDB.profiles) ~= "table" then return end
     local db = EnsureVisibilityDB()
     db.foreverGamepadHideFixed = db.foreverGamepadHideFixed or {}
+    db.foreverExtraBarsFixed = db.foreverExtraBarsFixed or {}
     local roles = OakUI_DB.layoutTransform and OakUI_DB.layoutTransform.ellesmereProfileRoles or {}
     local dps = addonTable.GetOakSyncedRoleProfileName("dps")
     local heals = addonTable.GetOakSyncedRoleProfileName("heals")
     for name, profile in pairs(euiDB.profiles) do
-        if not db.foreverGamepadHideFixed[name] and type(profile) == "table" and type(profile.addons) == "table"
+        if (not db.foreverGamepadHideFixed[name] or not db.foreverExtraBarsFixed[name])
+            and type(profile) == "table" and type(profile.addons) == "table"
             and (roles[name] or name == dps or name == heals
                 or name == "OakUI Tank/DPS" or name == "OakUI Healer") then
-            local changed = addonTable.ClearForeverImportedGamepadHiding(profile.addons)
+            local changed = false
+            local repairGamepad = not db.foreverGamepadHideFixed[name]
+            if repairGamepad then
+                changed = addonTable.ClearForeverImportedGamepadHiding(profile.addons)
+            end
+            if not db.foreverExtraBarsFixed[name] then
+                changed = addonTable.RepairForeverExtraActionBars(profile.addons) or changed
+            end
             if name == euiDB.activeProfile then
                 local live = GetEllesmereResourceBarsProfile()
-                if live and live.castBar and live.castBar.gamepadHide == true then
+                if repairGamepad and live and live.castBar and live.castBar.gamepadHide == true then
                     live.castBar.gamepadHide = false
                     changed = true
                 end
@@ -3008,6 +3017,7 @@ local function MigrateForeverGamepadHiding()
                 end
             end
             db.foreverGamepadHideFixed[name] = true
+            db.foreverExtraBarsFixed[name] = true
         end
     end
 end
