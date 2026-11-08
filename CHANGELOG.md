@@ -1,3 +1,9 @@
+## v2.7.13
+
+- Fixed disabled rounded borders staying rounded on frames, resource bars, and nameplates, including after reloads and profile changes.
+- Prevented pending cast-bar and damage-meter refreshes from reapplying disabled rounded borders.
+- Updated the WoW Forever Tank/DPS and Healer profiles.
+
 ## v2.7.12
 
 - Keep Forever action bars 6-10 enabled and selectable, with Visibility set to Never by default.

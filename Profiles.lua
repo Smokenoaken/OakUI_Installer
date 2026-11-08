@@ -5,7 +5,7 @@ addonTable.Profiles = {}
 local P = addonTable.Profiles
 
 -- UPDATE THIS NUMBER FOR FUTURE RELEASES!
-P.VERSION = "2.7.12"
+P.VERSION = "2.7.13"
 P.BASE_UI_PROVIDER = "Ellesmere"
 
 -- ==========================================
@@ -136,6 +136,15 @@ P.PATREONS = {
 -- CHANGELOG HISTORY
 -- ==========================================
 P.CHANGELOG = {
+    {
+        version = "v2.7.13",
+        date = "November 8, 2026",
+        notes = {
+            "Fixed disabled rounded borders staying rounded on frames, resource bars, and nameplates, including after reloads and profile changes.",
+            "Prevented pending cast-bar and damage-meter refreshes from reapplying disabled rounded borders.",
+            "Updated the WoW Forever Tank/DPS and Healer profiles.",
+        }
+    },
     {
         version = "v2.7.12",
         date = "November 7, 2026",
