@@ -529,7 +529,16 @@ local function IsOakRoundThinBorderValue(value)
 end
 
 local function RestoreBorderFieldsOrFallback(backup, settings, fields, fallbackFunc, fallbackField)
+    if type(settings) ~= "table" then return end
     RestoreBorderFields(backup, settings, fields)
+    -- Off means square, even when a saved profile or backup was already rounded.
+    for _, field in ipairs(fields) do
+        if field == "cornerRadius" or field == "party_cornerRadius" then
+            settings[field] = 0
+        elseif field == "party_borderTexture" and IsOakRoundThinBorderValue(settings[field]) then
+            settings[field] = "solid"
+        end
+    end
     local borderValue = type(settings) == "table" and settings[fallbackField or "borderTexture"]
     if fallbackFunc and type(settings) == "table" and IsOakRoundThinBorderValue(borderValue) then
         fallbackFunc(settings)
@@ -840,7 +849,7 @@ end
 function addonTable.ApplyOakRoundThinBordersIfEnabled(profileName)
     local db = EnsureVisibilityDB()
     local enabled = db.roundThinBorders == true
-    if not enabled and not profileName then return end
+    if db.roundThinBorders == nil and not profileName then return end
     ApplyEllesmereRoundThinBorders(enabled, profileName)
 end
 
@@ -1133,6 +1142,7 @@ local function EnsureDamageMeterHeaderMaskHook()
         local results = { originalApply(...) }
         if EnsureVisibilityDB().roundThinDamageMeters == true and _G.C_Timer and _G.C_Timer.After then
             _G.C_Timer.After(0, function()
+                if EnsureVisibilityDB().roundThinDamageMeters ~= true then return end
                 ApplyDamageMeterHeaderMasks(true)
                 ApplyDamageMeterLiveRowBorders(true)
                 if addonTable.RefreshOakDamageMeterWindows then
@@ -1250,7 +1260,7 @@ end
 function addonTable.ApplyOakRoundThinDamageMetersIfEnabled(profileName)
     local db = EnsureVisibilityDB()
     local enabled = db.roundThinDamageMeters == true
-    if not enabled and not profileName then return end
+    if db.roundThinDamageMeters == nil and not profileName then return end
     local activeProfile = GetActiveEllesmereProfileName(profileName)
     if enabled and activeProfile then
         db.roundThinDamageMeterBackups = db.roundThinDamageMeterBackups or {}
@@ -1354,7 +1364,7 @@ end
 function addonTable.ApplyOakRoundThinTrackingBarsIfEnabled(profileName)
     local db = EnsureVisibilityDB()
     local enabled = db.roundThinTrackingBars == true
-    if not enabled and not profileName then return end
+    if db.roundThinTrackingBars == nil and not profileName then return end
     local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
     if enabled then
         db.roundThinTrackingBarBackups = db.roundThinTrackingBarBackups or {}
@@ -1470,6 +1480,7 @@ local function EnsureEllesmereCastbarRoundThinHook()
         local results = { originalReloadFrames(...) }
         if EnsureVisibilityDB().roundThinCastBars == true and _G.C_Timer and _G.C_Timer.After then
             _G.C_Timer.After(0, function()
+                if EnsureVisibilityDB().roundThinCastBars ~= true then return end
                 ApplyEllesmereCastbarRoundThinLive(true)
             end)
         end
@@ -1557,7 +1568,7 @@ end
 function addonTable.ApplyOakRoundThinCastBarsIfEnabled(profileName)
     local db = EnsureVisibilityDB()
     local enabled = db.roundThinCastBars == true
-    if not enabled and not profileName then return end
+    if db.roundThinCastBars == nil and not profileName then return end
     local activeProfile = GetActiveEllesmereProfileName(profileName) or "__default"
     if enabled and activeProfile then
         db.roundThinCastBarBackups = db.roundThinCastBarBackups or {}
@@ -1799,7 +1810,7 @@ end
 function addonTable.ApplyOakRoundThinNameplatesIfEnabled(profileName)
     local db = EnsureVisibilityDB()
     local enabled = db.roundThinNameplates == true
-    if not enabled and not profileName then return end
+    if db.roundThinNameplates == nil and not profileName then return end
     ApplyNameplateRoundThinBorders(enabled, profileName)
 end
 
@@ -1871,7 +1882,7 @@ end
 function addonTable.ApplyOakRoundThinBossFramesIfEnabled(profileName)
     local db = EnsureVisibilityDB()
     local enabled = db.roundThinBossFrames == true
-    if not enabled and not profileName then return end
+    if db.roundThinBossFrames == nil and not profileName then return end
     ApplyBossFrameRoundThinBorders(enabled, profileName)
 end
 
@@ -1884,22 +1895,22 @@ function addonTable.ApplyOakRoundedBorderPreferenceToProfile(profileName)
         return type(backup) == "table" and next(backup) ~= nil
     end
 
-    if db.roundThinBorders == true or HasBackup("roundThinBorderBackups") then
+    if db.roundThinBorders ~= nil or HasBackup("roundThinBorderBackups") then
         addonTable.ApplyOakRoundThinBordersIfEnabled(profileName)
     end
-    if db.roundThinDamageMeters == true or HasBackup("roundThinDamageMeterBackups") then
+    if db.roundThinDamageMeters ~= nil or HasBackup("roundThinDamageMeterBackups") then
         addonTable.ApplyOakRoundThinDamageMetersIfEnabled(profileName)
     end
-    if db.roundThinTrackingBars == true or HasBackup("roundThinTrackingBarBackups") then
+    if db.roundThinTrackingBars ~= nil or HasBackup("roundThinTrackingBarBackups") then
         addonTable.ApplyOakRoundThinTrackingBarsIfEnabled(profileName)
     end
-    if db.roundThinCastBars == true or HasBackup("roundThinCastBarBackups") then
+    if db.roundThinCastBars ~= nil or HasBackup("roundThinCastBarBackups") then
         addonTable.ApplyOakRoundThinCastBarsIfEnabled(profileName)
     end
-    if db.roundThinNameplates == true or HasBackup("roundThinNameplateBackups") then
+    if db.roundThinNameplates ~= nil or HasBackup("roundThinNameplateBackups") then
         addonTable.ApplyOakRoundThinNameplatesIfEnabled(profileName)
     end
-    if db.roundThinBossFrames == true or HasBackup("roundThinBossFrameBackups") then
+    if db.roundThinBossFrames ~= nil or HasBackup("roundThinBossFrameBackups") then
         addonTable.ApplyOakRoundThinBossFramesIfEnabled(profileName)
     end
 end
